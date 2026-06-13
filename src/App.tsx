@@ -125,27 +125,27 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen bg-santara-cream text-santara-roast">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-santara-latte/80 pb-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="grid size-14 shrink-0 place-items-center rounded-full bg-santara-bean text-lg font-black text-white shadow-soft">
+    <main className="min-h-screen bg-santara-cream text-santara-roast lg:h-screen lg:overflow-hidden">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-3 py-3 sm:px-4 lg:h-screen lg:min-h-0 lg:px-5">
+        <header className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/80 pb-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-santara-bean text-base font-black text-white shadow-soft">
               SC
             </div>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-santara-clay">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-santara-clay">
                 Santara POS
               </p>
-              <h1 className="font-display text-3xl font-black text-santara-roast sm:text-4xl">
+              <h1 className="font-display text-2xl font-black leading-tight text-santara-roast sm:text-3xl">
                 Santara Coffee
               </h1>
-              <p className="mt-1 text-sm font-medium text-santara-roast/70 sm:text-base">
+              <p className="mt-0.5 text-xs font-medium text-santara-roast/70 sm:text-sm">
                 Ruang untuk cerita, jeda untuk jiwa
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[580px]">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
             <StatusTile label="Mode" value="Cashier" />
             <StatusTile label="Cart" value={`${totalQuantity} item`} />
             <StatusTile label="Subtotal" value={formatRupiah(subtotal)} wide />
@@ -157,17 +157,17 @@ function App() {
           </div>
         </header>
 
-        <section className="grid flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px]">
-          <div className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70 sm:p-4">
-            <div className="flex flex-col gap-3 border-b border-santara-latte/70 pb-4">
-              <div className="flex items-end justify-between gap-3">
+        <section className="grid flex-1 gap-3 py-3 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_430px]">
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
+            <div className="flex shrink-0 flex-col gap-2 border-b border-santara-latte/70 pb-3">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black">Menu</h2>
-                  <p className="text-sm text-santara-roast/65">
+                  <h2 className="text-lg font-black">Menu</h2>
+                  <p className="text-xs text-santara-roast/65">
                     Pilih kategori lalu tap menu untuk menambah pesanan.
                   </p>
                 </div>
-                <p className="hidden rounded-full bg-white px-3 py-1 text-sm font-bold text-santara-bean ring-1 ring-santara-latte sm:block">
+                <p className="hidden rounded-full bg-white px-3 py-1 text-xs font-bold text-santara-bean ring-1 ring-santara-latte sm:block">
                   {activeCategory.items.length} menu
                 </p>
               </div>
@@ -194,23 +194,23 @@ function App() {
               </div>
             </div>
 
-            <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto py-4 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="grid flex-1 auto-rows-[118px] grid-cols-[repeat(auto-fill,minmax(142px,1fr))] content-start gap-2.5 overflow-y-auto py-3 pr-1 sm:auto-rows-[124px] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
               {activeCategory.items.map((item) => (
                 <button
-                  className="flex min-h-32 flex-col justify-between rounded-lg bg-white p-4 text-left shadow-sm ring-1 ring-santara-latte transition hover:-translate-y-0.5 hover:bg-santara-cream focus:outline-none focus:ring-2 focus:ring-santara-clay"
+                  className="flex h-full flex-col justify-between rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-santara-latte transition hover:-translate-y-0.5 hover:bg-santara-cream focus:outline-none focus:ring-2 focus:ring-santara-clay"
                   key={item.id}
                   onClick={() => addItem(item)}
                   type="button"
                 >
                   <span>
-                    <span className="block text-base font-black leading-tight text-santara-roast">
+                    <span className="line-clamp-2 block text-sm font-black leading-tight text-santara-roast sm:text-[15px]">
                       {item.name}
                     </span>
-                    <span className="mt-2 block text-xs font-bold uppercase tracking-[0.1em] text-santara-sage">
+                    <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
                       {item.category}
                     </span>
                   </span>
-                  <span className="mt-4 block text-lg font-black text-santara-bean">
+                  <span className="mt-2 block text-base font-black text-santara-bean">
                     {formatRupiah(item.price)}
                   </span>
                 </button>
@@ -218,16 +218,16 @@ function App() {
             </div>
           </div>
 
-          <aside className="flex min-h-[520px] flex-col rounded-lg bg-white shadow-soft ring-1 ring-santara-latte">
-            <div className="flex items-center justify-between gap-3 border-b border-santara-latte px-4 py-4">
+          <aside className="flex min-h-[440px] flex-col overflow-hidden rounded-lg bg-white shadow-soft ring-1 ring-santara-latte lg:min-h-0">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-santara-latte px-3 py-3">
               <div>
-                <h2 className="text-xl font-black">Cart</h2>
-                <p className="text-sm text-santara-roast/65">
+                <h2 className="text-lg font-black">Cart</h2>
+                <p className="text-xs text-santara-roast/65">
                   Review pesanan, beri diskon, lalu selesaikan pembayaran.
                 </p>
               </div>
               <button
-                className="rounded-full px-3 py-2 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-full px-3 py-1.5 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={cart.length === 0}
                 onClick={clearCart}
                 type="button"
@@ -236,43 +236,43 @@ function App() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
               {cart.length === 0 ? (
-                <div className="grid h-full min-h-72 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-6 text-center">
+                <div className="grid min-h-44 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-4 text-center">
                   <div>
-                    <p className="text-lg font-black">Cart masih kosong</p>
-                    <p className="mt-2 text-sm text-santara-roast/65">
+                    <p className="font-black">Cart masih kosong</p>
+                    <p className="mt-1.5 text-xs text-santara-roast/65">
                       Tap menu favorit pelanggan untuk mulai membuat pesanan.
                     </p>
                     {latestTransaction && (
-                      <p className="mt-4 rounded-lg bg-white px-3 py-2 text-sm font-bold text-santara-bean ring-1 ring-santara-latte">
+                      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold text-santara-bean ring-1 ring-santara-latte">
                         Last completed: {latestTransaction.receiptNumber}
                       </p>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {cart.map((item) => (
                     <div
-                      className="rounded-lg border border-santara-latte bg-santara-foam p-3"
+                      className="rounded-lg border border-santara-latte bg-santara-foam p-2.5"
                       key={item.id}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-black leading-tight">
+                          <p className="text-sm font-black leading-tight">
                             {item.nameSnapshot}
                           </p>
-                          <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-santara-sage">
+                          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
                             {item.categorySnapshot}
                           </p>
-                          <p className="mt-2 text-sm font-bold text-santara-bean">
+                          <p className="mt-1 text-xs font-bold text-santara-bean">
                             {formatRupiah(item.unitPriceSnapshot)} / item
                           </p>
                         </div>
                         <button
                           aria-label={`Remove ${item.nameSnapshot}`}
-                          className="rounded-full px-3 py-1 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
+                          className="rounded-full px-2.5 py-1 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
                           onClick={() => removeItem(item.id)}
                           type="button"
                         >
@@ -280,29 +280,29 @@ function App() {
                         </button>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="mt-2.5 flex items-center justify-between gap-3">
                         <div className="flex items-center rounded-full bg-white p-1 ring-1 ring-santara-latte">
                           <button
                             aria-label={`Decrease ${item.nameSnapshot}`}
-                            className="grid size-10 place-items-center rounded-full text-xl font-black text-santara-bean transition hover:bg-santara-latte/60"
+                            className="grid size-8 place-items-center rounded-full text-lg font-black text-santara-bean transition hover:bg-santara-latte/60"
                             onClick={() => decreaseQuantity(item.id)}
                             type="button"
                           >
                             -
                           </button>
-                          <span className="min-w-12 text-center text-lg font-black">
+                          <span className="min-w-10 text-center text-base font-black">
                             {item.quantity}
                           </span>
                           <button
                             aria-label={`Increase ${item.nameSnapshot}`}
-                            className="grid size-10 place-items-center rounded-full bg-santara-bean text-xl font-black text-white transition hover:bg-santara-roast"
+                            className="grid size-8 place-items-center rounded-full bg-santara-bean text-lg font-black text-white transition hover:bg-santara-roast"
                             onClick={() => increaseQuantity(item.id)}
                             type="button"
                           >
                             +
                           </button>
                         </div>
-                        <p className="text-lg font-black text-santara-roast">
+                        <p className="text-base font-black text-santara-roast">
                           {formatRupiah(item.unitPriceSnapshot * item.quantity)}
                         </p>
                       </div>
@@ -312,11 +312,11 @@ function App() {
               )}
 
               {latestTransaction && (
-                <div className="mt-4 space-y-3">
+                <div className="mt-3 space-y-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="font-black">Receipt Preview</h3>
                     <button
-                      className="rounded-full bg-santara-bean px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-santara-roast"
+                      className="rounded-full bg-santara-bean px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast"
                       onClick={() => window.print()}
                       type="button"
                     >
@@ -328,19 +328,19 @@ function App() {
               )}
             </div>
 
-            <div className="border-t border-santara-latte bg-santara-cream/80 px-4 py-4">
-              <div className="flex items-center justify-between text-sm font-bold text-santara-roast/70">
+            <div className="shrink-0 border-t border-santara-latte bg-santara-cream/80 px-3 py-3">
+              <div className="flex items-center justify-between text-xs font-bold text-santara-roast/70">
                 <span>Total item</span>
                 <span>{totalQuantity}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-lg font-black">Subtotal</span>
-                <span className="text-2xl font-black text-santara-bean">
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-base font-black">Subtotal</span>
+                <span className="text-xl font-black text-santara-bean">
                   {formatRupiah(subtotal)}
                 </span>
               </div>
               <button
-                className="mt-4 w-full rounded-lg bg-santara-bean px-5 py-4 text-lg font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+                className="mt-3 w-full rounded-lg bg-santara-bean px-5 py-3 text-base font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={cart.length === 0}
                 onClick={() => setIsCheckoutOpen(true)}
                 type="button"
@@ -372,14 +372,16 @@ type StatusTileProps = {
 function StatusTile({ label, value, wide = false }: StatusTileProps) {
   return (
     <div
-      className={`rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-santara-latte ${
+      className={`rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-santara-latte ${
         wide ? 'col-span-2 sm:col-span-1' : ''
       }`}
     >
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-santara-sage">
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-santara-sage">
         {label}
       </p>
-      <p className="mt-1 text-lg font-black text-santara-roast">{value}</p>
+      <p className="mt-0.5 truncate text-base font-black text-santara-roast">
+        {value}
+      </p>
     </div>
   );
 }
