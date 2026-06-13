@@ -33,3 +33,46 @@ button {
   font: inherit;
   -webkit-tap-highlight-color: transparent;
 }
+
+.receipt-paper {
+  width: 58mm;
+  max-width: 100%;
+  padding: 4mm;
+  font-family: "Courier New", Courier, monospace;
+}
+
+@media print {
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .receipt-print-area,
+  .receipt-print-area * {
+    visibility: visible;
+  }
+
+  .receipt-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 58mm;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .receipt-paper {
+    width: 58mm;
+    max-width: 58mm;
+    padding: 4mm;
+  }
+}

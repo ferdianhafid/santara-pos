@@ -1,109 +1,28 @@
 import { useMemo, useState } from 'react';
+import { CheckoutModal } from './components/CheckoutModal';
+import { ReceiptPreview } from './components/ReceiptPreview';
+import { menuCategories } from './data/menu';
+import type { CartItem, CompletedTransaction, MenuItem } from './types';
+import { formatCompactDate, formatRupiah } from './utils/format';
 
-type MenuItem = {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-};
+const CASHIER_NAME = 'Santara Cashier';
 
-type MenuCategory = {
-  id: string;
-  name: string;
-  items: MenuItem[];
-};
-
-type CartItem = {
-  id: string;
-  nameSnapshot: string;
-  categorySnapshot: string;
-  unitPriceSnapshot: number;
-  quantity: number;
-};
-
-const menuCategories: MenuCategory[] = [
-  {
-    id: 'basic-coffee',
-    name: 'Basic Coffee',
-    items: [
-      { id: 'americano', name: 'Americano', category: 'Basic Coffee', price: 18000 },
-      { id: 'ice-latte', name: 'Ice Latte', category: 'Basic Coffee', price: 22000 },
-      { id: 'vietnam-drip', name: 'Vietnam Drip', category: 'Basic Coffee', price: 20000 },
-    ],
-  },
-  {
-    id: 'signature',
-    name: 'Signature',
-    items: [
-      { id: 'santara-coffee', name: 'Santara Coffee', category: 'Signature', price: 25000 },
-      { id: 'scotchtie', name: 'Scotchtie', category: 'Signature', price: 26000 },
-      { id: 'kopsu-gula-aren', name: 'Kopsu Gula Aren', category: 'Signature', price: 24000 },
-      { id: 'creamy-tiramisu', name: 'Creamy Tiramisu', category: 'Signature', price: 27000 },
-      { id: 'caramel-sea-salt', name: 'Caramel Sea Salt', category: 'Signature', price: 27000 },
-      { id: 'matcha-boost', name: 'Matcha Boost', category: 'Signature', price: 27000 },
-      { id: 'choco-strawberry', name: 'Choco Strawberry', category: 'Signature', price: 26000 },
-      { id: 'lemon-americano', name: 'Lemon Americano', category: 'Signature', price: 22000 },
-      { id: 'tropical-americano', name: 'Tropical Americano', category: 'Signature', price: 24000 },
-    ],
-  },
-  {
-    id: 'milk-base',
-    name: 'Milk Base',
-    items: [
-      { id: 'matcha', name: 'Matcha', category: 'Milk Base', price: 23000 },
-      { id: 'pingky-matcha', name: 'Pingky Matcha', category: 'Milk Base', price: 25000 },
-      { id: 'chocolate', name: 'Chocolate', category: 'Milk Base', price: 22000 },
-      { id: 'red-velvet', name: 'Red Velvet', category: 'Milk Base', price: 23000 },
-      {
-        id: 'korean-strawberry-milk',
-        name: 'Korean Strawberry Milk',
-        category: 'Milk Base',
-        price: 25000,
-      },
-    ],
-  },
-  {
-    id: 'tea-others',
-    name: 'Tea & Others',
-    items: [
-      { id: 'black-tea', name: 'Black Tea', category: 'Tea & Others', price: 12000 },
-      { id: 'lychee-tea', name: 'Lychee Tea', category: 'Tea & Others', price: 18000 },
-      { id: 'lemon-tea', name: 'Lemon Tea', category: 'Tea & Others', price: 16000 },
-      { id: 'mineral-water', name: 'Mineral Water', category: 'Tea & Others', price: 8000 },
-    ],
-  },
-  {
-    id: 'main-dish',
-    name: 'Main Dish',
-    items: [
-      { id: 'mie-rebus', name: 'Mie Rebus', category: 'Main Dish', price: 15000 },
-      { id: 'mie-goreng', name: 'Mie Goreng', category: 'Main Dish', price: 15000 },
-      { id: 'telur', name: 'Telur', category: 'Main Dish', price: 5000 },
-    ],
-  },
-  {
-    id: 'snack',
-    name: 'Snack',
-    items: [
-      { id: 'french-fries', name: 'French Fries', category: 'Snack', price: 18000 },
-      { id: 'mix-platter', name: 'Mix Platter', category: 'Snack', price: 28000 },
-      { id: 'churros', name: 'Churros', category: 'Snack', price: 18000 },
-    ],
-  },
-];
-
-const formatRupiah = (value: number) =>
-  new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(value);
+function createReceiptNumber(date: Date, sequence: number) {
+  return `SAN-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
+}
 
 function App() {
   const [activeCategoryId, setActiveCategoryId] = useState(menuCategories[0].id);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [completedTransactions, setCompletedTransactions] = useState<
+    CompletedTransaction[]
+  >([]);
 
-  const activeCategory = menuCategories.find((category) => category.id === activeCategoryId) ?? menuCategories[0];
+  const latestTransaction = completedTransactions[completedTransactions.length - 1];
+  const activeCategory =
+    menuCategories.find((category) => category.id === activeCategoryId) ??
+    menuCategories[0];
 
   const subtotal = useMemo(
     () =>
@@ -172,6 +91,39 @@ function App() {
     setCart([]);
   };
 
+  const completeCheckout = (
+    checkout: Pick<
+      CompletedTransaction,
+      | 'discountType'
+      | 'discountValue'
+      | 'discountAmount'
+      | 'totalAfterDiscount'
+      | 'paymentMethod'
+      | 'paidAmount'
+      | 'changeAmount'
+    >,
+  ) => {
+    const completedAt = new Date();
+    const transaction: CompletedTransaction = {
+      receiptNumber: createReceiptNumber(
+        completedAt,
+        completedTransactions.length + 1,
+      ),
+      dateTime: completedAt.toISOString(),
+      cashierName: CASHIER_NAME,
+      items: cart.map((item) => ({
+        ...item,
+        subtotal: item.unitPriceSnapshot * item.quantity,
+      })),
+      subtotalBeforeDiscount: subtotal,
+      ...checkout,
+    };
+
+    setCompletedTransactions((transactions) => [...transactions, transaction]);
+    setCart([]);
+    setIsCheckoutOpen(false);
+  };
+
   return (
     <main className="min-h-screen bg-santara-cream text-santara-roast">
       <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-4 py-4 sm:px-6 lg:px-8">
@@ -193,14 +145,19 @@ function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:min-w-[440px]">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[580px]">
             <StatusTile label="Mode" value="Cashier" />
             <StatusTile label="Cart" value={`${totalQuantity} item`} />
             <StatusTile label="Subtotal" value={formatRupiah(subtotal)} wide />
+            <StatusTile
+              label="Last Receipt"
+              value={latestTransaction?.receiptNumber ?? '-'}
+              wide
+            />
           </div>
         </header>
 
-        <section className="grid flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
+        <section className="grid flex-1 gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px]">
           <div className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70 sm:p-4">
             <div className="flex flex-col gap-3 border-b border-santara-latte/70 pb-4">
               <div className="flex items-end justify-between gap-3">
@@ -266,7 +223,7 @@ function App() {
               <div>
                 <h2 className="text-xl font-black">Cart</h2>
                 <p className="text-sm text-santara-roast/65">
-                  Review pesanan sebelum checkout fase berikutnya.
+                  Review pesanan, beri diskon, lalu selesaikan pembayaran.
                 </p>
               </div>
               <button
@@ -287,6 +244,11 @@ function App() {
                     <p className="mt-2 text-sm text-santara-roast/65">
                       Tap menu favorit pelanggan untuk mulai membuat pesanan.
                     </p>
+                    {latestTransaction && (
+                      <p className="mt-4 rounded-lg bg-white px-3 py-2 text-sm font-bold text-santara-bean ring-1 ring-santara-latte">
+                        Last completed: {latestTransaction.receiptNumber}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -298,7 +260,9 @@ function App() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-black leading-tight">{item.nameSnapshot}</p>
+                          <p className="font-black leading-tight">
+                            {item.nameSnapshot}
+                          </p>
                           <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-santara-sage">
                             {item.categorySnapshot}
                           </p>
@@ -346,6 +310,22 @@ function App() {
                   ))}
                 </div>
               )}
+
+              {latestTransaction && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-black">Receipt Preview</h3>
+                    <button
+                      className="rounded-full bg-santara-bean px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-santara-roast"
+                      onClick={() => window.print()}
+                      type="button"
+                    >
+                      Print Receipt
+                    </button>
+                  </div>
+                  <ReceiptPreview transaction={latestTransaction} />
+                </div>
+              )}
             </div>
 
             <div className="border-t border-santara-latte bg-santara-cream/80 px-4 py-4">
@@ -359,13 +339,26 @@ function App() {
                   {formatRupiah(subtotal)}
                 </span>
               </div>
-              <div className="mt-4 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-santara-roast/65 ring-1 ring-santara-latte">
-                Checkout, pembayaran, diskon, dan cetak struk belum aktif di Phase 1.
-              </div>
+              <button
+                className="mt-4 w-full rounded-lg bg-santara-bean px-5 py-4 text-lg font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={cart.length === 0}
+                onClick={() => setIsCheckoutOpen(true)}
+                type="button"
+              >
+                Checkout
+              </button>
             </div>
           </aside>
         </section>
       </div>
+
+      {isCheckoutOpen && (
+        <CheckoutModal
+          onClose={() => setIsCheckoutOpen(false)}
+          onComplete={completeCheckout}
+          subtotal={subtotal}
+        />
+      )}
     </main>
   );
 }

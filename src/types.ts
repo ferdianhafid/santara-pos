@@ -1,0 +1,43 @@
+export type MenuItem = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+};
+
+export type MenuCategory = {
+  id: string;
+  name: string;
+  items: MenuItem[];
+};
+
+export type CartItem = {
+  id: string;
+  nameSnapshot: string;
+  categorySnapshot: string;
+  unitPriceSnapshot: number;
+  quantity: number;
+};
+
+export type TransactionItem = CartItem & {
+  subtotal: number;
+};
+
+export type PaymentMethod = 'Cash' | 'QRIS' | 'Debit';
+
+export type DiscountType = 'none' | 'fixed' | 'percentage';
+
+export type CompletedTransaction = {
+  receiptNumber: string;
+  dateTime: string;
+  cashierName: string;
+  items: TransactionItem[];
+  subtotalBeforeDiscount: number;
+  discountType: DiscountType;
+  discountValue: number;
+  discountAmount: number;
+  totalAfterDiscount: number;
+  paymentMethod: PaymentMethod;
+  paidAmount: number | null;
+  changeAmount: number | null;
+};
