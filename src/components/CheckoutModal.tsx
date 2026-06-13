@@ -69,13 +69,13 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
 
   return (
     <div className="fixed inset-0 z-40 grid place-items-end bg-santara-roast/50 p-3 backdrop-blur-sm sm:place-items-center sm:p-6">
-      <div className="w-full max-w-3xl rounded-lg bg-santara-foam shadow-soft ring-1 ring-santara-latte">
-        <div className="flex items-start justify-between gap-4 border-b border-santara-latte px-5 py-4">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-santara-foam shadow-soft ring-1 ring-santara-latte">
+        <div className="flex items-start justify-between gap-4 border-b border-santara-latte px-4 py-3 sm:px-5 sm:py-4">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.12em] text-santara-clay">
               Checkout
             </p>
-            <h2 className="text-2xl font-black text-santara-roast">
+            <h2 className="text-xl font-black text-santara-roast sm:text-2xl">
               Payment & Discount
             </h2>
           </div>
@@ -88,7 +88,7 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
           </button>
         </div>
 
-        <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-5">
             <section>
               <h3 className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-santara-sage">
@@ -121,7 +121,7 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
                       {discountType === 'fixed' ? 'Rp' : '%'}
                     </span>
                     <input
-                      className="min-w-0 flex-1 bg-transparent py-2 text-xl font-black outline-none"
+                      className="min-w-0 flex-1 bg-transparent py-2 text-lg font-black outline-none sm:text-xl"
                       inputMode="numeric"
                       min="0"
                       onChange={(event) => setDiscountValueInput(event.target.value)}
@@ -163,7 +163,7 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
                   <div className="mt-2 flex items-center rounded-lg bg-white px-3 py-2 ring-1 ring-santara-latte focus-within:ring-2 focus-within:ring-santara-clay">
                     <span className="mr-2 font-black text-santara-bean">Rp</span>
                     <input
-                      className="min-w-0 flex-1 bg-transparent py-2 text-xl font-black outline-none"
+                      className="min-w-0 flex-1 bg-transparent py-2 text-lg font-black outline-none sm:text-xl"
                       inputMode="numeric"
                       min="0"
                       onChange={(event) => setPaidAmountInput(event.target.value)}

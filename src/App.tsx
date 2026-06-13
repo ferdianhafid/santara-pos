@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CheckoutModal } from './components/CheckoutModal';
+import { ConfirmOrderModal, SaveOrderModal } from './components/HoldOrderModals';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { menuCategories } from './data/menu';
 import type {
@@ -16,6 +17,11 @@ import {
 
 const CASHIER_NAME = 'Santara Cashier';
 
+type PendingOrderAction = {
+  type: 'resume' | 'delete';
+  order: PendingOrder;
+};
+
 function createReceiptNumber(date: Date, sequence: number) {
   return `SAN-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
 }
@@ -28,6 +34,9 @@ function App() {
     CompletedTransaction[]
   >([]);
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [isSaveOrderOpen, setIsSaveOrderOpen] = useState(false);
+  const [pendingOrderAction, setPendingOrderAction] =
+    useState<PendingOrderAction | null>(null);
 
   const latestTransaction = completedTransactions[completedTransactions.length - 1];
   const activeCategory =
@@ -106,15 +115,12 @@ function App() {
     setCart([]);
   };
 
-  const savePendingOrder = () => {
+  const savePendingOrder = (label: string) => {
     if (cart.length === 0) {
       return;
     }
 
-    const label = window.prompt(
-      'Nama order tersimpan? Contoh: Meja 1, Customer 1, Takeaway',
-    );
-    const cleanLabel = label?.trim();
+    const cleanLabel = label.trim();
 
     if (!cleanLabel) {
       return;
@@ -130,32 +136,31 @@ function App() {
 
     setPendingOrders((orders) => [pendingOrder, ...orders]);
     setCart([]);
+    setIsSaveOrderOpen(false);
   };
 
   const resumePendingOrder = (order: PendingOrder) => {
-    if (
-      cart.length > 0 &&
-      !window.confirm(
-        'Cart aktif akan diganti dengan order tersimpan ini. Lanjutkan?',
-      )
-    ) {
-      return;
-    }
-
     setCart(order.items.map((item) => ({ ...item })));
     setPendingOrders((orders) =>
       orders.filter((pendingOrder) => pendingOrder.id !== order.id),
     );
+    setPendingOrderAction(null);
   };
 
   const deletePendingOrder = (order: PendingOrder) => {
-    if (!window.confirm(`Hapus order tersimpan "${order.label}"?`)) {
-      return;
-    }
-
     setPendingOrders((orders) =>
       orders.filter((pendingOrder) => pendingOrder.id !== order.id),
     );
+    setPendingOrderAction(null);
+  };
+
+  const requestResumePendingOrder = (order: PendingOrder) => {
+    if (cart.length > 0) {
+      setPendingOrderAction({ type: 'resume', order });
+      return;
+    }
+
+    resumePendingOrder(order);
   };
 
   const completeCheckout = (
@@ -212,21 +217,20 @@ function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[560px]">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[660px] xl:w-[720px]">
             <StatusTile label="Mode" value="Cashier" />
             <StatusTile label="Cart" value={`${totalQuantity} item`} />
-            <StatusTile label="Subtotal" value={formatRupiah(subtotal)} wide />
+            <StatusTile label="Subtotal" value={formatRupiah(subtotal)} />
+            <StatusTile label="Pending" value={`${pendingOrders.length} order`} />
             <StatusTile
               label="Last Receipt"
               value={latestTransaction?.receiptNumber ?? '-'}
-              wide
             />
-            <StatusTile label="Pending" value={`${pendingOrders.length} order`} />
           </div>
         </header>
 
         <section className="grid flex-1 gap-3 py-3 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="flex min-h-0 flex-col overflow-hidden rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
+          <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70 sm:min-h-[480px] lg:min-h-0">
             <div className="flex shrink-0 flex-col gap-2 border-b border-santara-latte/70 pb-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -240,7 +244,7 @@ function App() {
                 </p>
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex flex-wrap gap-2">
                 {menuCategories.map((category) => {
                   const isActive = category.id === activeCategoryId;
 
@@ -262,7 +266,7 @@ function App() {
               </div>
             </div>
 
-            <div className="grid flex-1 auto-rows-[118px] grid-cols-[repeat(auto-fill,minmax(142px,1fr))] content-start gap-2.5 overflow-y-auto py-3 pr-1 sm:auto-rows-[124px] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
+            <div className="grid flex-1 auto-rows-[112px] grid-cols-[repeat(auto-fill,minmax(132px,1fr))] content-start gap-2.5 overflow-y-auto py-3 pr-1 sm:auto-rows-[124px] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
               {activeCategory.items.map((item) => (
                 <button
                   className="flex h-full flex-col justify-between rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-santara-latte transition hover:-translate-y-0.5 hover:bg-santara-cream focus:outline-none focus:ring-2 focus:ring-santara-clay"
@@ -381,8 +385,10 @@ function App() {
                 )}
 
                 <PendingOrdersSection
-                  onDelete={deletePendingOrder}
-                  onResume={resumePendingOrder}
+                  onDelete={(order) =>
+                    setPendingOrderAction({ type: 'delete', order })
+                  }
+                  onResume={requestResumePendingOrder}
                   orders={pendingOrders}
                 />
               </div>
@@ -426,7 +432,7 @@ function App() {
               {cart.length > 0 && (
                 <button
                   className="mt-2 w-full rounded-lg bg-white px-5 py-2.5 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-foam"
-                  onClick={savePendingOrder}
+                  onClick={() => setIsSaveOrderOpen(true)}
                   type="button"
                 >
                   Simpan Order
@@ -447,6 +453,28 @@ function App() {
           onClose={() => setIsCheckoutOpen(false)}
           onComplete={completeCheckout}
           subtotal={subtotal}
+        />
+      )}
+
+      <SaveOrderModal
+        isOpen={isSaveOrderOpen}
+        onClose={() => setIsSaveOrderOpen(false)}
+        onSave={savePendingOrder}
+      />
+
+      {pendingOrderAction && (
+        <ConfirmOrderModal
+          action={pendingOrderAction.type}
+          onCancel={() => setPendingOrderAction(null)}
+          onConfirm={() => {
+            if (pendingOrderAction.type === 'resume') {
+              resumePendingOrder(pendingOrderAction.order);
+              return;
+            }
+
+            deletePendingOrder(pendingOrderAction.order);
+          }}
+          order={pendingOrderAction.order}
         />
       )}
     </main>
@@ -519,16 +547,11 @@ function PendingOrdersSection({
 type StatusTileProps = {
   label: string;
   value: string;
-  wide?: boolean;
 };
 
-function StatusTile({ label, value, wide = false }: StatusTileProps) {
+function StatusTile({ label, value }: StatusTileProps) {
   return (
-    <div
-      className={`rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-santara-latte ${
-        wide ? 'col-span-2 sm:col-span-1' : ''
-      }`}
-    >
+    <div className="min-h-[58px] rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-santara-latte">
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-santara-sage">
         {label}
       </p>
