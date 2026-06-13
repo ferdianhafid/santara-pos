@@ -18,3 +18,9 @@ export const formatCompactDate = (date: Date) => {
 
   return `${year}${month}${day}`;
 };
+
+export const formatShortTime = (dateTime: string) =>
+  new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(dateTime));

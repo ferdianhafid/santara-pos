@@ -41,3 +41,10 @@ export type CompletedTransaction = {
   paidAmount: number | null;
   changeAmount: number | null;
 };
+
+export type PendingOrder = {
+  id: string;
+  label: string;
+  items: CartItem[];
+  createdAt: string;
+};

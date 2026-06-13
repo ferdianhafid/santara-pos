@@ -2,8 +2,17 @@ import { useMemo, useState } from 'react';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { menuCategories } from './data/menu';
-import type { CartItem, CompletedTransaction, MenuItem } from './types';
-import { formatCompactDate, formatRupiah } from './utils/format';
+import type {
+  CartItem,
+  CompletedTransaction,
+  MenuItem,
+  PendingOrder,
+} from './types';
+import {
+  formatCompactDate,
+  formatRupiah,
+  formatShortTime,
+} from './utils/format';
 
 const CASHIER_NAME = 'Santara Cashier';
 
@@ -18,6 +27,7 @@ function App() {
   const [completedTransactions, setCompletedTransactions] = useState<
     CompletedTransaction[]
   >([]);
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
 
   const latestTransaction = completedTransactions[completedTransactions.length - 1];
   const activeCategory =
@@ -36,6 +46,11 @@ function App() {
   const totalQuantity = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
     [cart],
+  );
+
+  const pendingOrderCount = useMemo(
+    () => pendingOrders.reduce((total, order) => total + getCartQuantity(order.items), 0),
+    [pendingOrders],
   );
 
   const addItem = (item: MenuItem) => {
@@ -89,6 +104,58 @@ function App() {
 
   const clearCart = () => {
     setCart([]);
+  };
+
+  const savePendingOrder = () => {
+    if (cart.length === 0) {
+      return;
+    }
+
+    const label = window.prompt(
+      'Nama order tersimpan? Contoh: Meja 1, Customer 1, Takeaway',
+    );
+    const cleanLabel = label?.trim();
+
+    if (!cleanLabel) {
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+    const pendingOrder: PendingOrder = {
+      id: `pending-${Date.now()}`,
+      label: cleanLabel,
+      items: cart.map((item) => ({ ...item })),
+      createdAt,
+    };
+
+    setPendingOrders((orders) => [pendingOrder, ...orders]);
+    setCart([]);
+  };
+
+  const resumePendingOrder = (order: PendingOrder) => {
+    if (
+      cart.length > 0 &&
+      !window.confirm(
+        'Cart aktif akan diganti dengan order tersimpan ini. Lanjutkan?',
+      )
+    ) {
+      return;
+    }
+
+    setCart(order.items.map((item) => ({ ...item })));
+    setPendingOrders((orders) =>
+      orders.filter((pendingOrder) => pendingOrder.id !== order.id),
+    );
+  };
+
+  const deletePendingOrder = (order: PendingOrder) => {
+    if (!window.confirm(`Hapus order tersimpan "${order.label}"?`)) {
+      return;
+    }
+
+    setPendingOrders((orders) =>
+      orders.filter((pendingOrder) => pendingOrder.id !== order.id),
+    );
   };
 
   const completeCheckout = (
@@ -154,6 +221,7 @@ function App() {
               value={latestTransaction?.receiptNumber ?? '-'}
               wide
             />
+            <StatusTile label="Pending" value={`${pendingOrders.length} order`} />
           </div>
         </header>
 
@@ -237,79 +305,87 @@ function App() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-              {cart.length === 0 ? (
-                <div className="grid min-h-44 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-4 text-center">
-                  <div>
-                    <p className="font-black">Cart masih kosong</p>
-                    <p className="mt-1.5 text-xs text-santara-roast/65">
-                      Tap menu favorit pelanggan untuk mulai membuat pesanan.
-                    </p>
-                    {latestTransaction && (
-                      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold text-santara-bean ring-1 ring-santara-latte">
-                        Last completed: {latestTransaction.receiptNumber}
+              <div className="space-y-3">
+                {cart.length === 0 ? (
+                  <div className="grid min-h-36 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-4 text-center">
+                    <div>
+                      <p className="font-black">Cart masih kosong</p>
+                      <p className="mt-1.5 text-xs text-santara-roast/65">
+                        Tap menu favorit pelanggan untuk mulai membuat pesanan.
                       </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {cart.map((item) => (
-                    <div
-                      className="rounded-lg border border-santara-latte bg-santara-foam p-2.5"
-                      key={item.id}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black leading-tight">
-                            {item.nameSnapshot}
-                          </p>
-                          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
-                            {item.categorySnapshot}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-santara-bean">
-                            {formatRupiah(item.unitPriceSnapshot)} / item
-                          </p>
-                        </div>
-                        <button
-                          aria-label={`Remove ${item.nameSnapshot}`}
-                          className="rounded-full px-2.5 py-1 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
-                          onClick={() => removeItem(item.id)}
-                          type="button"
-                        >
-                          Remove
-                        </button>
-                      </div>
-
-                      <div className="mt-2.5 flex items-center justify-between gap-3">
-                        <div className="flex items-center rounded-full bg-white p-1 ring-1 ring-santara-latte">
-                          <button
-                            aria-label={`Decrease ${item.nameSnapshot}`}
-                            className="grid size-8 place-items-center rounded-full text-lg font-black text-santara-bean transition hover:bg-santara-latte/60"
-                            onClick={() => decreaseQuantity(item.id)}
-                            type="button"
-                          >
-                            -
-                          </button>
-                          <span className="min-w-10 text-center text-base font-black">
-                            {item.quantity}
-                          </span>
-                          <button
-                            aria-label={`Increase ${item.nameSnapshot}`}
-                            className="grid size-8 place-items-center rounded-full bg-santara-bean text-lg font-black text-white transition hover:bg-santara-roast"
-                            onClick={() => increaseQuantity(item.id)}
-                            type="button"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <p className="text-base font-black text-santara-roast">
-                          {formatRupiah(item.unitPriceSnapshot * item.quantity)}
+                      {latestTransaction && (
+                        <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold text-santara-bean ring-1 ring-santara-latte">
+                          Last completed: {latestTransaction.receiptNumber}
                         </p>
-                      </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {cart.map((item) => (
+                      <div
+                        className="rounded-lg border border-santara-latte bg-santara-foam p-2.5"
+                        key={item.id}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black leading-tight">
+                              {item.nameSnapshot}
+                            </p>
+                            <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
+                              {item.categorySnapshot}
+                            </p>
+                            <p className="mt-1 text-xs font-bold text-santara-bean">
+                              {formatRupiah(item.unitPriceSnapshot)} / item
+                            </p>
+                          </div>
+                          <button
+                            aria-label={`Remove ${item.nameSnapshot}`}
+                            className="rounded-full px-2.5 py-1 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
+                            onClick={() => removeItem(item.id)}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="mt-2.5 flex items-center justify-between gap-3">
+                          <div className="flex items-center rounded-full bg-white p-1 ring-1 ring-santara-latte">
+                            <button
+                              aria-label={`Decrease ${item.nameSnapshot}`}
+                              className="grid size-8 place-items-center rounded-full text-lg font-black text-santara-bean transition hover:bg-santara-latte/60"
+                              onClick={() => decreaseQuantity(item.id)}
+                              type="button"
+                            >
+                              -
+                            </button>
+                            <span className="min-w-10 text-center text-base font-black">
+                              {item.quantity}
+                            </span>
+                            <button
+                              aria-label={`Increase ${item.nameSnapshot}`}
+                              className="grid size-8 place-items-center rounded-full bg-santara-bean text-lg font-black text-white transition hover:bg-santara-roast"
+                              onClick={() => increaseQuantity(item.id)}
+                              type="button"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <p className="text-base font-black text-santara-roast">
+                            {formatRupiah(item.unitPriceSnapshot * item.quantity)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <PendingOrdersSection
+                  onDelete={deletePendingOrder}
+                  onResume={resumePendingOrder}
+                  orders={pendingOrders}
+                />
+              </div>
 
               {latestTransaction && (
                 <div className="mt-3 space-y-2.5">
@@ -347,6 +423,20 @@ function App() {
               >
                 Checkout
               </button>
+              {cart.length > 0 && (
+                <button
+                  className="mt-2 w-full rounded-lg bg-white px-5 py-2.5 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-foam"
+                  onClick={savePendingOrder}
+                  type="button"
+                >
+                  Simpan Order
+                </button>
+              )}
+              {pendingOrders.length > 0 && (
+                <p className="mt-2 text-center text-[11px] font-bold text-santara-roast/55">
+                  {pendingOrders.length} order tersimpan, {pendingOrderCount} item
+                </p>
+              )}
             </div>
           </aside>
         </section>
@@ -360,6 +450,69 @@ function App() {
         />
       )}
     </main>
+  );
+}
+
+type PendingOrdersSectionProps = {
+  orders: PendingOrder[];
+  onResume: (order: PendingOrder) => void;
+  onDelete: (order: PendingOrder) => void;
+};
+
+function PendingOrdersSection({
+  orders,
+  onResume,
+  onDelete,
+}: PendingOrdersSectionProps) {
+  if (orders.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-lg border border-santara-latte bg-white p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-black">Order Tersimpan</h3>
+        <span className="rounded-full bg-santara-cream px-2 py-1 text-[11px] font-black text-santara-bean">
+          {orders.length}
+        </span>
+      </div>
+
+      <div className="mt-2 space-y-2">
+        {orders.map((order) => (
+          <article
+            className="rounded-lg bg-santara-cream/80 p-2 ring-1 ring-santara-latte"
+            key={order.id}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black">{order.label}</p>
+                <p className="mt-0.5 text-[11px] font-bold text-santara-roast/60">
+                  {getCartQuantity(order.items)} item -{' '}
+                  {formatRupiah(getCartSubtotal(order.items))} -{' '}
+                  {formatShortTime(order.createdAt)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                className="rounded-md bg-santara-bean px-2 py-2 text-xs font-black text-white transition hover:bg-santara-roast"
+                onClick={() => onResume(order)}
+                type="button"
+              >
+                Lanjutkan Order
+              </button>
+              <button
+                className="rounded-md bg-white px-2 py-2 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-foam"
+                onClick={() => onDelete(order)}
+                type="button"
+              >
+                Hapus Order
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -384,6 +537,17 @@ function StatusTile({ label, value, wide = false }: StatusTileProps) {
       </p>
     </div>
   );
+}
+
+function getCartSubtotal(items: CartItem[]) {
+  return items.reduce(
+    (total, item) => total + item.unitPriceSnapshot * item.quantity,
+    0,
+  );
+}
+
+function getCartQuantity(items: CartItem[]) {
+  return items.reduce((total, item) => total + item.quantity, 0);
 }
 
 export default App;
