@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { MenuItem } from '../types';
 import { formatRupiah } from '../utils/format';
 
@@ -24,6 +25,7 @@ export function MenuAdmin({
   onUpdateItem,
   onToggleItem,
 }: MenuAdminProps) {
+  const [newItemCategory, setNewItemCategory] = useState(categories[0] ?? '');
   const groupedItems = categories.map((category) => ({
     category,
     items: items.filter((item) => item.category === category),
@@ -33,7 +35,7 @@ export function MenuAdmin({
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get('name') ?? '').trim();
-    const category = String(formData.get('category') ?? '').trim();
+    const category = newItemCategory.trim();
     const price = toPositiveNumber(formData.get('price'));
     const hpp = toPositiveNumber(formData.get('hpp'));
 
@@ -49,6 +51,7 @@ export function MenuAdmin({
       hpp,
     });
     event.currentTarget.reset();
+    setNewItemCategory(categories[0] ?? '');
   };
 
   return (
@@ -69,7 +72,12 @@ export function MenuAdmin({
         onSubmit={handleAddItem}
       >
         <InputField name="name" placeholder="Nama Menu" />
-        <InputField list="menu-categories" name="category" placeholder="Kategori" />
+        <CategoryDropdown
+          categories={categories}
+          label="Kategori"
+          onChange={setNewItemCategory}
+          value={newItemCategory}
+        />
         <InputField name="price" placeholder="Harga" type="number" />
         <InputField name="hpp" placeholder="HPP" type="number" />
         <button
@@ -78,11 +86,6 @@ export function MenuAdmin({
         >
           Tambah Menu
         </button>
-        <datalist id="menu-categories">
-          {categories.map((category) => (
-            <option key={category} value={category} />
-          ))}
-        </datalist>
       </form>
 
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
@@ -112,13 +115,11 @@ export function MenuAdmin({
                       value={item.name}
                       onChange={(value) => onUpdateItem(item.id, { name: value })}
                     />
-                    <InputField
-                      ariaLabel={`Kategori ${item.name}`}
-                      list="menu-categories"
+                    <CategoryDropdown
+                      categories={categories}
+                      label={`Kategori ${item.name}`}
                       value={item.category}
-                      onChange={(value) =>
-                        onUpdateItem(item.id, { category: value.trim() || item.category })
-                      }
+                      onChange={(category) => onUpdateItem(item.id, { category })}
                     />
                     <InputField
                       ariaLabel={`Harga ${item.name}`}
@@ -164,12 +165,71 @@ export function MenuAdmin({
   );
 }
 
+type CategoryDropdownProps = {
+  categories: string[];
+  label: string;
+  value: string;
+  onChange: (category: string) => void;
+};
+
+function CategoryDropdown({
+  categories,
+  label,
+  value,
+  onChange,
+}: CategoryDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedCategory = value || categories[0] || 'Kategori';
+
+  return (
+    <div className="relative min-w-0">
+      <button
+        aria-expanded={isOpen}
+        aria-label={label}
+        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte transition hover:bg-santara-cream focus:ring-2 focus:ring-santara-clay"
+        onBlur={(event) => {
+          if (!event.currentTarget.parentElement?.contains(event.relatedTarget)) {
+            setIsOpen(false);
+          }
+        }}
+        onClick={() => setIsOpen((open) => !open)}
+        type="button"
+      >
+        <span className="truncate">{selectedCategory}</span>
+        <span className="text-xs text-santara-clay">{isOpen ? 'Up' : 'Down'}</span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-56 overflow-y-auto rounded-lg bg-white p-1 shadow-soft ring-1 ring-santara-latte">
+          {categories.map((category) => (
+            <button
+              className={`w-full rounded-md px-3 py-2 text-left text-sm font-black transition ${
+                category === selectedCategory
+                  ? 'bg-santara-bean text-white'
+                  : 'text-santara-roast hover:bg-santara-cream'
+              }`}
+              key={category}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(category);
+                setIsOpen(false);
+              }}
+              type="button"
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type InputFieldProps = {
   name?: string;
   placeholder?: string;
   type?: 'text' | 'number';
   value?: string;
-  list?: string;
   ariaLabel?: string;
   onChange?: (value: string) => void;
 };
@@ -179,7 +239,6 @@ function InputField({
   placeholder,
   type = 'text',
   value,
-  list,
   ariaLabel,
   onChange,
 }: InputFieldProps) {
@@ -188,7 +247,6 @@ function InputField({
       aria-label={ariaLabel ?? placeholder}
       className="min-w-0 rounded-lg bg-white px-3 py-2 text-sm font-bold text-santara-roast outline-none ring-1 ring-santara-latte transition placeholder:text-santara-roast/35 focus:ring-2 focus:ring-santara-clay"
       inputMode={type === 'number' ? 'numeric' : undefined}
-      list={list}
       min={type === 'number' ? '0' : undefined}
       name={name}
       onChange={(event) => onChange?.(event.target.value)}

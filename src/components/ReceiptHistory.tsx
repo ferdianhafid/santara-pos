@@ -47,6 +47,9 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
     ) ??
     filteredTransactions[0] ??
     null;
+  const selectedSummary = selectedTransaction
+    ? getTransactionSummary(selectedTransaction)
+    : null;
 
   return (
     <section className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_410px]">
@@ -169,22 +172,100 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {selectedTransaction ? (
             <div className="space-y-3">
-              <div className="rounded-lg bg-santara-cream p-3 ring-1 ring-santara-latte">
-                <p className="font-black">{selectedTransaction.receiptNumber}</p>
-                <p className="mt-1 text-xs font-bold text-santara-roast/60">
-                  {formatReceiptDate(selectedTransaction.dateTime)}
-                </p>
+              <section className="rounded-lg bg-santara-cream p-3 ring-1 ring-santara-latte">
+                <h4 className="text-sm font-black">Detail Transaksi</h4>
+                <div className="mt-3 space-y-2 text-sm font-bold">
+                  <DetailRow
+                    label="Nomor Struk"
+                    value={selectedTransaction.receiptNumber}
+                  />
+                  <DetailRow
+                    label="Waktu"
+                    value={formatReceiptDate(selectedTransaction.dateTime)}
+                  />
+                  <DetailRow label="Kasir" value={selectedTransaction.cashierName} />
+                  <DetailRow
+                    label="Metode Pembayaran"
+                    value={selectedTransaction.paymentMethod}
+                  />
+                  <DetailRow
+                    label="Subtotal"
+                    value={formatRupiah(selectedTransaction.subtotalBeforeDiscount)}
+                  />
+                  {selectedTransaction.discountAmount > 0 ? (
+                    <>
+                      <DetailRow
+                        label="Diskon"
+                        value={formatDiscountLabel(selectedTransaction)}
+                      />
+                      <DetailRow
+                        label="Nominal Diskon"
+                        value={`-${formatRupiah(selectedTransaction.discountAmount)}`}
+                      />
+                    </>
+                  ) : (
+                    <DetailRow label="Diskon" value="Tidak ada diskon" />
+                  )}
+                  <DetailRow
+                    label="Total"
+                    strong
+                    value={formatRupiah(selectedTransaction.totalAfterDiscount)}
+                  />
+                  {selectedTransaction.paymentMethod === 'Cash' && (
+                    <>
+                      <DetailRow
+                        label="Uang Diterima"
+                        value={formatRupiah(selectedTransaction.paidAmount ?? 0)}
+                      />
+                      <DetailRow
+                        label="Kembalian"
+                        value={formatRupiah(selectedTransaction.changeAmount ?? 0)}
+                      />
+                    </>
+                  )}
+                  <DetailRow
+                    label="Jumlah Item"
+                    value={`${selectedSummary?.itemCount ?? 0} item`}
+                  />
+                  <DetailRow
+                    label="Total HPP"
+                    value={formatRupiah(selectedSummary?.totalHpp ?? 0)}
+                  />
+                  <DetailRow
+                    label="Estimasi Profit"
+                    value={formatRupiah(selectedSummary?.estimatedProfit ?? 0)}
+                  />
+                  <DetailRow
+                    label="Margin"
+                    value={
+                      selectedSummary && Number.isFinite(selectedSummary.margin)
+                        ? `${selectedSummary.margin.toFixed(1)}%`
+                        : '-'
+                    }
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-lg bg-santara-cream p-3 ring-1 ring-santara-latte">
+                <h4 className="text-sm font-black">Detail Item</h4>
                 <div className="mt-3 space-y-1 text-sm font-bold">
                   {selectedTransaction.items.map((item) => (
                     <div className="flex justify-between gap-2" key={item.id}>
-                      <span>
-                        {item.quantity}x {item.nameSnapshot}
-                      </span>
-                      <span>{formatRupiah(item.subtotal)}</span>
+                      <div>
+                        <p>
+                          {item.quantity}x {item.nameSnapshot}
+                        </p>
+                        <p className="text-xs text-santara-roast/55">
+                          HPP {formatRupiah((item.hppSnapshot ?? 0) * item.quantity)}
+                        </p>
+                      </div>
+                      <span className="text-right">{formatRupiah(item.subtotal)}</span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
+
+              <h4 className="text-sm font-black">Preview Struk</h4>
               <ReceiptPreview transaction={selectedTransaction} />
             </div>
           ) : (
@@ -197,6 +278,25 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
         </div>
       </aside>
     </section>
+  );
+}
+
+type DetailRowProps = {
+  label: string;
+  value: string;
+  strong?: boolean;
+};
+
+function DetailRow({ label, value, strong = false }: DetailRowProps) {
+  return (
+    <div
+      className={`flex items-start justify-between gap-3 ${
+        strong ? 'border-t border-santara-latte pt-2 text-base' : ''
+      }`}
+    >
+      <span className="text-santara-roast/60">{label}</span>
+      <span className="text-right text-santara-roast">{value}</span>
+    </div>
   );
 }
 
@@ -218,4 +318,36 @@ function HistoryCard({ label, value }: HistoryCardProps) {
 
 function getTransactionQuantity(transaction: CompletedTransaction) {
   return transaction.items.reduce((total, item) => total + item.quantity, 0);
+}
+
+function getTransactionSummary(transaction: CompletedTransaction) {
+  const itemCount = getTransactionQuantity(transaction);
+  const totalHpp = transaction.items.reduce(
+    (total, item) => total + (item.hppSnapshot ?? 0) * item.quantity,
+    0,
+  );
+  const estimatedProfit = transaction.totalAfterDiscount - totalHpp;
+  const margin =
+    transaction.totalAfterDiscount > 0
+      ? (estimatedProfit / transaction.totalAfterDiscount) * 100
+      : 0;
+
+  return {
+    itemCount,
+    totalHpp,
+    estimatedProfit,
+    margin,
+  };
+}
+
+function formatDiscountLabel(transaction: CompletedTransaction) {
+  if (transaction.discountType === 'percentage') {
+    return `${transaction.discountValue}%`;
+  }
+
+  if (transaction.discountType === 'fixed') {
+    return formatRupiah(transaction.discountValue);
+  }
+
+  return 'Tidak ada diskon';
 }
