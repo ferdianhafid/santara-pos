@@ -1,0 +1,10 @@
+{
+  "name": "Santara POS",
+  "short_name": "Santara POS",
+  "description": "Tablet-first cashier app for Santara Coffee.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff8ef",
+  "theme_color": "#6f4e37",
+  "icons": []
+}
