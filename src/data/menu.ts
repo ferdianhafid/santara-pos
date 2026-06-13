@@ -1,72 +1,81 @@
 import type { MenuCategory } from '../types';
 
+const menuItem = (
+  id: string,
+  name: string,
+  category: string,
+  price: number,
+) => ({
+  id,
+  name,
+  category,
+  price,
+  hpp: 0,
+  isActive: true,
+});
+
 export const menuCategories: MenuCategory[] = [
   {
     id: 'basic-coffee',
     name: 'Basic Coffee',
     items: [
-      { id: 'americano', name: 'Americano', category: 'Basic Coffee', price: 18000 },
-      { id: 'ice-latte', name: 'Ice Latte', category: 'Basic Coffee', price: 22000 },
-      { id: 'vietnam-drip', name: 'Vietnam Drip', category: 'Basic Coffee', price: 20000 },
+      menuItem('americano', 'Americano', 'Basic Coffee', 18000),
+      menuItem('ice-latte', 'Ice Latte', 'Basic Coffee', 22000),
+      menuItem('vietnam-drip', 'Vietnam Drip', 'Basic Coffee', 20000),
     ],
   },
   {
     id: 'signature',
     name: 'Signature',
     items: [
-      { id: 'santara-coffee', name: 'Santara Coffee', category: 'Signature', price: 25000 },
-      { id: 'scotchtie', name: 'Scotchtie', category: 'Signature', price: 26000 },
-      { id: 'kopsu-gula-aren', name: 'Kopsu Gula Aren', category: 'Signature', price: 24000 },
-      { id: 'creamy-tiramisu', name: 'Creamy Tiramisu', category: 'Signature', price: 27000 },
-      { id: 'caramel-sea-salt', name: 'Caramel Sea Salt', category: 'Signature', price: 27000 },
-      { id: 'matcha-boost', name: 'Matcha Boost', category: 'Signature', price: 27000 },
-      { id: 'choco-strawberry', name: 'Choco Strawberry', category: 'Signature', price: 26000 },
-      { id: 'lemon-americano', name: 'Lemon Americano', category: 'Signature', price: 22000 },
-      { id: 'tropical-americano', name: 'Tropical Americano', category: 'Signature', price: 24000 },
+      menuItem('santara-coffee', 'Santara Coffee', 'Signature', 25000),
+      menuItem('scotchtie', 'Scotchtie', 'Signature', 26000),
+      menuItem('kopsu-gula-aren', 'Kopsu Gula Aren', 'Signature', 24000),
+      menuItem('creamy-tiramisu', 'Creamy Tiramisu', 'Signature', 27000),
+      menuItem('caramel-sea-salt', 'Caramel Sea Salt', 'Signature', 27000),
+      menuItem('matcha-boost', 'Matcha Boost', 'Signature', 27000),
+      menuItem('choco-strawberry', 'Choco Strawberry', 'Signature', 26000),
+      menuItem('lemon-americano', 'Lemon Americano', 'Signature', 22000),
+      menuItem('tropical-americano', 'Tropical Americano', 'Signature', 24000),
     ],
   },
   {
     id: 'milk-base',
     name: 'Milk Base',
     items: [
-      { id: 'matcha', name: 'Matcha', category: 'Milk Base', price: 23000 },
-      { id: 'pingky-matcha', name: 'Pingky Matcha', category: 'Milk Base', price: 25000 },
-      { id: 'chocolate', name: 'Chocolate', category: 'Milk Base', price: 22000 },
-      { id: 'red-velvet', name: 'Red Velvet', category: 'Milk Base', price: 23000 },
-      {
-        id: 'korean-strawberry-milk',
-        name: 'Korean Strawberry Milk',
-        category: 'Milk Base',
-        price: 25000,
-      },
+      menuItem('matcha', 'Matcha', 'Milk Base', 23000),
+      menuItem('pingky-matcha', 'Pingky Matcha', 'Milk Base', 25000),
+      menuItem('chocolate', 'Chocolate', 'Milk Base', 22000),
+      menuItem('red-velvet', 'Red Velvet', 'Milk Base', 23000),
+      menuItem('korean-strawberry-milk', 'Korean Strawberry Milk', 'Milk Base', 25000),
     ],
   },
   {
     id: 'tea-others',
     name: 'Tea & Others',
     items: [
-      { id: 'black-tea', name: 'Black Tea', category: 'Tea & Others', price: 12000 },
-      { id: 'lychee-tea', name: 'Lychee Tea', category: 'Tea & Others', price: 18000 },
-      { id: 'lemon-tea', name: 'Lemon Tea', category: 'Tea & Others', price: 16000 },
-      { id: 'mineral-water', name: 'Mineral Water', category: 'Tea & Others', price: 8000 },
+      menuItem('black-tea', 'Black Tea', 'Tea & Others', 12000),
+      menuItem('lychee-tea', 'Lychee Tea', 'Tea & Others', 18000),
+      menuItem('lemon-tea', 'Lemon Tea', 'Tea & Others', 16000),
+      menuItem('mineral-water', 'Mineral Water', 'Tea & Others', 8000),
     ],
   },
   {
     id: 'main-dish',
     name: 'Main Dish',
     items: [
-      { id: 'mie-rebus', name: 'Mie Rebus', category: 'Main Dish', price: 15000 },
-      { id: 'mie-goreng', name: 'Mie Goreng', category: 'Main Dish', price: 15000 },
-      { id: 'telur', name: 'Telur', category: 'Main Dish', price: 5000 },
+      menuItem('mie-rebus', 'Mie Rebus', 'Main Dish', 15000),
+      menuItem('mie-goreng', 'Mie Goreng', 'Main Dish', 15000),
+      menuItem('telur', 'Telur', 'Main Dish', 5000),
     ],
   },
   {
     id: 'snack',
     name: 'Snack',
     items: [
-      { id: 'french-fries', name: 'French Fries', category: 'Snack', price: 18000 },
-      { id: 'mix-platter', name: 'Mix Platter', category: 'Snack', price: 28000 },
-      { id: 'churros', name: 'Churros', category: 'Snack', price: 18000 },
+      menuItem('french-fries', 'French Fries', 'Snack', 18000),
+      menuItem('mix-platter', 'Mix Platter', 'Snack', 28000),
+      menuItem('churros', 'Churros', 'Snack', 18000),
     ],
   },
 ];

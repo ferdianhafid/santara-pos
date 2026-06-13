@@ -3,6 +3,8 @@ export type MenuItem = {
   name: string;
   category: string;
   price: number;
+  hpp: number;
+  isActive: boolean;
 };
 
 export type MenuCategory = {
@@ -16,6 +18,7 @@ export type CartItem = {
   nameSnapshot: string;
   categorySnapshot: string;
   unitPriceSnapshot: number;
+  hppSnapshot: number;
   quantity: number;
 };
 
