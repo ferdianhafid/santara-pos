@@ -166,11 +166,7 @@ export function Reports({ transactions }: ReportsProps) {
                     Belum ada menu terjual di periode ini.
                   </p>
                 ) : (
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {report.menuSales.map((item) => (
-                      <MenuSalesCard item={item} key={item.key} />
-                    ))}
-                  </div>
+                  <MenuSalesTable items={report.menuSales} />
                 )}
               </Panel>
             </section>
@@ -231,33 +227,80 @@ function SummaryLine({ label, value, meta }: SummaryLineProps) {
   );
 }
 
-type MenuSalesCardProps = {
-  item: MenuSalesSummary;
+type MenuSalesTableProps = {
+  items: MenuSalesSummary[];
 };
 
-function MenuSalesCard({ item }: MenuSalesCardProps) {
+function MenuSalesTable({ items }: MenuSalesTableProps) {
   return (
-    <article className="rounded-lg bg-santara-cream/75 p-3 ring-1 ring-santara-latte">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black text-santara-roast">
-            {item.name}
-          </p>
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
-            {item.category}
-          </p>
-        </div>
-        <p className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte">
-          {item.quantity} item
-        </p>
-      </div>
+    <div className="overflow-x-auto rounded-lg ring-1 ring-santara-latte">
+      <table className="min-w-[920px] w-full border-collapse bg-white text-left text-sm">
+        <thead className="bg-santara-cream text-[10px] font-black uppercase tracking-[0.08em] text-santara-sage">
+          <tr>
+            <TableHeader>Menu</TableHeader>
+            <TableHeader>Kategori</TableHeader>
+            <TableHeader align="right">Qty</TableHeader>
+            <TableHeader align="right">Gross Sales</TableHeader>
+            <TableHeader align="right">Diskon</TableHeader>
+            <TableHeader align="right">Net Sales</TableHeader>
+            <TableHeader align="right">HPP</TableHeader>
+            <TableHeader align="right">Profit</TableHeader>
+            <TableHeader align="right">Margin</TableHeader>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-santara-latte">
+          {items.map((item) => (
+            <tr className="transition hover:bg-santara-cream/55" key={item.key}>
+              <TableCell strong>{item.name}</TableCell>
+              <TableCell>{item.category}</TableCell>
+              <TableCell align="right">{item.quantity}</TableCell>
+              <TableCell align="right">{formatRupiah(item.grossSales)}</TableCell>
+              <TableCell align="right">{formatRupiah(item.discountAmount)}</TableCell>
+              <TableCell align="right">{formatRupiah(item.netSales)}</TableCell>
+              <TableCell align="right">{formatRupiah(item.hpp)}</TableCell>
+              <TableCell align="right">{formatRupiah(item.estimatedProfit)}</TableCell>
+              <TableCell align="right">{formatPercent(item.margin)}</TableCell>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-      <div className="mt-3 grid gap-2 text-xs font-bold sm:grid-cols-3">
-        <Metric label="Gross sales" value={formatRupiah(item.grossSales)} />
-        <Metric label="HPP" value={formatRupiah(item.hpp)} />
-        <Metric label="Estimasi profit" value={formatRupiah(item.estimatedProfit)} />
-      </div>
-    </article>
+type TableHeaderProps = {
+  children: ReactNode;
+  align?: 'left' | 'right';
+};
+
+function TableHeader({ children, align = 'left' }: TableHeaderProps) {
+  return (
+    <th
+      className={`whitespace-nowrap px-3 py-3 ${
+        align === 'right' ? 'text-right' : 'text-left'
+      }`}
+      scope="col"
+    >
+      {children}
+    </th>
+  );
+}
+
+type TableCellProps = {
+  children: ReactNode;
+  align?: 'left' | 'right';
+  strong?: boolean;
+};
+
+function TableCell({ children, align = 'left', strong = false }: TableCellProps) {
+  return (
+    <td
+      className={`whitespace-nowrap px-3 py-2.5 ${
+        align === 'right' ? 'text-right' : 'text-left'
+      } ${strong ? 'font-black text-santara-roast' : 'font-bold text-santara-roast/75'}`}
+    >
+      {children}
+    </td>
   );
 }
 
@@ -281,22 +324,6 @@ function BestSellerItem({ index, item }: BestSellerItemProps) {
       <p className="shrink-0 text-sm font-black text-santara-bean">
         {item.quantity} item
       </p>
-    </div>
-  );
-}
-
-type MetricProps = {
-  label: string;
-  value: string;
-};
-
-function Metric({ label, value }: MetricProps) {
-  return (
-    <div className="rounded-md bg-white px-2 py-2 ring-1 ring-santara-latte">
-      <span className="block text-[10px] uppercase tracking-[0.08em] text-santara-sage">
-        {label}
-      </span>
-      <span className="mt-1 block text-santara-roast">{value}</span>
     </div>
   );
 }

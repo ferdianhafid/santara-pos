@@ -14,8 +14,11 @@ export type MenuSalesSummary = {
   category: string;
   quantity: number;
   grossSales: number;
+  discountAmount: number;
+  netSales: number;
   hpp: number;
   estimatedProfit: number;
+  margin: number;
 };
 
 export type SalesReport = {
@@ -154,7 +157,9 @@ function buildMenuSales(transactions: CompletedTransaction[]): MenuSalesSummary[
       const grossSales = item.subtotal;
       const hpp = (item.hppSnapshot ?? 0) * item.quantity;
       const discountAllocation = getDiscountAllocation(transaction, grossSales);
-      const estimatedProfit = Math.max(grossSales - discountAllocation, 0) - hpp;
+      const netSales = Math.max(grossSales - discountAllocation, 0);
+      const estimatedProfit = netSales - hpp;
+      const margin = netSales > 0 ? (estimatedProfit / netSales) * 100 : 0;
       const key = `${item.nameSnapshot}|${item.categorySnapshot}`;
       const current = menuMap.get(key);
 
@@ -165,21 +170,31 @@ function buildMenuSales(transactions: CompletedTransaction[]): MenuSalesSummary[
           category: item.categorySnapshot,
           quantity: item.quantity,
           grossSales,
+          discountAmount: discountAllocation,
+          netSales,
           hpp,
           estimatedProfit,
+          margin,
         });
         return;
       }
 
       current.quantity += item.quantity;
       current.grossSales += grossSales;
+      current.discountAmount += discountAllocation;
+      current.netSales += netSales;
       current.hpp += hpp;
       current.estimatedProfit += estimatedProfit;
+      current.margin =
+        current.netSales > 0
+          ? (current.estimatedProfit / current.netSales) * 100
+          : 0;
     });
   });
 
   return Array.from(menuMap.values()).sort(
-    (first, second) => second.grossSales - first.grossSales,
+    (first, second) =>
+      second.quantity - first.quantity || second.netSales - first.netSales,
   );
 }
 
