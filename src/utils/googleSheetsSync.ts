@@ -85,6 +85,8 @@ export function buildGoogleSheetPayload(
   const reportKey = getReportKey(reportMode, selectedDate);
   const periodValue = getPeriodValue(reportMode, selectedDate);
   const periodLabel = getPeriodLabel(reportMode, selectedDate);
+  const monthKey = getMonthKey(reportMode, selectedDate);
+  const monthLabel = monthKey ? formatMonthLabel(monthKey) : null;
   const cashSales =
     report.paymentSummary.find((summary) => summary.method === 'Cash')?.total ?? 0;
   const qrisSales =
@@ -100,6 +102,8 @@ export function buildGoogleSheetPayload(
       reportModeSlug: reportModeSlugs[reportMode],
       periodValue,
       periodLabel,
+      monthKey,
+      monthLabel,
       selectedDate: reportMode === 'date' ? selectedDate : null,
       syncedBy,
       sourceTransactionCount: report.sourceTransactionCount,
@@ -109,6 +113,8 @@ export function buildGoogleSheetPayload(
       reportKey,
       periodValue,
       periodLabel,
+      monthKey,
+      monthLabel,
       grossSales: report.grossSales,
       totalDiscount: report.totalDiscount,
       netSales: report.netSales,
@@ -194,6 +200,16 @@ function getPeriodLabel(reportMode: ReportMode, selectedDate: string) {
     reportMode === 'date' ? selectedDate || getTodayInputValue() : getTodayInputValue();
 
   return `Tanggal: ${formatDateLabel(dateValue)}`;
+}
+
+function getMonthKey(reportMode: ReportMode, selectedDate: string) {
+  if (reportMode === 'all') {
+    return null;
+  }
+
+  const periodValue = getPeriodValue(reportMode, selectedDate);
+
+  return periodValue.slice(0, 7);
 }
 
 function getCurrentMonthValue() {

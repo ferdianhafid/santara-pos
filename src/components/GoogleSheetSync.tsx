@@ -77,7 +77,7 @@ export function GoogleSheetSync({
           Sync laporan aktif ke Apps Script Web App URL.
         </p>
         <p className="mt-1 text-xs font-bold text-santara-roast/55">
-          Sync akan membuat atau memperbarui blok laporan berdasarkan tanggal/periode di sheet Laporan Penjualan.
+          Sync akan memperbarui blok Laporan Penjualan dan rekap bulanan/produk sesuai periode aktif.
         </p>
       </div>
 

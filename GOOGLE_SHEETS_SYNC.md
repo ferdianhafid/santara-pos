@@ -8,7 +8,7 @@ This is intentionally simple:
 * No Google OAuth inside Santara POS.
 * No Google API client inside Santara POS.
 * The app sends the selected report to your Apps Script endpoint.
-* Apps Script writes a readable cafe sales report into Google Sheets.
+* Apps Script writes readable Santara report sheets into Google Sheets.
 
 ## 1. Create the Google Sheet
 
@@ -32,24 +32,24 @@ https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit
 5. Replace `SPREADSHEET_ID_HERE` with your spreadsheet ID.
 6. Save the script.
 
-This script creates a main sheet named `Laporan Penjualan`.
+This script creates these sheets:
 
-Each sync writes a readable report block with:
+* `Laporan Penjualan`
+* `Rekap Bulanan`
+* `Rekap Keseluruhan`
+* `Rekap Produk Bulanan`
+* `Sync Logs`
 
-* report title by date or period;
-* product sales table;
-* total row;
-* payment summary;
-* discount summary;
-* expense summary;
-* daily closing summary.
-
-If the same date or period is synced again, the old block is replaced instead
-of duplicated.
+Quantity columns such as `Jumlah Terjual` are formatted as normal numbers, not
+Rupiah. Currency formatting is only used for money columns, and margin columns
+use percent formatting.
 
 ```js
 const SPREADSHEET_ID = 'SPREADSHEET_ID_HERE';
 const REPORT_SHEET_NAME = 'Laporan Penjualan';
+const MONTHLY_SHEET_NAME = 'Rekap Bulanan';
+const ALL_TIME_SHEET_NAME = 'Rekap Keseluruhan';
+const PRODUCT_MONTHLY_SHEET_NAME = 'Rekap Produk Bulanan';
 const SYNC_LOG_SHEET_NAME = 'Sync Logs';
 const START_MARKER = '__SANTARA_REPORT_START__';
 const END_MARKER = '__SANTARA_REPORT_END__';
@@ -70,6 +70,40 @@ const PRODUCT_HEADERS = [
   'Laba Kotor',
   'Margin',
 ];
+
+const MONTHLY_HEADERS = [
+  'Bulan',
+  'Penjualan Kotor',
+  'Total Diskon',
+  'Penjualan Bersih',
+  'Total HPP',
+  'Laba Kotor',
+  'Gross Margin',
+  'Total Pengeluaran',
+  'Laba Bersih',
+  'Net Margin',
+  'Cash Sales',
+  'QRIS Sales',
+  'Debit Sales',
+  'Total Transaksi',
+  'Average Transaction Value',
+  'Last Sync',
+];
+
+const PRODUCT_MONTHLY_HEADERS = [
+  'Bulan',
+  'Nama Produk',
+  'Kategori',
+  'Jumlah Terjual',
+  'Penjualan Kotor',
+  'Diskon',
+  'Penjualan Bersih',
+  'HPP',
+  'Laba Kotor',
+  'Margin',
+];
+
+const ALL_TIME_HEADERS = ['Metric', 'Value'];
 
 const SYNC_LOG_HEADERS = [
   'Synced At',
@@ -92,11 +126,11 @@ function doPost(e) {
     reportKey = metadata.reportKey || payload.summary?.reportKey || buildFallbackReportKey(metadata);
     reportMode = metadata.reportMode || 'Unknown';
 
-    const reportSheet = setupReportSheet(spreadsheet);
-    const syncLogSheet = setupSyncLogSheet(spreadsheet);
-
-    replaceReportBlock(reportSheet, reportKey, payload);
-    appendSyncLog(syncLogSheet, syncedAt, reportKey, reportMode, 'success', 'Sync berhasil');
+    replaceReportBlock(setupReportSheet(spreadsheet), reportKey, payload);
+    updateMonthlySummary(setupTableSheet(spreadsheet, MONTHLY_SHEET_NAME, MONTHLY_HEADERS), payload);
+    updateProductMonthlySummary(setupTableSheet(spreadsheet, PRODUCT_MONTHLY_SHEET_NAME, PRODUCT_MONTHLY_HEADERS), payload);
+    updateAllTimeSummary(setupTableSheet(spreadsheet, ALL_TIME_SHEET_NAME, ALL_TIME_HEADERS), payload);
+    appendSyncLog(setupSyncLogSheet(spreadsheet), syncedAt, reportKey, reportMode, 'success', 'Sync berhasil');
 
     return jsonResponse({ ok: true, message: 'Data berhasil dikirim ke Google Sheets.' });
   } catch (error) {
@@ -114,6 +148,7 @@ function setupReportSheet(spreadsheet) {
   const sheet = spreadsheet.getSheetByName(REPORT_SHEET_NAME) || spreadsheet.insertSheet(REPORT_SHEET_NAME);
 
   sheet.getRange(1, 1, 1, PRODUCT_HEADERS.length)
+    .breakApart()
     .merge()
     .setValue('Santara Coffee - Laporan Penjualan')
     .setFontWeight('bold')
@@ -123,6 +158,30 @@ function setupReportSheet(spreadsheet) {
     .setHorizontalAlignment('center');
 
   sheet.setFrozenRows(1);
+
+  return sheet;
+}
+
+function setupTableSheet(spreadsheet, sheetName, headers) {
+  const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
+
+  sheet.getRange(1, 1, 1, headers.length)
+    .breakApart()
+    .merge()
+    .setValue(`Santara Coffee - ${sheetName}`)
+    .setFontWeight('bold')
+    .setFontSize(13)
+    .setFontColor(TEXT_COLOR)
+    .setBackground(BLUE_HEADER)
+    .setHorizontalAlignment('center');
+  sheet.getRange(2, 1, 1, headers.length)
+    .setValues([headers])
+    .setFontWeight('bold')
+    .setBackground(BLUE_HEADER)
+    .setFontColor(TEXT_COLOR)
+    .setHorizontalAlignment('center')
+    .setBorder(true, true, true, true, true, true);
+  sheet.setFrozenRows(2);
 
   return sheet;
 }
@@ -241,11 +300,13 @@ function formatReportBlock(sheet, startRow, rowCount, totalRowIndexInRows) {
   const headerRow = startRow + 4;
   const totalRow = startRow + totalRowIndexInRows;
   const endRow = startRow + rowCount - 1;
+  const tableBodyHeight = totalRow - headerRow;
 
   sheet.hideRows(startRow);
   sheet.hideRows(endRow);
 
   sheet.getRange(titleRow, 1, 1, PRODUCT_HEADERS.length)
+    .breakApart()
     .merge()
     .setFontWeight('bold')
     .setFontSize(13)
@@ -254,6 +315,7 @@ function formatReportBlock(sheet, startRow, rowCount, totalRowIndexInRows) {
     .setHorizontalAlignment('center');
 
   sheet.getRange(generatedRow, 1, 1, PRODUCT_HEADERS.length)
+    .breakApart()
     .merge()
     .setFontStyle('italic')
     .setFontColor('#5f6b7a');
@@ -263,24 +325,225 @@ function formatReportBlock(sheet, startRow, rowCount, totalRowIndexInRows) {
     .setBackground(BLUE_HEADER)
     .setHorizontalAlignment('center');
 
-  sheet.getRange(headerRow, 1, totalRow - headerRow + 1, PRODUCT_HEADERS.length)
+  sheet.getRange(headerRow, 1, tableBodyHeight + 1, PRODUCT_HEADERS.length)
     .setBorder(true, true, true, true, true, true);
 
   sheet.getRange(totalRow, 1, 1, PRODUCT_HEADERS.length)
     .setFontWeight('bold')
     .setBackground(PINK_TOTAL);
 
-  sheet.getRange(headerRow + 1, 1, totalRow - headerRow, 1).setHorizontalAlignment('center');
-  sheet.getRange(headerRow + 1, 4, totalRow - headerRow, 1).setHorizontalAlignment('center');
-  sheet.getRange(headerRow + 1, 3, totalRow - headerRow, 7).setHorizontalAlignment('right');
-  sheet.getRange(headerRow + 1, 3, totalRow - headerRow, 6).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(headerRow + 1, 9, totalRow - headerRow, 1).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(headerRow + 1, 10, totalRow - headerRow, 1).setNumberFormat('0.00%');
+  sheet.getRange(headerRow + 1, 1, tableBodyHeight, 1).setHorizontalAlignment('center');
+  sheet.getRange(headerRow + 1, 3, tableBodyHeight, 1).setNumberFormat('"Rp" #,##0').setHorizontalAlignment('right');
+  sheet.getRange(headerRow + 1, 4, tableBodyHeight, 1).setNumberFormat('#,##0').setHorizontalAlignment('center');
+  sheet.getRange(headerRow + 1, 5, tableBodyHeight, 5).setNumberFormat('"Rp" #,##0').setHorizontalAlignment('right');
+  sheet.getRange(headerRow + 1, 10, tableBodyHeight, 1).setNumberFormat('0.00%').setHorizontalAlignment('right');
 
   formatSectionTitles(sheet, startRow, rowCount);
   formatSummaryCurrency(sheet, startRow, rowCount);
 
   sheet.autoResizeColumns(1, PRODUCT_HEADERS.length);
+}
+
+function updateMonthlySummary(sheet, payload) {
+  const monthInfo = getMonthInfo(payload);
+
+  if (!monthInfo) {
+    return;
+  }
+
+  const summary = payload.summary || {};
+  const row = [
+    monthInfo.label,
+    toNumber(summary.grossSales),
+    toNumber(summary.totalDiscount),
+    toNumber(summary.netSales),
+    toNumber(summary.totalHpp),
+    toNumber(summary.grossProfit),
+    toPercent(summary.grossMargin),
+    toNumber(summary.totalExpenses),
+    toNumber(summary.netProfit),
+    toPercent(summary.netMargin),
+    toNumber(summary.cashSales),
+    toNumber(summary.qrisSales),
+    toNumber(summary.debitSales),
+    toNumber(summary.totalTransactions),
+    toNumber(summary.averageTransactionValue),
+    formatDateTime(payload.metadata?.generatedAt || new Date()),
+  ];
+
+  upsertRowByFirstColumn(sheet, monthInfo.label, row, MONTHLY_HEADERS.length);
+  formatMonthlySheet(sheet);
+}
+
+function updateProductMonthlySummary(sheet, payload) {
+  const monthInfo = getMonthInfo(payload);
+
+  if (!monthInfo) {
+    return;
+  }
+
+  (payload.menuSales || []).forEach((item) => {
+    const row = [
+      monthInfo.label,
+      item.name || '',
+      item.category || '',
+      toNumber(item.quantity),
+      toNumber(item.grossSales),
+      toNumber(item.discountAmount),
+      toNumber(item.netSales),
+      toNumber(item.hpp),
+      toNumber(item.estimatedProfit),
+      toPercent(item.margin),
+    ];
+
+    upsertProductMonthlyRow(sheet, monthInfo.label, item.name || '', row);
+  });
+
+  formatProductMonthlySheet(sheet);
+}
+
+function updateAllTimeSummary(sheet, payload) {
+  const metadata = payload.metadata || {};
+
+  if (metadata.reportModeSlug !== 'semua-waktu') {
+    return;
+  }
+
+  const summary = payload.summary || {};
+  const rows = [
+    ['Penjualan Kotor', toNumber(summary.grossSales)],
+    ['Total Diskon', toNumber(summary.totalDiscount)],
+    ['Penjualan Bersih', toNumber(summary.netSales)],
+    ['Total HPP', toNumber(summary.totalHpp)],
+    ['Laba Kotor', toNumber(summary.grossProfit)],
+    ['Gross Margin', toPercent(summary.grossMargin)],
+    ['Total Pengeluaran', toNumber(summary.totalExpenses)],
+    ['Laba Bersih', toNumber(summary.netProfit)],
+    ['Net Margin', toPercent(summary.netMargin)],
+    ['Cash Sales', toNumber(summary.cashSales)],
+    ['QRIS Sales', toNumber(summary.qrisSales)],
+    ['Debit Sales', toNumber(summary.debitSales)],
+    ['Total Transaksi', toNumber(summary.totalTransactions)],
+    ['Average Transaction Value', toNumber(summary.averageTransactionValue)],
+    ['Last Sync', formatDateTime(metadata.generatedAt || new Date())],
+  ];
+
+  clearDataRows(sheet, ALL_TIME_HEADERS.length);
+  sheet.getRange(3, 1, rows.length, ALL_TIME_HEADERS.length).setValues(rows);
+  formatAllTimeSheet(sheet, rows);
+}
+
+function upsertRowByFirstColumn(sheet, key, row, columnCount) {
+  const rowNumber = findRowByFirstColumn(sheet, key);
+
+  if (rowNumber) {
+    sheet.getRange(rowNumber, 1, 1, columnCount).setValues([row]);
+    return;
+  }
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, columnCount).setValues([row]);
+}
+
+function upsertProductMonthlyRow(sheet, monthLabel, productName, row) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow >= 3) {
+    const values = sheet.getRange(3, 1, lastRow - 2, 2).getValues();
+
+    for (let index = 0; index < values.length; index += 1) {
+      if (values[index][0] === monthLabel && values[index][1] === productName) {
+        sheet.getRange(index + 3, 1, 1, PRODUCT_MONTHLY_HEADERS.length).setValues([row]);
+        return;
+      }
+    }
+  }
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, PRODUCT_MONTHLY_HEADERS.length).setValues([row]);
+}
+
+function findRowByFirstColumn(sheet, key) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 3) {
+    return null;
+  }
+
+  const values = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
+
+  for (let index = 0; index < values.length; index += 1) {
+    if (values[index][0] === key) {
+      return index + 3;
+    }
+  }
+
+  return null;
+}
+
+function formatMonthlySheet(sheet) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 3) {
+    return;
+  }
+
+  sheet.getRange(2, 1, lastRow - 1, MONTHLY_HEADERS.length)
+    .setBorder(true, true, true, true, true, true);
+  sheet.getRange(3, 2, lastRow - 2, 5).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(3, 7, lastRow - 2, 1).setNumberFormat('0.00%');
+  sheet.getRange(3, 8, lastRow - 2, 2).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(3, 10, lastRow - 2, 1).setNumberFormat('0.00%');
+  sheet.getRange(3, 11, lastRow - 2, 3).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(3, 14, lastRow - 2, 1).setNumberFormat('#,##0');
+  sheet.getRange(3, 15, lastRow - 2, 1).setNumberFormat('"Rp" #,##0');
+  sheet.autoResizeColumns(1, MONTHLY_HEADERS.length);
+}
+
+function formatProductMonthlySheet(sheet) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 3) {
+    return;
+  }
+
+  sheet.getRange(2, 1, lastRow - 1, PRODUCT_MONTHLY_HEADERS.length)
+    .setBorder(true, true, true, true, true, true);
+  sheet.getRange(3, 4, lastRow - 2, 1).setNumberFormat('#,##0').setHorizontalAlignment('center');
+  sheet.getRange(3, 5, lastRow - 2, 5).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(3, 10, lastRow - 2, 1).setNumberFormat('0.00%');
+  sheet.autoResizeColumns(1, PRODUCT_MONTHLY_HEADERS.length);
+}
+
+function formatAllTimeSheet(sheet, rows) {
+  sheet.getRange(2, 1, rows.length + 1, ALL_TIME_HEADERS.length)
+    .setBorder(true, true, true, true, true, true);
+  rows.forEach((row, index) => {
+    const metric = row[0];
+    const valueCell = sheet.getRange(index + 3, 2);
+
+    if (metric.includes('Margin')) {
+      valueCell.setNumberFormat('0.00%');
+      return;
+    }
+
+    if (metric.includes('Transaksi')) {
+      valueCell.setNumberFormat('#,##0');
+      return;
+    }
+
+    if (metric !== 'Last Sync') {
+      valueCell.setNumberFormat('"Rp" #,##0');
+    }
+  });
+  sheet.getRange(rows.length + 2, 1, 1, ALL_TIME_HEADERS.length).setBackground(PINK_TOTAL).setFontWeight('bold');
+  sheet.autoResizeColumns(1, ALL_TIME_HEADERS.length);
+}
+
+function clearDataRows(sheet, columnCount) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow >= 3) {
+    sheet.getRange(3, 1, lastRow - 2, columnCount).clearContent().clearFormat();
+  }
 }
 
 function formatSectionTitles(sheet, startRow, rowCount) {
@@ -339,6 +602,56 @@ function padRow(values) {
   }
 
   return row;
+}
+
+function getMonthInfo(payload) {
+  const metadata = payload.metadata || {};
+  const summary = payload.summary || {};
+  const monthKey = metadata.monthKey || summary.monthKey || getMonthKeyFromPeriod(metadata.periodValue || summary.periodValue);
+
+  if (!monthKey) {
+    return null;
+  }
+
+  return {
+    key: monthKey,
+    label: metadata.monthLabel || summary.monthLabel || formatMonthLabel(monthKey),
+  };
+}
+
+function getMonthKeyFromPeriod(periodValue) {
+  if (!periodValue || periodValue === 'semua-waktu') {
+    return null;
+  }
+
+  return String(periodValue).slice(0, 7);
+}
+
+function formatMonthLabel(monthKey) {
+  const parts = String(monthKey).split('-');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+
+  if (!year || !month) {
+    return String(monthKey);
+  }
+
+  const monthNames = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  return `${monthNames[month - 1] || month} ${year}`;
 }
 
 function buildFallbackReportKey(metadata) {
@@ -400,7 +713,7 @@ https://script.google.com/macros/s/.../exec
 5. Click `Simpan URL`.
 6. Click `Sync Google Sheet`.
 
-## 5. How Sync Updates Report Blocks
+## 5. How Sync Updates the Sheets
 
 Santara POS sends an internal `Report Key`, but the key is hidden in the main
 report sheet. The visible report uses a readable label such as:
@@ -409,12 +722,16 @@ report sheet. The visible report uses a readable label such as:
 * `Periode: Juni 2026`
 * `Periode: Semua Waktu`
 
-The Apps Script uses hidden start/end marker rows to find the old block for the
-same period. When you sync the same report again, it deletes the old block and
-writes the updated one.
+The script updates these sheets:
 
-The technical `Report Key` is still visible in `Sync Logs` so you can debug sync
-history if needed.
+* `Laporan Penjualan`: replaces the old block for the same date or period.
+* `Rekap Bulanan`: updates the matching month row, not a duplicate row.
+* `Rekap Produk Bulanan`: updates rows by month and product name.
+* `Rekap Keseluruhan`: updates when you sync `Semua Waktu`.
+* `Sync Logs`: appends every sync attempt for troubleshooting.
+
+For the most accurate monthly totals, select `Bulan Ini` in Santara POS and sync.
+For all-time totals, select `Semua Waktu` and sync.
 
 ## 6. Test Safely
 
@@ -423,12 +740,15 @@ Use `Hari Ini` first with a small test report.
 Check:
 
 * `Laporan Penjualan` has a readable report block.
+* `Jumlah Terjual` is a plain number, not Rupiah.
 * The product table has blue headers and a pink total row.
 * Payment, discount, expenses, and closing summaries appear below the product table.
+* `Rekap Bulanan` has one row for the month.
+* `Rekap Produk Bulanan` has product rows for the month.
 * `Sync Logs` records the sync attempt.
 
-Then click `Sync Google Sheet` again for the same period. The old block should
-be replaced, not duplicated.
+Then click `Sync Google Sheet` again for the same period. The old report block
+and matching summary rows should update, not duplicate.
 
 If sync fails, Santara POS still keeps data locally. Check that the Apps Script
 deployment is active and that the URL ends with `/exec`.
