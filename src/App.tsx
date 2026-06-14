@@ -1,11 +1,22 @@
+import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ConfirmOrderModal, SaveOrderModal } from './components/HoldOrderModals';
+import { LoginScreen } from './components/LoginScreen';
 import { MenuAdmin } from './components/MenuAdmin';
 import { ReceiptHistory } from './components/ReceiptHistory';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { Reports } from './components/Reports';
 import { menuCategories as initialMenuCategories } from './data/menu';
+import {
+  fetchUserProfile,
+  getCurrentSession,
+  onSupabaseAuthChange,
+  signInToSupabase,
+  signOutFromSupabase,
+  type UserProfile,
+  type UserRole,
+} from './services/supabaseAuth';
 import {
   canUseSupabase,
   pullCloudAppState,
@@ -47,13 +58,27 @@ const CASHIER_NAME = 'Santara Cashier';
 const defaultMenuItems = initialMenuCategories.flatMap((category) => category.items);
 
 type AppTab = 'cashier' | 'menu' | 'receipts' | 'reports';
+type AuthStatus = 'loading' | 'local' | 'authenticated' | 'unauthenticated';
 
 type PendingOrderAction = {
   type: 'resume' | 'delete';
   order: PendingOrder;
 };
 
-type SyncStatus = 'local' | 'synced' | 'syncing' | 'pending' | 'error';
+type SyncStatus =
+  | 'local'
+  | 'synced'
+  | 'syncing'
+  | 'pending'
+  | 'error'
+  | 'login-required';
+
+const appTabs: Array<{ id: AppTab; label: string }> = [
+  { id: 'cashier', label: 'Kasir' },
+  { id: 'menu', label: 'Kelola Menu' },
+  { id: 'receipts', label: 'Riwayat Struk' },
+  { id: 'reports', label: 'Laporan' },
+];
 
 function createReceiptNumber(date: Date, sequence: number) {
   return `SAN-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
@@ -81,11 +106,23 @@ function App() {
   const [syncQueue, setSyncQueue] = useState<SyncOperation[]>(loadSyncQueue);
   const [syncMeta, setSyncMeta] = useState<SyncMeta>(loadSyncMeta);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
-    canUseSupabase() ? 'synced' : 'local',
+    canUseSupabase() ? 'login-required' : 'local',
   );
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(
+    canUseSupabase() ? 'loading' : 'local',
+  );
+  const [authProfile, setAuthProfile] = useState<UserProfile | null>(null);
+  const [authError, setAuthError] = useState('');
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const isSyncingRef = useRef(false);
 
   const latestTransaction = completedTransactions[completedTransactions.length - 1];
+  const effectiveRole: UserRole =
+    authStatus === 'local' ? 'owner' : authProfile?.role ?? 'cashier';
+  const visibleTabs = useMemo(
+    () => appTabs.filter((tab) => canAccessTab(tab.id, effectiveRole)),
+    [effectiveRole],
+  );
   const categoryNames = useMemo(() => getCategoryNames(menuItems), [menuItems]);
   const activeCategoryNameSafe =
     categoryNames.includes(activeCategoryName) ? activeCategoryName : categoryNames[0];
@@ -127,6 +164,78 @@ function App() {
     syncMetaRef.current = syncMeta;
   }, [syncMeta]);
 
+  const applyAuthSession = useCallback(async (session: Session | null) => {
+    if (!canUseSupabase()) {
+      setAuthStatus('local');
+      setAuthProfile(null);
+      setSyncStatus('local');
+      return;
+    }
+
+    if (!session?.user) {
+      setAuthStatus('unauthenticated');
+      setAuthProfile(null);
+      setSyncStatus('login-required');
+      return;
+    }
+
+    const profile = await fetchUserProfile(session.user);
+
+    setAuthProfile(profile);
+    setAuthStatus('authenticated');
+    setAuthError('');
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!canUseSupabase()) {
+      setAuthStatus('local');
+      setSyncStatus('local');
+      return () => undefined;
+    }
+
+    const loadSession = async () => {
+      try {
+        const session = await getCurrentSession();
+
+        if (isActive) {
+          await applyAuthSession(session);
+        }
+      } catch (error) {
+        if (isActive) {
+          setAuthStatus('unauthenticated');
+          setAuthProfile(null);
+          setSyncStatus('login-required');
+          setAuthError(
+            error instanceof Error
+              ? error.message
+              : 'Sesi login tidak bisa dibaca.',
+          );
+        }
+      }
+    };
+
+    void loadSession();
+
+    const unsubscribe = onSupabaseAuthChange((session) => {
+      if (isActive) {
+        void applyAuthSession(session);
+      }
+    });
+
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, [applyAuthSession]);
+
+  useEffect(() => {
+    if (!canAccessTab(activeTab, effectiveRole)) {
+      setActiveTab('cashier');
+    }
+  }, [activeTab, effectiveRole]);
+
   const replaceSyncQueue = useCallback((nextQueue: SyncOperation[]) => {
     syncQueueRef.current = nextQueue;
     saveSyncQueue(nextQueue);
@@ -162,15 +271,26 @@ function App() {
 
         return nextQueue;
       });
-      setSyncStatus(canUseSupabase() ? 'pending' : 'local');
+      setSyncStatus(
+        canUseSupabase()
+          ? authStatus === 'authenticated'
+            ? 'pending'
+            : 'login-required'
+          : 'local',
+      );
     },
-    [],
+    [authStatus],
   );
 
   const processSyncQueue = useCallback(
     async ({ pullAfterSuccess = true } = {}) => {
       if (!canUseSupabase()) {
         setSyncStatus('local');
+        return;
+      }
+
+      if (authStatus !== 'authenticated') {
+        setSyncStatus('login-required');
         return;
       }
 
@@ -219,12 +339,16 @@ function App() {
         isSyncingRef.current = false;
       }
     },
-    [applyCloudAppData, replaceSyncQueue, updateSyncMeta],
+    [applyCloudAppData, authStatus, replaceSyncQueue, updateSyncMeta],
   );
 
   useEffect(() => {
+    if (authStatus === 'loading') {
+      return;
+    }
+
     void processSyncQueue({ pullAfterSuccess: true });
-  }, [processSyncQueue]);
+  }, [authStatus, processSyncQueue]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -237,7 +361,12 @@ function App() {
   }, [processSyncQueue]);
 
   useEffect(() => {
-    if (syncQueue.length === 0 || !canUseSupabase() || isSyncingRef.current) {
+    if (
+      syncQueue.length === 0 ||
+      !canUseSupabase() ||
+      authStatus !== 'authenticated' ||
+      isSyncingRef.current
+    ) {
       return;
     }
 
@@ -246,7 +375,37 @@ function App() {
     }, 500);
 
     return () => window.clearTimeout(syncTimer);
-  }, [processSyncQueue, syncQueue]);
+  }, [authStatus, processSyncQueue, syncQueue]);
+
+  const loginToSupabase = async (email: string, password: string) => {
+    setAuthError('');
+    setIsAuthSubmitting(true);
+
+    try {
+      await signInToSupabase(email, password);
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'Email atau password salah.',
+      );
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  const logoutFromSupabase = async () => {
+    setAuthError('');
+
+    try {
+      await signOutFromSupabase();
+      setAuthProfile(null);
+      setAuthStatus('unauthenticated');
+      setSyncStatus('login-required');
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'Gagal keluar dari akun.',
+      );
+    }
+  };
 
   const addMenuItem = (item: Omit<MenuItem, 'id'>) => {
     const id = `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
@@ -433,6 +592,20 @@ function App() {
     importAppData(defaultState);
   };
 
+  if (authStatus === 'loading' && canUseSupabase()) {
+    return <LoadingScreen />;
+  }
+
+  if (authStatus === 'unauthenticated' && canUseSupabase()) {
+    return (
+      <LoginScreen
+        errorMessage={authError}
+        isLoading={isAuthSubmitting}
+        onSubmit={loginToSupabase}
+      />
+    );
+  }
+
   return (
     <main className="min-h-screen bg-santara-cream text-santara-roast lg:h-screen lg:overflow-hidden">
       <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-3 py-3 sm:px-4 lg:h-screen lg:min-h-0 lg:px-5">
@@ -457,6 +630,13 @@ function App() {
                 pendingCount={syncQueue.length}
                 status={syncStatus}
               />
+              <AuthSummary
+                authProfile={authProfile}
+                authStatus={authStatus}
+                effectiveRole={effectiveRole}
+                onLogout={logoutFromSupabase}
+                roleMissing={Boolean(authProfile?.isMissing)}
+              />
             </div>
           </div>
 
@@ -472,27 +652,15 @@ function App() {
           </div>
         </header>
 
-        <nav className="grid shrink-0 grid-cols-2 gap-2 border-b border-santara-latte/70 py-3 sm:grid-cols-4">
-          <TabButton
-            isActive={activeTab === 'cashier'}
-            label="Kasir"
-            onClick={() => setActiveTab('cashier')}
-          />
-          <TabButton
-            isActive={activeTab === 'menu'}
-            label="Kelola Menu"
-            onClick={() => setActiveTab('menu')}
-          />
-          <TabButton
-            isActive={activeTab === 'receipts'}
-            label="Riwayat Struk"
-            onClick={() => setActiveTab('receipts')}
-          />
-          <TabButton
-            isActive={activeTab === 'reports'}
-            label="Laporan"
-            onClick={() => setActiveTab('reports')}
-          />
+        <nav className="grid shrink-0 grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 border-b border-santara-latte/70 py-3">
+          {visibleTabs.map((tab) => (
+            <TabButton
+              isActive={activeTab === tab.id}
+              key={tab.id}
+              label={tab.label}
+              onClick={() => setActiveTab(tab.id)}
+            />
+          ))}
         </nav>
 
         {activeTab === 'cashier' && (
@@ -521,7 +689,7 @@ function App() {
           />
         )}
 
-        {activeTab === 'menu' && (
+        {activeTab === 'menu' && canAccessTab('menu', effectiveRole) && (
           <MenuAdmin
             appData={appData}
             categories={categoryNames}
@@ -539,7 +707,7 @@ function App() {
           <ReceiptHistory transactions={completedTransactions} />
         )}
 
-        {activeTab === 'reports' && (
+        {activeTab === 'reports' && canAccessTab('reports', effectiveRole) && (
           <Reports transactions={completedTransactions} />
         )}
       </div>
@@ -574,6 +742,66 @@ function App() {
         />
       )}
     </main>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-santara-cream px-4 text-santara-roast">
+      <section className="w-full max-w-sm rounded-xl bg-santara-foam p-5 text-center shadow-soft ring-1 ring-santara-latte">
+        <div className="mx-auto grid size-12 place-items-center rounded-full bg-santara-bean text-base font-black text-white shadow-soft">
+          SC
+        </div>
+        <h1 className="mt-3 text-xl font-black">Memeriksa sesi login...</h1>
+        <p className="mt-2 text-sm font-medium text-santara-roast/65">
+          Santara POS sedang menyiapkan akses cloud.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+type AuthSummaryProps = {
+  authProfile: UserProfile | null;
+  authStatus: AuthStatus;
+  effectiveRole: UserRole;
+  onLogout: () => void;
+  roleMissing: boolean;
+};
+
+function AuthSummary({
+  authProfile,
+  authStatus,
+  effectiveRole,
+  onLogout,
+  roleMissing,
+}: AuthSummaryProps) {
+  if (authStatus === 'local') {
+    return (
+      <p className="mt-1 text-[11px] font-bold text-santara-roast/55">
+        Mode lokal/demo: Supabase belum dikonfigurasi.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-black">
+      <span className="rounded-full bg-white px-2 py-1 text-santara-roast ring-1 ring-santara-latte">
+        {authProfile?.fullName ?? 'Santara User'} - {getRoleLabel(effectiveRole)}
+      </span>
+      {roleMissing && (
+        <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700 ring-1 ring-amber-200">
+          Role belum dikonfigurasi
+        </span>
+      )}
+      <button
+        className="rounded-full bg-white px-2.5 py-1 text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
+        onClick={onLogout}
+        type="button"
+      >
+        Keluar
+      </button>
+    </div>
   );
 }
 
@@ -1017,6 +1245,24 @@ function getActiveTabLabel(tab: AppTab) {
   return labels[tab];
 }
 
+function canAccessTab(tab: AppTab, role: UserRole) {
+  if (role === 'owner' || role === 'admin') {
+    return true;
+  }
+
+  return tab === 'cashier' || tab === 'receipts';
+}
+
+function getRoleLabel(role: UserRole) {
+  const labels: Record<UserRole, string> = {
+    owner: 'Owner',
+    admin: 'Admin',
+    cashier: 'Cashier',
+  };
+
+  return labels[role];
+}
+
 function getSyncStatusLabel(status: SyncStatus) {
   const labels: Record<SyncStatus, string> = {
     local: 'Lokal',
@@ -1024,6 +1270,7 @@ function getSyncStatusLabel(status: SyncStatus) {
     syncing: 'Menyinkronkan',
     pending: 'Menunggu',
     error: 'Error',
+    'login-required': 'Login diperlukan',
   };
 
   return labels[status];
@@ -1036,6 +1283,7 @@ function getSyncStatusDotClass(status: SyncStatus) {
     syncing: 'bg-santara-clay',
     pending: 'bg-amber-500',
     error: 'bg-red-500',
+    'login-required': 'bg-amber-500',
   };
 
   return classes[status];

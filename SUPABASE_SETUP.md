@@ -1,7 +1,7 @@
 # Supabase Setup - Santara POS
 
-This project is still localStorage-first after Phase 5A. Supabase files are
-prepared so the next phase can add a data service and sync safely.
+Santara POS is still localStorage-first, but it can now sync to Supabase when
+Supabase Auth is configured and a staff user is logged in.
 
 ## 1. Create a Supabase Project
 
@@ -41,39 +41,73 @@ In Vercel:
    - `VITE_SUPABASE_ANON_KEY`
 5. Redeploy after adding the variables.
 
-## 5. Run the Migration SQL
+## 5. Run Database Migrations
 
-1. Open Supabase SQL Editor.
-2. Open this repository file:
-   `supabase/migrations/20260614000100_santara_pos_schema.sql`
-3. Copy the SQL.
-4. Paste it into Supabase SQL Editor.
-5. Run it.
+Open Supabase SQL Editor and run these files in order:
 
-The migration creates tables for menu data, transactions, transaction item
-snapshots, pending orders, profiles, and app settings.
+1. `supabase/migrations/20260614000100_santara_pos_schema.sql`
+2. `supabase/migrations/20260614000200_santara_pos_phase5b_sync_policies.sql`
+3. `supabase/migrations/20260614000300_santara_pos_auth_policies.sql`
 
-## 6. Run the Phase 5B Temporary Sync Policies
+The Phase 5C migration removes the temporary anon sync policies and replaces
+them with authenticated owner/admin/cashier policies.
 
-Phase 5B adds autosync before login/auth exists. To let the deployed app sync
-with the anon key, also run:
+## 6. Create a Supabase Auth User
 
-`supabase/migrations/20260614000200_santara_pos_phase5b_sync_policies.sql`
+1. In Supabase, open Authentication.
+2. Go to Users.
+3. Click Add user.
+4. Enter the owner email and password.
+5. Save the user.
 
-These policies are intentionally temporary. They should be replaced with tighter
-owner/admin/cashier policies when auth is implemented.
+## 7. Create the First Owner Profile
 
-## 7. Current Phase 5B Behavior
+After creating the Auth user, run this in Supabase SQL Editor. Replace the email
+with the owner email you created:
 
-- The app still works without Supabase environment variables.
-- If Supabase variables are missing or Supabase is unavailable, the app continues in localStorage mode.
-- Important changes are queued locally and retried automatically.
-- A compact sync indicator appears in the header.
-- No login/auth UI exists yet.
-- Supabase sync is best-effort and localStorage remains the first safety layer.
-- Existing cashier, reports, receipt, backup, and local persistence behavior is unchanged.
+```sql
+insert into public.profiles (id, email, full_name, role)
+select id, email, 'Owner Santara', 'owner'
+from auth.users
+where email = 'owner@santara.coffee'
+on conflict (id) do update
+set email = excluded.email,
+    full_name = excluded.full_name,
+    role = excluded.role,
+    updated_at = now();
+```
 
-## 8. Next Phase
+Roles supported now:
 
-The next Supabase phase should add proper auth and role-based RLS policies, then
-remove the temporary anon sync policies.
+- `owner`: full access
+- `admin`: full access
+- `cashier`: cashier and receipt history only
+
+If a logged-in user has no profile row yet, the app safely treats them as
+`cashier` and shows a role setup note.
+
+## 8. Current Phase 5C Behavior
+
+- If Supabase env variables are missing, the app stays in local/demo mode.
+- If Supabase is configured, users must login before cloud sync.
+- localStorage remains the first safety layer.
+- The compact sync status shows `Login diperlukan` when cloud sync is waiting
+  for login.
+- The small `Sync Sekarang` button retries pending sync after login.
+- Owner/admin can access Kasir, Kelola Menu, Riwayat Struk, Laporan, and Data
+  Lokal backup controls.
+- Cashier can access Kasir and Riwayat Struk only.
+
+## 9. What Is Still Not Implemented
+
+- No complex user management UI exists yet.
+- No Google Sheets sync exists yet.
+- No legacy import exists yet.
+- No expenses or shift closing exists yet.
+- No realtime subscriptions exist yet.
+
+## 10. Next Phase
+
+The next Supabase phase should be Phase 5D: test deployed Supabase auth/sync,
+polish any real-world setup issues, and only then consider broader cloud data
+management.

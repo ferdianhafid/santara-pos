@@ -41,7 +41,7 @@ The app currently has:
 ## Important Current Limitation
 
 * Data is still localStorage-first and browser-local, so it is not ready as a multi-device production database.
-* Supabase schema preparation exists, but the app does not sync operational data to Supabase yet.
+* Supabase autosync exists, but localStorage remains the first safety layer while cloud setup is tested.
 * There is no Google Sheets sync yet.
 * There is no legacy import yet.
 
@@ -59,9 +59,8 @@ What exists:
 What is still not implemented:
 
 * The app has not replaced localStorage persistence yet.
-* No Supabase data service or sync flow exists yet.
-* No login/auth UI exists yet.
-* No production role-based RLS policy has been finalized yet.
+* Phase 5B added autosync after this planning phase.
+* Phase 5C added login/auth and safer role policies after this planning phase.
 * No Google Sheets sync, legacy import, expenses, shift closing, or Excel export exists yet.
 
 ## Phase 5B Supabase Autosync
@@ -77,32 +76,41 @@ What exists:
 
 What is still not implemented:
 
-* No login/auth UI exists yet.
-* No final owner/admin/cashier role policies exist yet.
+* Phase 5C added login/auth UI after this autosync phase.
+* Phase 5C replaced the temporary anon policies with authenticated role policies.
 * No complex conflict resolution exists yet.
 * No Google Sheets sync, legacy import, expenses, shift closing, realtime subscriptions, or Excel export exists yet.
 
-Next phase should be:
+## Phase 5C Supabase Auth and Role Policies
 
-Phase 5C - Supabase Auth and Safer Role Policies
+What exists:
 
-Goal:
+* A Supabase login screen appears when Supabase environment variables are configured.
+* If Supabase is not configured, the app continues safely in local/demo mode.
+* The compact sync status shows `Login diperlukan` until a staff user logs in.
+* Logged-in sync uses Supabase Auth instead of anon table writes.
+* Owner/admin can access Kasir, Kelola Menu, Riwayat Struk, Laporan, and Data Lokal.
+* Cashier can access Kasir and Riwayat Struk only.
+* `supabase/migrations/20260614000300_santara_pos_auth_policies.sql` removes Phase 5B anon policies and adds authenticated role policies.
+* `SUPABASE_SETUP.md` documents how to create a Supabase Auth user and owner profile.
 
-* Add login/auth.
-* Replace temporary anon sync policies with role-based owner/admin/cashier policies.
-* Keep localStorage fallback and backup safety.
+What is still not implemented:
+
+* No complex user management UI exists yet.
+* No Google Sheets sync, legacy import, expenses, shift closing, realtime subscriptions, or Excel export exists yet.
 
 ## Next Recommended Phase
 
 The next phase should be:
 
-Phase 5C - Supabase Auth and Safer Role Policies
+Phase 5D - Supabase Auth/Sync Deployment Testing
 
 Goal:
 
-* Add login/auth.
-* Replace temporary anon sync policies with role-based owner/admin/cashier policies.
-* Keep localStorage fallback safe while Supabase is introduced.
+* Test the deployed Vercel app against the real Supabase project.
+* Confirm owner/admin/cashier access in production.
+* Confirm autosync after checkout, menu edit, and pending order changes.
+* Fix only setup or integration issues found during real testing.
 
 ## Future Roadmap
 
