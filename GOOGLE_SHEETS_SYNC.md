@@ -59,6 +59,9 @@ They do not calculate totals from formatted visible cells such as `Rp 80.000`.
 The internal sheets store money and counts as raw numbers. Margins and average
 transaction value are recalculated during recap rebuilds.
 
+Visible month labels are always rebuilt from a stable `YYYY-MM` month key and
+shown with Indonesian month names such as `Juni 2026`.
+
 If you have tested older script versions and the recap sheets already look
 broken, run the optional `resetSantaraReportData()` function once from Apps
 Script after replacing the script. It clears internal/recap/log sheets but does
@@ -330,7 +333,7 @@ function normalizePayload(payload) {
   const reportKey = firstValue(metadata.reportKey, summary.reportKey, buildFallbackReportKey(metadata));
   const reportMode = firstValue(metadata.reportMode, 'Unknown');
   const monthKey = deriveMonthKey(metadata, summary, reportKey, generatedAt);
-  const monthLabel = monthKey ? formatMonthLabel(monthKey) : '';
+  const monthLabel = getMonthLabel(monthKey);
   const periodLabel = firstValue(
     metadata.periodLabel,
     summary.periodLabel,
@@ -717,25 +720,29 @@ function getRawSummaryRows(sheet) {
     return [];
   }
 
-  return sheet.getRange(2, 1, lastRow - 1, RAW_SUMMARY_HEADERS.length).getValues().map((row) => ({
-    reportKey: String(row[0] || ''),
-    monthKey: String(row[1] || ''),
-    monthLabel: String(row[2] || ''),
-    periodLabel: String(row[3] || ''),
-    generatedAt: row[4],
-    grossSales: num(row[5]),
-    totalDiscount: num(row[6]),
-    netSales: num(row[7]),
-    totalHpp: num(row[8]),
-    grossProfit: num(row[9]),
-    totalExpenses: num(row[10]),
-    netProfit: num(row[11]),
-    cashSales: num(row[12]),
-    qrisSales: num(row[13]),
-    debitSales: num(row[14]),
-    totalTransactions: num(row[15]),
-    sourceTransactionCount: num(row[16]),
-  }));
+  return sheet.getRange(2, 1, lastRow - 1, RAW_SUMMARY_HEADERS.length).getValues().map((row) => {
+    const monthKey = getMonthKey(firstValue(row[1], row[2], row[0]));
+
+    return {
+      reportKey: String(row[0] || ''),
+      monthKey,
+      monthLabel: getMonthLabel(monthKey),
+      periodLabel: String(row[3] || ''),
+      generatedAt: row[4],
+      grossSales: num(row[5]),
+      totalDiscount: num(row[6]),
+      netSales: num(row[7]),
+      totalHpp: num(row[8]),
+      grossProfit: num(row[9]),
+      totalExpenses: num(row[10]),
+      netProfit: num(row[11]),
+      cashSales: num(row[12]),
+      qrisSales: num(row[13]),
+      debitSales: num(row[14]),
+      totalTransactions: num(row[15]),
+      sourceTransactionCount: num(row[16]),
+    };
+  });
 }
 
 function getRawProductRows(sheet) {
@@ -745,27 +752,31 @@ function getRawProductRows(sheet) {
     return [];
   }
 
-  return sheet.getRange(2, 1, lastRow - 1, RAW_PRODUCT_HEADERS.length).getValues().map((row) => ({
-    reportKey: String(row[0] || ''),
-    monthKey: String(row[1] || ''),
-    monthLabel: String(row[2] || ''),
-    periodLabel: String(row[3] || ''),
-    productName: String(row[4] || ''),
-    category: String(row[5] || ''),
-    quantity: num(row[6]),
-    grossSales: num(row[7]),
-    discount: num(row[8]),
-    netSales: num(row[9]),
-    hpp: num(row[10]),
-    profit: num(row[11]),
-  }));
+  return sheet.getRange(2, 1, lastRow - 1, RAW_PRODUCT_HEADERS.length).getValues().map((row) => {
+    const monthKey = getMonthKey(firstValue(row[1], row[2], row[0]));
+
+    return {
+      reportKey: String(row[0] || ''),
+      monthKey,
+      monthLabel: getMonthLabel(monthKey),
+      periodLabel: String(row[3] || ''),
+      productName: String(row[4] || ''),
+      category: String(row[5] || ''),
+      quantity: num(row[6]),
+      grossSales: num(row[7]),
+      discount: num(row[8]),
+      netSales: num(row[9]),
+      hpp: num(row[10]),
+      profit: num(row[11]),
+    };
+  });
 }
 
 function createMonthRollup(row) {
   return {
     ...createEmptySummary(),
     monthKey: row.monthKey,
-    monthLabel: row.monthLabel || formatMonthLabel(row.monthKey),
+    monthLabel: getMonthLabel(row.monthKey),
     generatedAt: row.generatedAt,
   };
 }
@@ -773,7 +784,7 @@ function createMonthRollup(row) {
 function createProductRollup(row) {
   return {
     monthKey: row.monthKey,
-    monthLabel: row.monthLabel || formatMonthLabel(row.monthKey),
+    monthLabel: getMonthLabel(row.monthKey),
     productName: row.productName,
     category: row.category,
     quantity: 0,
@@ -1074,6 +1085,16 @@ function deriveMonthKey(metadata, summary, reportKey, generatedAt) {
   ));
 }
 
+function getMonthKey(value) {
+  return normalizeMonthKey(value);
+}
+
+function getMonthLabel(value) {
+  const monthKey = getMonthKey(value);
+
+  return monthKey ? formatMonthLabel(monthKey) : '';
+}
+
 function normalizeMonthKey(value) {
   if (!hasValue(value)) {
     return '';
@@ -1099,13 +1120,14 @@ function normalizeMonthKey(value) {
   return '';
 }
 
-function formatMonthLabel(monthKey) {
-  const parts = String(monthKey).split('-');
+function formatMonthLabel(value) {
+  const monthKey = normalizeMonthKey(value);
+  const parts = String(monthKey || value).split('-');
   const year = Number(parts[0]);
   const month = Number(parts[1]);
 
   if (!year || !month) {
-    return String(monthKey);
+    return String(value || '');
   }
 
   const monthNames = [
