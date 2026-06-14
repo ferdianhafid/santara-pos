@@ -1,0 +1,322 @@
+import { useMemo, useState, type ReactNode } from 'react';
+import type { CompletedTransaction } from '../types';
+import { formatRupiah } from '../utils/format';
+import {
+  buildSalesReport,
+  getTodayInputValue,
+  type MenuSalesSummary,
+  type ReportMode,
+} from '../utils/reports';
+
+type ReportsProps = {
+  transactions: CompletedTransaction[];
+};
+
+const reportModes: { label: string; value: ReportMode }[] = [
+  { label: 'Hari Ini', value: 'today' },
+  { label: 'Pilih Tanggal', value: 'date' },
+  { label: 'Bulan Ini', value: 'month' },
+  { label: 'Semua Waktu', value: 'all' },
+];
+
+export function Reports({ transactions }: ReportsProps) {
+  const [reportMode, setReportMode] = useState<ReportMode>('today');
+  const [selectedDate, setSelectedDate] = useState(getTodayInputValue);
+  const report = useMemo(
+    () => buildSalesReport(transactions, reportMode, selectedDate),
+    [reportMode, selectedDate, transactions],
+  );
+  const hasTransactions = report.totalTransactions > 0;
+
+  return (
+    <section className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/70 pb-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+            Laporan
+          </p>
+          <h2 className="text-2xl font-black text-santara-roast">
+            Laporan Penjualan Lokal
+          </h2>
+          <p className="mt-1 text-sm text-santara-roast/65">
+            Ringkasan dari riwayat struk lokal yang tersimpan di browser ini.
+          </p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px] lg:w-[620px]">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {reportModes.map((mode) => (
+              <button
+                className={`rounded-lg px-3 py-3 text-xs font-black transition ${
+                  reportMode === mode.value
+                    ? 'bg-santara-bean text-white shadow-soft'
+                    : 'bg-white text-santara-roast ring-1 ring-santara-latte hover:bg-santara-cream'
+                }`}
+                key={mode.value}
+                onClick={() => setReportMode(mode.value)}
+                type="button"
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          {reportMode === 'date' && (
+            <input
+              className="rounded-lg bg-white px-3 py-3 text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte transition focus:ring-2 focus:ring-santara-clay"
+              onChange={(event) => setSelectedDate(event.target.value)}
+              type="date"
+              value={selectedDate}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto pt-3">
+        {!hasTransactions ? (
+          <EmptyReportState />
+        ) : (
+          <div className="space-y-3">
+            <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <ReportCard
+                label="Penjualan Kotor"
+                value={formatRupiah(report.grossSales)}
+              />
+              <ReportCard
+                label="Total Diskon"
+                value={formatRupiah(report.totalDiscount)}
+              />
+              <ReportCard
+                label="Penjualan Bersih"
+                value={formatRupiah(report.netSales)}
+              />
+              <ReportCard label="Total HPP" value={formatRupiah(report.totalHpp)} />
+              <ReportCard
+                label="Laba Kotor"
+                value={formatRupiah(report.grossProfit)}
+              />
+              <ReportCard
+                label="Gross Margin"
+                value={formatPercent(report.grossMargin)}
+              />
+              <ReportCard
+                label="Total Transaksi"
+                value={`${report.totalTransactions} struk`}
+              />
+              <ReportCard
+                label="Rata-rata Transaksi"
+                value={formatRupiah(report.averageTransactionValue)}
+              />
+            </section>
+
+            <section className="grid gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <div className="space-y-3">
+                <Panel title="Ringkasan Pembayaran">
+                  <div className="space-y-2">
+                    {report.paymentSummary.map((summary) => (
+                      <SummaryLine
+                        key={summary.method}
+                        label={summary.method}
+                        meta={`${summary.transactionCount} transaksi`}
+                        value={formatRupiah(summary.total)}
+                      />
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel title="Ringkasan Diskon">
+                  <div className="space-y-2">
+                    <SummaryLine
+                      label="Total diskon"
+                      value={formatRupiah(report.totalDiscount)}
+                    />
+                    <SummaryLine
+                      label="Transaksi berdiskon"
+                      value={`${report.discountedTransactionCount} struk`}
+                    />
+                    <SummaryLine
+                      label="Rata-rata diskon"
+                      value={formatRupiah(report.averageDiscount)}
+                    />
+                  </div>
+                </Panel>
+
+                <Panel title="Best Seller">
+                  {report.bestSellers.length === 0 ? (
+                    <p className="text-sm font-bold text-santara-roast/55">
+                      Belum ada item terjual di periode ini.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {report.bestSellers.map((item, index) => (
+                        <BestSellerItem
+                          index={index + 1}
+                          item={item}
+                          key={item.key}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              </div>
+
+              <Panel title="Ringkasan Penjualan Menu">
+                {report.menuSales.length === 0 ? (
+                  <p className="text-sm font-bold text-santara-roast/55">
+                    Belum ada menu terjual di periode ini.
+                  </p>
+                ) : (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {report.menuSales.map((item) => (
+                      <MenuSalesCard item={item} key={item.key} />
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            </section>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+type ReportCardProps = {
+  label: string;
+  value: string;
+};
+
+function ReportCard({ label, value }: ReportCardProps) {
+  return (
+    <div className="rounded-lg bg-white px-3 py-3 ring-1 ring-santara-latte">
+      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-santara-sage">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-black text-santara-roast">{value}</p>
+    </div>
+  );
+}
+
+type PanelProps = {
+  title: string;
+  children: ReactNode;
+};
+
+function Panel({ title, children }: PanelProps) {
+  return (
+    <section className="rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+      <h3 className="text-base font-black text-santara-roast">{title}</h3>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+type SummaryLineProps = {
+  label: string;
+  value: string;
+  meta?: string;
+};
+
+function SummaryLine({ label, value, meta }: SummaryLineProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-santara-cream/75 px-3 py-2 ring-1 ring-santara-latte">
+      <div>
+        <p className="text-sm font-black text-santara-roast">{label}</p>
+        {meta && (
+          <p className="mt-0.5 text-xs font-bold text-santara-roast/55">{meta}</p>
+        )}
+      </div>
+      <p className="text-right text-sm font-black text-santara-bean">{value}</p>
+    </div>
+  );
+}
+
+type MenuSalesCardProps = {
+  item: MenuSalesSummary;
+};
+
+function MenuSalesCard({ item }: MenuSalesCardProps) {
+  return (
+    <article className="rounded-lg bg-santara-cream/75 p-3 ring-1 ring-santara-latte">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-santara-roast">
+            {item.name}
+          </p>
+          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
+            {item.category}
+          </p>
+        </div>
+        <p className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte">
+          {item.quantity} item
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-2 text-xs font-bold sm:grid-cols-3">
+        <Metric label="Gross sales" value={formatRupiah(item.grossSales)} />
+        <Metric label="HPP" value={formatRupiah(item.hpp)} />
+        <Metric label="Estimasi profit" value={formatRupiah(item.estimatedProfit)} />
+      </div>
+    </article>
+  );
+}
+
+type BestSellerItemProps = {
+  index: number;
+  item: MenuSalesSummary;
+};
+
+function BestSellerItem({ index, item }: BestSellerItemProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-santara-cream/75 px-3 py-2 ring-1 ring-santara-latte">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-santara-bean text-xs font-black text-white">
+          {index}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black">{item.name}</p>
+          <p className="text-xs font-bold text-santara-roast/55">{item.category}</p>
+        </div>
+      </div>
+      <p className="shrink-0 text-sm font-black text-santara-bean">
+        {item.quantity} item
+      </p>
+    </div>
+  );
+}
+
+type MetricProps = {
+  label: string;
+  value: string;
+};
+
+function Metric({ label, value }: MetricProps) {
+  return (
+    <div className="rounded-md bg-white px-2 py-2 ring-1 ring-santara-latte">
+      <span className="block text-[10px] uppercase tracking-[0.08em] text-santara-sage">
+        {label}
+      </span>
+      <span className="mt-1 block text-santara-roast">{value}</span>
+    </div>
+  );
+}
+
+function EmptyReportState() {
+  return (
+    <div className="grid min-h-72 place-items-center rounded-lg border border-dashed border-santara-latte bg-white p-5 text-center">
+      <div>
+        <p className="text-lg font-black text-santara-roast">
+          Belum ada data transaksi
+        </p>
+        <p className="mt-2 max-w-md text-sm font-medium text-santara-roast/65">
+          Selesaikan transaksi di tab Kasir, lalu laporan penjualan lokal akan
+          muncul otomatis di sini.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function formatPercent(value: number) {
+  return `${Number.isFinite(value) ? value.toFixed(1) : '0.0'}%`;
+}

@@ -4,6 +4,7 @@ import { ConfirmOrderModal, SaveOrderModal } from './components/HoldOrderModals'
 import { MenuAdmin } from './components/MenuAdmin';
 import { ReceiptHistory } from './components/ReceiptHistory';
 import { ReceiptPreview } from './components/ReceiptPreview';
+import { Reports } from './components/Reports';
 import { menuCategories as initialMenuCategories } from './data/menu';
 import type {
   AppStateData,
@@ -26,7 +27,7 @@ import {
 const CASHIER_NAME = 'Santara Cashier';
 const defaultMenuItems = initialMenuCategories.flatMap((category) => category.items);
 
-type AppTab = 'cashier' | 'menu' | 'receipts';
+type AppTab = 'cashier' | 'menu' | 'receipts' | 'reports';
 
 type PendingOrderAction = {
   type: 'resume' | 'delete';
@@ -281,7 +282,7 @@ function App() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[660px] xl:w-[720px]">
-            <StatusTile label="Mode" value="Cashier" />
+            <StatusTile label="Mode" value={getActiveTabLabel(activeTab)} />
             <StatusTile label="Cart" value={`${totalQuantity} item`} />
             <StatusTile label="Subtotal" value={formatRupiah(subtotal)} />
             <StatusTile label="Pending" value={`${pendingOrders.length} order`} />
@@ -292,7 +293,7 @@ function App() {
           </div>
         </header>
 
-        <nav className="grid shrink-0 grid-cols-3 gap-2 border-b border-santara-latte/70 py-3">
+        <nav className="grid shrink-0 grid-cols-2 gap-2 border-b border-santara-latte/70 py-3 sm:grid-cols-4">
           <TabButton
             isActive={activeTab === 'cashier'}
             label="Kasir"
@@ -307,6 +308,11 @@ function App() {
             isActive={activeTab === 'receipts'}
             label="Riwayat Struk"
             onClick={() => setActiveTab('receipts')}
+          />
+          <TabButton
+            isActive={activeTab === 'reports'}
+            label="Laporan"
+            onClick={() => setActiveTab('reports')}
           />
         </nav>
 
@@ -352,6 +358,10 @@ function App() {
 
         {activeTab === 'receipts' && (
           <ReceiptHistory transactions={completedTransactions} />
+        )}
+
+        {activeTab === 'reports' && (
+          <Reports transactions={completedTransactions} />
         )}
       </div>
 
@@ -774,6 +784,17 @@ function getCartQuantity(items: CartItem[]) {
 
 function getCategoryNames(items: MenuItem[]) {
   return Array.from(new Set(items.map((item) => item.category).filter(Boolean)));
+}
+
+function getActiveTabLabel(tab: AppTab) {
+  const labels: Record<AppTab, string> = {
+    cashier: 'Kasir',
+    menu: 'Kelola Menu',
+    receipts: 'Riwayat Struk',
+    reports: 'Laporan',
+  };
+
+  return labels[tab];
 }
 
 export default App;
