@@ -53,16 +53,27 @@ In Vercel:
 The migration creates tables for menu data, transactions, transaction item
 snapshots, pending orders, profiles, and app settings.
 
-## 6. Current Phase 5A Behavior
+## 6. Run the Phase 5B Temporary Sync Policies
+
+Phase 5B adds autosync before login/auth exists. To let the deployed app sync
+with the anon key, also run:
+
+`supabase/migrations/20260614000200_santara_pos_phase5b_sync_policies.sql`
+
+These policies are intentionally temporary. They should be replaced with tighter
+owner/admin/cashier policies when auth is implemented.
+
+## 7. Current Phase 5B Behavior
 
 - The app still works without Supabase environment variables.
-- If Supabase variables are missing, the app continues in localStorage mode.
+- If Supabase variables are missing or Supabase is unavailable, the app continues in localStorage mode.
+- Important changes are queued locally and retried automatically.
+- A compact sync indicator appears in the header.
 - No login/auth UI exists yet.
-- No data is synced to Supabase yet.
+- Supabase sync is best-effort and localStorage remains the first safety layer.
 - Existing cashier, reports, receipt, backup, and local persistence behavior is unchanged.
 
-## 7. Next Phase
+## 8. Next Phase
 
-Phase 5B should add a Supabase data service and sync plan. It should decide how
-localStorage data is migrated or synchronized without risking existing local
-data.
+The next Supabase phase should add proper auth and role-based RLS policies, then
+remove the temporary anon sync policies.

@@ -64,29 +64,45 @@ What is still not implemented:
 * No production role-based RLS policy has been finalized yet.
 * No Google Sheets sync, legacy import, expenses, shift closing, or Excel export exists yet.
 
+## Phase 5B Supabase Autosync
+
+What exists:
+
+* A local sync queue stores pending Supabase operations in localStorage.
+* Important changes autosync when Supabase is configured: menu edits, completed transactions, pending order changes, and receipt counter updates.
+* The app retries sync on load, when the browser comes back online, and when the compact `Sync Sekarang` button is clicked.
+* Cloud data is pulled automatically on app load after pending local sync operations are processed.
+* The header has a compact sync status indicator: Lokal, Tersinkron, Menyinkronkan, Menunggu, or Error.
+* `supabase/migrations/20260614000200_santara_pos_phase5b_sync_policies.sql` adds temporary anon-key policies so autosync can work before auth exists.
+
+What is still not implemented:
+
+* No login/auth UI exists yet.
+* No final owner/admin/cashier role policies exist yet.
+* No complex conflict resolution exists yet.
+* No Google Sheets sync, legacy import, expenses, shift closing, realtime subscriptions, or Excel export exists yet.
+
 Next phase should be:
 
-Phase 5B - Supabase Data Service and Sync
+Phase 5C - Supabase Auth and Safer Role Policies
 
 Goal:
 
-* Add a safe data service layer.
-* Decide localStorage-to-Supabase migration behavior.
-* Sync menu edits, pending orders, receipt history, and receipt numbering.
-* Keep local backup safety while Supabase is introduced.
+* Add login/auth.
+* Replace temporary anon sync policies with role-based owner/admin/cashier policies.
+* Keep localStorage fallback and backup safety.
 
 ## Next Recommended Phase
 
 The next phase should be:
 
-Phase 5B - Supabase Data Service and Sync
+Phase 5C - Supabase Auth and Safer Role Policies
 
 Goal:
 
-* Add a Supabase data service layer.
+* Add login/auth.
+* Replace temporary anon sync policies with role-based owner/admin/cashier policies.
 * Keep localStorage fallback safe while Supabase is introduced.
-* Sync menu edits, HPP edits, active/inactive menu status, pending orders, completed transactions, receipt history, and receipt numbering.
-* Plan careful migration from local browser data to Supabase data.
 
 ## Future Roadmap
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ConfirmOrderModal, SaveOrderModal } from './components/HoldOrderModals';
 import { MenuAdmin } from './components/MenuAdmin';
@@ -6,6 +6,25 @@ import { ReceiptHistory } from './components/ReceiptHistory';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { Reports } from './components/Reports';
 import { menuCategories as initialMenuCategories } from './data/menu';
+import {
+  canUseSupabase,
+  pullCloudAppState,
+  pushSyncOperation,
+} from './services/supabaseData';
+import {
+  addSyncOperation,
+  createMenuSyncOperation,
+  createPendingOrderDeleteOperation,
+  createPendingOrderUpsertOperation,
+  createTransactionSyncOperations,
+  loadSyncMeta,
+  loadSyncQueue,
+  removeSyncOperation,
+  saveSyncMeta,
+  saveSyncQueue,
+  type SyncMeta,
+  type SyncOperation,
+} from './services/syncQueue';
 import type {
   AppStateData,
   CartItem,
@@ -34,6 +53,8 @@ type PendingOrderAction = {
   order: PendingOrder;
 };
 
+type SyncStatus = 'local' | 'synced' | 'syncing' | 'pending' | 'error';
+
 function createReceiptNumber(date: Date, sequence: number) {
   return `SAN-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
 }
@@ -57,6 +78,12 @@ function App() {
   const [isSaveOrderOpen, setIsSaveOrderOpen] = useState(false);
   const [pendingOrderAction, setPendingOrderAction] =
     useState<PendingOrderAction | null>(null);
+  const [syncQueue, setSyncQueue] = useState<SyncOperation[]>(loadSyncQueue);
+  const [syncMeta, setSyncMeta] = useState<SyncMeta>(loadSyncMeta);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(
+    canUseSupabase() ? 'synced' : 'local',
+  );
+  const isSyncingRef = useRef(false);
 
   const latestTransaction = completedTransactions[completedTransactions.length - 1];
   const categoryNames = useMemo(() => getCategoryNames(menuItems), [menuItems]);
@@ -83,29 +110,169 @@ function App() {
     }),
     [completedTransactions, menuItems, pendingOrders, receiptCounter],
   );
+  const appDataRef = useRef(appData);
+  const syncQueueRef = useRef(syncQueue);
+  const syncMetaRef = useRef(syncMeta);
 
   useEffect(() => {
     saveAppState(appData);
+    appDataRef.current = appData;
   }, [appData]);
+
+  useEffect(() => {
+    syncQueueRef.current = syncQueue;
+  }, [syncQueue]);
+
+  useEffect(() => {
+    syncMetaRef.current = syncMeta;
+  }, [syncMeta]);
+
+  const replaceSyncQueue = useCallback((nextQueue: SyncOperation[]) => {
+    syncQueueRef.current = nextQueue;
+    saveSyncQueue(nextQueue);
+    setSyncQueue(nextQueue);
+  }, []);
+
+  const updateSyncMeta = useCallback((nextMeta: SyncMeta) => {
+    syncMetaRef.current = nextMeta;
+    saveSyncMeta(nextMeta);
+    setSyncMeta(nextMeta);
+  }, []);
+
+  const applyCloudAppData = useCallback((data: AppStateData) => {
+    setMenuItems(data.menuItems);
+    setPendingOrders(data.pendingOrders);
+    setCompletedTransactions(data.completedTransactions);
+    setReceiptCounter(data.receiptCounter);
+    setActiveCategoryName(data.menuItems[0]?.category ?? initialMenuCategories[0].name);
+    saveAppState(data);
+    appDataRef.current = data;
+  }, []);
+
+  const enqueueSyncOperations = useCallback(
+    (operations: Array<Omit<SyncOperation, 'id' | 'createdAt'>>) => {
+      setSyncQueue((currentQueue) => {
+        const nextQueue = operations.reduce(
+          (queue, operation) => addSyncOperation(queue, operation),
+          currentQueue,
+        );
+
+        syncQueueRef.current = nextQueue;
+        saveSyncQueue(nextQueue);
+
+        return nextQueue;
+      });
+      setSyncStatus(canUseSupabase() ? 'pending' : 'local');
+    },
+    [],
+  );
+
+  const processSyncQueue = useCallback(
+    async ({ pullAfterSuccess = true } = {}) => {
+      if (!canUseSupabase()) {
+        setSyncStatus('local');
+        return;
+      }
+
+      if (isSyncingRef.current) {
+        return;
+      }
+
+      isSyncingRef.current = true;
+      setSyncStatus('syncing');
+
+      let remainingQueue = syncQueueRef.current;
+
+      try {
+        for (const operation of syncQueueRef.current) {
+          await pushSyncOperation(operation);
+          remainingQueue = removeSyncOperation(remainingQueue, operation.id);
+          replaceSyncQueue(remainingQueue);
+        }
+
+        const nextMeta = {
+          lastSyncedAt: new Date().toISOString(),
+          lastError: null,
+        };
+
+        updateSyncMeta(nextMeta);
+
+        if (pullAfterSuccess && remainingQueue.length === 0) {
+          const cloudData = await pullCloudAppState(appDataRef.current);
+
+          if (cloudData) {
+            applyCloudAppData(cloudData);
+          }
+        }
+
+        setSyncStatus(remainingQueue.length > 0 ? 'pending' : 'synced');
+      } catch (error) {
+        updateSyncMeta({
+          lastSyncedAt: syncMetaRef.current.lastSyncedAt,
+          lastError:
+            error instanceof Error
+              ? error.message
+              : 'Sinkronisasi Supabase gagal.',
+        });
+        setSyncStatus('error');
+      } finally {
+        isSyncingRef.current = false;
+      }
+    },
+    [applyCloudAppData, replaceSyncQueue, updateSyncMeta],
+  );
+
+  useEffect(() => {
+    void processSyncQueue({ pullAfterSuccess: true });
+  }, [processSyncQueue]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      void processSyncQueue({ pullAfterSuccess: true });
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => window.removeEventListener('online', handleOnline);
+  }, [processSyncQueue]);
+
+  useEffect(() => {
+    if (syncQueue.length === 0 || !canUseSupabase() || isSyncingRef.current) {
+      return;
+    }
+
+    const syncTimer = window.setTimeout(() => {
+      void processSyncQueue({ pullAfterSuccess: false });
+    }, 500);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [processSyncQueue, syncQueue]);
 
   const addMenuItem = (item: Omit<MenuItem, 'id'>) => {
     const id = `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
-    setMenuItems((items) => [...items, { ...item, id }]);
+    const nextItems = [...menuItems, { ...item, id }];
+
+    setMenuItems(nextItems);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems)]);
     setActiveCategoryName(item.category);
   };
 
   const updateMenuItem = (id: string, updates: Partial<Omit<MenuItem, 'id'>>) => {
-    setMenuItems((items) =>
-      items.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+    const nextItems = menuItems.map((item) =>
+      item.id === id ? { ...item, ...updates } : item,
     );
+
+    setMenuItems(nextItems);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems)]);
   };
 
   const toggleMenuItem = (id: string) => {
-    setMenuItems((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, isActive: !item.isActive } : item,
-      ),
+    const nextItems = menuItems.map((item) =>
+      item.id === id ? { ...item, isActive: !item.isActive } : item,
     );
+
+    setMenuItems(nextItems);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems)]);
   };
 
   const addItem = (item: MenuItem) => {
@@ -181,6 +348,7 @@ function App() {
     };
 
     setPendingOrders((orders) => [pendingOrder, ...orders]);
+    enqueueSyncOperations([createPendingOrderUpsertOperation(pendingOrder)]);
     setCart([]);
     setIsSaveOrderOpen(false);
   };
@@ -190,6 +358,7 @@ function App() {
     setPendingOrders((orders) =>
       orders.filter((pendingOrder) => pendingOrder.id !== order.id),
     );
+    enqueueSyncOperations([createPendingOrderDeleteOperation(order.id)]);
     setPendingOrderAction(null);
   };
 
@@ -197,6 +366,7 @@ function App() {
     setPendingOrders((orders) =>
       orders.filter((pendingOrder) => pendingOrder.id !== order.id),
     );
+    enqueueSyncOperations([createPendingOrderDeleteOperation(order.id)]);
     setPendingOrderAction(null);
   };
 
@@ -238,6 +408,9 @@ function App() {
 
     setCompletedTransactions((transactions) => [...transactions, transaction]);
     setReceiptCounter(nextReceiptCounter);
+    enqueueSyncOperations(
+      createTransactionSyncOperations(transaction, nextReceiptCounter),
+    );
     setCart([]);
     setIsCheckoutOpen(false);
   };
@@ -278,6 +451,12 @@ function App() {
               <p className="mt-0.5 text-xs font-medium text-santara-roast/70 sm:text-sm">
                 Ruang untuk cerita, jeda untuk jiwa
               </p>
+              <SyncStatusIndicator
+                lastSyncedAt={syncMeta.lastSyncedAt}
+                onSyncNow={() => processSyncQueue({ pullAfterSuccess: true })}
+                pendingCount={syncQueue.length}
+                status={syncStatus}
+              />
             </div>
           </div>
 
@@ -731,6 +910,47 @@ function PendingOrdersSection({
   );
 }
 
+type SyncStatusIndicatorProps = {
+  status: SyncStatus;
+  pendingCount: number;
+  lastSyncedAt: string | null;
+  onSyncNow: () => void;
+};
+
+function SyncStatusIndicator({
+  status,
+  pendingCount,
+  lastSyncedAt,
+  onSyncNow,
+}: SyncStatusIndicatorProps) {
+  const label = getSyncStatusLabel(status);
+  const dotClass = getSyncStatusDotClass(status);
+  const detail =
+    pendingCount > 0
+      ? `${pendingCount} pending`
+      : lastSyncedAt && status === 'synced'
+        ? formatShortTime(lastSyncedAt)
+        : '';
+
+  return (
+    <div className="mt-2 flex w-fit items-center gap-1.5 rounded-full bg-white px-2 py-1 text-[11px] font-black text-santara-roast shadow-sm ring-1 ring-santara-latte">
+      <span className={`size-2 rounded-full ${dotClass}`} aria-hidden="true" />
+      <span>{label}</span>
+      {detail && <span className="font-bold text-santara-roast/55">{detail}</span>}
+      <button
+        aria-label="Sync Sekarang"
+        className="ml-0.5 grid size-6 place-items-center rounded-full text-sm font-black text-santara-bean transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-45"
+        disabled={status === 'syncing'}
+        onClick={onSyncNow}
+        title="Sync Sekarang"
+        type="button"
+      >
+        ↻
+      </button>
+    </div>
+  );
+}
+
 type StatusTileProps = {
   label: string;
   value: string;
@@ -795,6 +1015,30 @@ function getActiveTabLabel(tab: AppTab) {
   };
 
   return labels[tab];
+}
+
+function getSyncStatusLabel(status: SyncStatus) {
+  const labels: Record<SyncStatus, string> = {
+    local: 'Lokal',
+    synced: 'Tersinkron',
+    syncing: 'Menyinkronkan',
+    pending: 'Menunggu',
+    error: 'Error',
+  };
+
+  return labels[status];
+}
+
+function getSyncStatusDotClass(status: SyncStatus) {
+  const classes: Record<SyncStatus, string> = {
+    local: 'bg-santara-sage',
+    synced: 'bg-emerald-500',
+    syncing: 'bg-santara-clay',
+    pending: 'bg-amber-500',
+    error: 'bg-red-500',
+  };
+
+  return classes[status];
 }
 
 export default App;
