@@ -54,6 +54,16 @@ Every successful sync updates those internal rows first, then rebuilds
 `Rekap Bulanan`, `Rekap Produk Bulanan`, and `Rekap Keseluruhan`. Syncing the
 same date again replaces old internal data instead of double counting.
 
+Recap calculations use raw numeric internal values from the POS payload only.
+They do not calculate totals from formatted visible cells such as `Rp 80.000`.
+The internal sheets store money and counts as raw numbers. Margins and average
+transaction value are recalculated during recap rebuilds.
+
+If you have tested older script versions and the recap sheets already look
+broken, run the optional `resetSantaraReportData()` function once from Apps
+Script after replacing the script. It clears internal/recap/log sheets but does
+not delete `Laporan Penjualan`. A fresh Google Sheet also works.
+
 Quantity columns such as `Jumlah Terjual` are formatted as normal numbers, not
 Rupiah. Currency formatting is only used for money columns, and margin columns
 use percent formatting.
@@ -124,6 +134,10 @@ const ALL_TIME_HEADERS = ['Metric', 'Value'];
 const SYNC_LOG_HEADERS = [
   'Synced At',
   'Report Key',
+  'Month Key',
+  'Menu Rows Processed',
+  'Internal Summary Rows',
+  'Internal Product Rows',
   'Report Mode',
   'Status',
   'Message',
@@ -132,28 +146,27 @@ const SYNC_LOG_HEADERS = [
 const RAW_SUMMARY_HEADERS = [
   'Report Key',
   'Month Key',
+  'Month Label',
   'Period Label',
   'Generated At',
   'Penjualan Kotor',
-  'Total Discount',
+  'Total Diskon',
   'Penjualan Bersih',
   'Total HPP',
   'Laba Kotor',
-  'Gross Margin',
   'Total Pengeluaran',
   'Laba Bersih',
-  'Net Margin',
   'Cash Sales',
   'QRIS Sales',
   'Debit Sales',
   'Total Transaksi',
-  'Average Transaction Value',
   'Source Transaction Count',
 ];
 
 const RAW_PRODUCT_HEADERS = [
   'Report Key',
   'Month Key',
+  'Month Label',
   'Period Label',
   'Nama Produk',
   'Kategori',
@@ -163,27 +176,28 @@ const RAW_PRODUCT_HEADERS = [
   'Penjualan Bersih',
   'HPP',
   'Laba Kotor',
-  'Margin',
 ];
 
 function doPost(e) {
   const syncedAt = new Date();
   let reportKey = 'unknown';
   let reportMode = 'Unknown';
+  let monthKey = '';
 
   try {
     const payload = JSON.parse(e.postData.contents || '{}');
     const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const metadata = payload.metadata || {};
+    const normalized = normalizePayload(payload);
     const rawSummarySheet = setupRawSheet(spreadsheet, RAW_SUMMARY_SHEET_NAME, RAW_SUMMARY_HEADERS);
     const rawProductSheet = setupRawSheet(spreadsheet, RAW_PRODUCT_SHEET_NAME, RAW_PRODUCT_HEADERS);
 
-    reportKey = metadata.reportKey || payload.summary?.reportKey || buildFallbackReportKey(metadata);
-    reportMode = metadata.reportMode || 'Unknown';
+    reportKey = normalized.reportKey;
+    reportMode = normalized.reportMode;
+    monthKey = normalized.monthKey;
 
     replaceReportBlock(setupReportSheet(spreadsheet), reportKey, payload);
-    upsertRawSummary(rawSummarySheet, payload);
-    replaceRawProducts(rawProductSheet, payload);
+    upsertRawSummary(rawSummarySheet, normalized);
+    replaceRawProducts(rawProductSheet, normalized, payload.menuSales || []);
     rebuildMonthlySummary(setupTableSheet(spreadsheet, MONTHLY_SHEET_NAME, MONTHLY_HEADERS), rawSummarySheet);
     rebuildProductMonthlySummary(setupTableSheet(spreadsheet, PRODUCT_MONTHLY_SHEET_NAME, PRODUCT_MONTHLY_HEADERS), rawProductSheet);
     rebuildAllTimeSummary(setupTableSheet(spreadsheet, ALL_TIME_SHEET_NAME, ALL_TIME_HEADERS), rawSummarySheet);
@@ -191,6 +205,10 @@ function doPost(e) {
       setupSyncLogSheet(spreadsheet),
       syncedAt,
       reportKey,
+      monthKey,
+      (payload.menuSales || []).length,
+      Math.max(rawSummarySheet.getLastRow() - 1, 0),
+      Math.max(rawProductSheet.getLastRow() - 1, 0),
       reportMode,
       'success',
       `Sync berhasil: ${(payload.menuSales || []).length} baris menu diproses, semua rekap dibangun ulang`,
@@ -202,7 +220,7 @@ function doPost(e) {
     const syncLogSheet = setupSyncLogSheet(spreadsheet);
     const message = String(error);
 
-    appendSyncLog(syncLogSheet, syncedAt, reportKey, reportMode, 'error', message);
+    appendSyncLog(syncLogSheet, syncedAt, reportKey, monthKey, 0, 0, 0, reportMode, 'error', message);
 
     return jsonResponse({ ok: false, message });
   }
@@ -251,6 +269,16 @@ function setupTableSheet(spreadsheet, sheetName, headers) {
 
 function setupRawSheet(spreadsheet, sheetName, headers) {
   const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
+  const currentHeaders = sheet.getLastColumn() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentFormat =
+    currentHeaders.length >= headers.length &&
+    headers.every((header, index) => String(currentHeaders[index] || '') === header);
+
+  if (!isCurrentFormat) {
+    sheet.clear();
+  }
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(1, 1, 1, headers.length)
@@ -270,8 +298,18 @@ function setupRawSheet(spreadsheet, sheetName, headers) {
 
 function setupSyncLogSheet(spreadsheet) {
   const sheet = spreadsheet.getSheetByName(SYNC_LOG_SHEET_NAME) || spreadsheet.insertSheet(SYNC_LOG_SHEET_NAME);
+  const currentHeaders = sheet.getLastColumn() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), SYNC_LOG_HEADERS.length)).getValues()[0]
+    : [];
+  const isCurrentFormat =
+    currentHeaders.length >= SYNC_LOG_HEADERS.length &&
+    SYNC_LOG_HEADERS.every((header, index) => String(currentHeaders[index] || '') === header);
 
-  if (sheet.getLastRow() === 0) {
+  if (!isCurrentFormat) {
+    sheet.clear();
+  }
+
+  if (sheet.getLastRow() === 0 || !isCurrentFormat) {
     sheet.getRange(1, 1, 1, SYNC_LOG_HEADERS.length).setValues([SYNC_LOG_HEADERS]);
   }
 
@@ -283,6 +321,80 @@ function setupSyncLogSheet(spreadsheet) {
   sheet.autoResizeColumns(1, SYNC_LOG_HEADERS.length);
 
   return sheet;
+}
+
+function normalizePayload(payload) {
+  const metadata = payload.metadata || {};
+  const summary = payload.summary || {};
+  const generatedAt = firstValue(metadata.generatedAt, new Date());
+  const reportKey = firstValue(metadata.reportKey, summary.reportKey, buildFallbackReportKey(metadata));
+  const reportMode = firstValue(metadata.reportMode, 'Unknown');
+  const monthKey = deriveMonthKey(metadata, summary, reportKey, generatedAt);
+  const monthLabel = monthKey ? formatMonthLabel(monthKey) : '';
+  const periodLabel = firstValue(
+    metadata.periodLabel,
+    summary.periodLabel,
+    metadata.selectedDate,
+    summary.periodValue,
+    'Periode laporan',
+  );
+  const grossSales = num(summary.grossSales);
+  const totalDiscount = num(summary.totalDiscount);
+  const netSales = num(summary.netSales);
+  const totalHpp = num(summary.totalHpp);
+  const grossProfit = hasValue(summary.grossProfit) ? num(summary.grossProfit) : netSales - totalHpp;
+  const totalExpenses = num(summary.totalExpenses);
+  const netProfit = hasValue(summary.netProfit) ? num(summary.netProfit) : grossProfit - totalExpenses;
+
+  return {
+    generatedAt,
+    monthKey,
+    monthLabel,
+    periodLabel,
+    reportKey,
+    reportMode,
+    summary: {
+      cashSales: num(summary.cashSales),
+      debitSales: num(summary.debitSales),
+      grossProfit,
+      grossSales,
+      netProfit,
+      netSales,
+      qrisSales: num(summary.qrisSales),
+      sourceTransactionCount: num(firstValue(summary.sourceTransactionCount, metadata.sourceTransactionCount, 0)),
+      totalDiscount,
+      totalExpenses,
+      totalHpp,
+      totalTransactions: num(summary.totalTransactions),
+    },
+  };
+}
+
+function resetSantaraReportData() {
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetNames = [
+    RAW_SUMMARY_SHEET_NAME,
+    RAW_PRODUCT_SHEET_NAME,
+    MONTHLY_SHEET_NAME,
+    PRODUCT_MONTHLY_SHEET_NAME,
+    ALL_TIME_SHEET_NAME,
+    SYNC_LOG_SHEET_NAME,
+  ];
+
+  sheetNames.forEach((sheetName) => {
+    const sheet = spreadsheet.getSheetByName(sheetName);
+
+    if (!sheet) {
+      return;
+    }
+
+    if (spreadsheet.getSheets().length > 1) {
+      spreadsheet.deleteSheet(sheet);
+      return;
+    }
+
+    sheet.clear();
+  });
 }
 
 function replaceReportBlock(sheet, reportKey, payload) {
@@ -426,61 +538,48 @@ function formatReportBlock(sheet, startRow, rowCount, totalRowIndexInRows) {
   sheet.autoResizeColumns(1, PRODUCT_HEADERS.length);
 }
 
-function upsertRawSummary(sheet, payload) {
-  const metadata = payload.metadata || {};
-  const summary = payload.summary || {};
-  const reportKey = metadata.reportKey || summary.reportKey || buildFallbackReportKey(metadata);
-  const monthKey = metadata.monthKey || summary.monthKey || getMonthKeyFromReportKey(reportKey);
-  const totalTransactions = toNumber(summary.totalTransactions);
-  const netSales = toNumber(summary.netSales);
+function upsertRawSummary(sheet, normalized) {
+  const summary = normalized.summary;
   const row = [
-    reportKey,
-    monthKey,
-    metadata.periodLabel || summary.periodLabel || '',
-    metadata.generatedAt || new Date(),
-    toNumber(summary.grossSales),
-    toNumber(summary.totalDiscount),
-    netSales,
-    toNumber(summary.totalHpp),
-    toNumber(summary.grossProfit),
-    safeDivide(toNumber(summary.grossProfit), netSales),
-    toNumber(summary.totalExpenses),
-    toNumber(summary.netProfit),
-    safeDivide(toNumber(summary.netProfit), netSales),
-    toNumber(summary.cashSales),
-    toNumber(summary.qrisSales),
-    toNumber(summary.debitSales),
-    totalTransactions,
-    toNumber(summary.averageTransactionValue) || safeDivide(netSales, totalTransactions),
-    toNumber(summary.sourceTransactionCount || metadata.sourceTransactionCount),
+    normalized.reportKey,
+    normalized.monthKey,
+    normalized.monthLabel,
+    normalized.periodLabel,
+    normalized.generatedAt,
+    summary.grossSales,
+    summary.totalDiscount,
+    summary.netSales,
+    summary.totalHpp,
+    summary.grossProfit,
+    summary.totalExpenses,
+    summary.netProfit,
+    summary.cashSales,
+    summary.qrisSales,
+    summary.debitSales,
+    summary.totalTransactions,
+    summary.sourceTransactionCount,
   ];
 
-  upsertRowByFirstColumn(sheet, reportKey, row, RAW_SUMMARY_HEADERS.length, 2);
+  upsertRowByFirstColumn(sheet, normalized.reportKey, row, RAW_SUMMARY_HEADERS.length, 2);
   formatRawSummarySheet(sheet);
 }
 
-function replaceRawProducts(sheet, payload) {
-  const metadata = payload.metadata || {};
-  const summary = payload.summary || {};
-  const reportKey = metadata.reportKey || summary.reportKey || buildFallbackReportKey(metadata);
-  const monthKey = metadata.monthKey || summary.monthKey || getMonthKeyFromReportKey(reportKey);
-  const periodLabel = metadata.periodLabel || summary.periodLabel || '';
+function replaceRawProducts(sheet, normalized, menuSales) {
+  deleteRowsByFirstColumn(sheet, normalized.reportKey, 2);
 
-  deleteRowsByFirstColumn(sheet, reportKey, 2);
-
-  const rows = (payload.menuSales || []).map((item) => [
-    reportKey,
-    monthKey,
-    periodLabel,
+  const rows = (menuSales || []).map((item) => [
+    normalized.reportKey,
+    normalized.monthKey,
+    normalized.monthLabel,
+    normalized.periodLabel,
     item.name || '',
     item.category || '',
-    toNumber(item.quantity),
-    toNumber(item.grossSales),
-    toNumber(item.discountAmount),
-    toNumber(item.netSales),
-    toNumber(item.hpp),
-    toNumber(item.estimatedProfit),
-    toPercent(item.margin),
+    num(item.quantity),
+    num(item.grossSales),
+    num(item.discountAmount),
+    num(item.netSales),
+    num(item.hpp),
+    num(item.estimatedProfit),
   ]);
 
   if (rows.length > 0) {
@@ -621,23 +720,21 @@ function getRawSummaryRows(sheet) {
   return sheet.getRange(2, 1, lastRow - 1, RAW_SUMMARY_HEADERS.length).getValues().map((row) => ({
     reportKey: String(row[0] || ''),
     monthKey: String(row[1] || ''),
-    periodLabel: String(row[2] || ''),
-    generatedAt: row[3],
-    grossSales: toNumber(row[4]),
-    totalDiscount: toNumber(row[5]),
-    netSales: toNumber(row[6]),
-    totalHpp: toNumber(row[7]),
-    grossProfit: toNumber(row[8]),
-    grossMargin: toNumber(row[9]),
-    totalExpenses: toNumber(row[10]),
-    netProfit: toNumber(row[11]),
-    netMargin: toNumber(row[12]),
-    cashSales: toNumber(row[13]),
-    qrisSales: toNumber(row[14]),
-    debitSales: toNumber(row[15]),
-    totalTransactions: toNumber(row[16]),
-    averageTransactionValue: toNumber(row[17]),
-    sourceTransactionCount: toNumber(row[18]),
+    monthLabel: String(row[2] || ''),
+    periodLabel: String(row[3] || ''),
+    generatedAt: row[4],
+    grossSales: num(row[5]),
+    totalDiscount: num(row[6]),
+    netSales: num(row[7]),
+    totalHpp: num(row[8]),
+    grossProfit: num(row[9]),
+    totalExpenses: num(row[10]),
+    netProfit: num(row[11]),
+    cashSales: num(row[12]),
+    qrisSales: num(row[13]),
+    debitSales: num(row[14]),
+    totalTransactions: num(row[15]),
+    sourceTransactionCount: num(row[16]),
   }));
 }
 
@@ -651,16 +748,16 @@ function getRawProductRows(sheet) {
   return sheet.getRange(2, 1, lastRow - 1, RAW_PRODUCT_HEADERS.length).getValues().map((row) => ({
     reportKey: String(row[0] || ''),
     monthKey: String(row[1] || ''),
-    periodLabel: String(row[2] || ''),
-    productName: String(row[3] || ''),
-    category: String(row[4] || ''),
-    quantity: toNumber(row[5]),
-    grossSales: toNumber(row[6]),
-    discount: toNumber(row[7]),
-    netSales: toNumber(row[8]),
-    hpp: toNumber(row[9]),
-    profit: toNumber(row[10]),
-    margin: toNumber(row[11]),
+    monthLabel: String(row[2] || ''),
+    periodLabel: String(row[3] || ''),
+    productName: String(row[4] || ''),
+    category: String(row[5] || ''),
+    quantity: num(row[6]),
+    grossSales: num(row[7]),
+    discount: num(row[8]),
+    netSales: num(row[9]),
+    hpp: num(row[10]),
+    profit: num(row[11]),
   }));
 }
 
@@ -668,7 +765,7 @@ function createMonthRollup(row) {
   return {
     ...createEmptySummary(),
     monthKey: row.monthKey,
-    monthLabel: formatMonthLabel(row.monthKey),
+    monthLabel: row.monthLabel || formatMonthLabel(row.monthKey),
     generatedAt: row.generatedAt,
   };
 }
@@ -676,7 +773,7 @@ function createMonthRollup(row) {
 function createProductRollup(row) {
   return {
     monthKey: row.monthKey,
-    monthLabel: formatMonthLabel(row.monthKey),
+    monthLabel: row.monthLabel || formatMonthLabel(row.monthKey),
     productName: row.productName,
     category: row.category,
     quantity: 0,
@@ -781,14 +878,10 @@ function formatRawSummarySheet(sheet) {
     return;
   }
 
-  sheet.getRange(2, 5, lastRow - 1, 5).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(2, 10, lastRow - 1, 1).setNumberFormat('0.00%');
-  sheet.getRange(2, 11, lastRow - 1, 2).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(2, 13, lastRow - 1, 1).setNumberFormat('0.00%');
-  sheet.getRange(2, 14, lastRow - 1, 3).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(2, 17, lastRow - 1, 1).setNumberFormat('#,##0');
-  sheet.getRange(2, 18, lastRow - 1, 1).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(2, 19, lastRow - 1, 1).setNumberFormat('#,##0');
+  sheet.getRange(2, 6, lastRow - 1, 5).setNumberFormat(rupiahFormat());
+  sheet.getRange(2, 11, lastRow - 1, 2).setNumberFormat(rupiahFormat());
+  sheet.getRange(2, 13, lastRow - 1, 3).setNumberFormat(rupiahFormat());
+  sheet.getRange(2, 16, lastRow - 1, 2).setNumberFormat('#,##0');
   sheet.autoResizeColumns(1, RAW_SUMMARY_HEADERS.length);
 }
 
@@ -799,9 +892,8 @@ function formatRawProductSheet(sheet) {
     return;
   }
 
-  sheet.getRange(2, 6, lastRow - 1, 1).setNumberFormat('#,##0');
-  sheet.getRange(2, 7, lastRow - 1, 5).setNumberFormat('"Rp" #,##0');
-  sheet.getRange(2, 12, lastRow - 1, 1).setNumberFormat('0.00%');
+  sheet.getRange(2, 7, lastRow - 1, 1).setNumberFormat('#,##0');
+  sheet.getRange(2, 8, lastRow - 1, 5).setNumberFormat(rupiahFormat());
   sheet.autoResizeColumns(1, RAW_PRODUCT_HEADERS.length);
 }
 
@@ -915,8 +1007,35 @@ function deleteExistingReportBlock(sheet, reportKey) {
   sheet.deleteRows(startIndex + 1, endIndex - startIndex + 1);
 }
 
-function appendSyncLog(sheet, syncedAt, reportKey, reportMode, status, message) {
-  sheet.appendRow([syncedAt, reportKey, reportMode, status, message]);
+function appendSyncLog(
+  sheet,
+  syncedAt,
+  reportKey,
+  monthKey,
+  menuRowsProcessed,
+  internalSummaryRows,
+  internalProductRows,
+  reportMode,
+  status,
+  message,
+) {
+  sheet.appendRow([
+    syncedAt,
+    reportKey,
+    monthKey || '-',
+    num(menuRowsProcessed),
+    num(internalSummaryRows),
+    num(internalProductRows),
+    reportMode,
+    status,
+    message,
+  ]);
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow > 1) {
+    sheet.getRange(2, 4, lastRow - 1, 3).setNumberFormat('#,##0');
+  }
+
   sheet.autoResizeColumns(1, SYNC_LOG_HEADERS.length);
 }
 
@@ -937,11 +1056,47 @@ function buildFallbackReportKey(metadata) {
   return `${String(mode).toLowerCase().replace(/\s+/g, '-')}-${date}`;
 }
 
-function getMonthKeyFromReportKey(reportKey) {
-  const value = String(reportKey || '');
-  const match = value.match(/(\d{4}-\d{2})/);
+function deriveMonthKey(metadata, summary, reportKey, generatedAt) {
+  const modeSlug = String(firstValue(metadata.reportModeSlug, '')).toLowerCase();
 
-  return match ? match[1] : '';
+  if (modeSlug === 'semua-waktu' || reportKey === 'semua-waktu') {
+    return '';
+  }
+
+  return normalizeMonthKey(firstValue(
+    metadata.monthKey,
+    summary.monthKey,
+    metadata.periodValue,
+    summary.periodValue,
+    metadata.selectedDate,
+    reportKey,
+    generatedAt,
+  ));
+}
+
+function normalizeMonthKey(value) {
+  if (!hasValue(value)) {
+    return '';
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const valueText = String(value);
+  const match = valueText.match(/(\d{4}-\d{2})/);
+
+  if (match) {
+    return match[1];
+  }
+
+  const date = new Date(valueText);
+
+  if (!Number.isNaN(date.getTime())) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  return '';
 }
 
 function formatMonthLabel(monthKey) {
@@ -982,18 +1137,78 @@ function formatDateTime(value) {
 }
 
 function toNumber(value) {
-  const numberValue = Number(value);
+  return num(value);
+}
+
+function num(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (value instanceof Date) {
+    return 0;
+  }
+
+  if (!hasValue(value)) {
+    return 0;
+  }
+
+  const cleaned = String(value)
+    .trim()
+    .replace(/Rp/gi, '')
+    .replace(/\s/g, '')
+    .replace(/[^\d.,-]/g, '');
+
+  if (!cleaned || cleaned === '-' || cleaned === ',' || cleaned === '.') {
+    return 0;
+  }
+
+  let normalized = cleaned;
+
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    normalized = cleaned.replace(/\./g, '');
+  } else if (cleaned.includes(',')) {
+    normalized = cleaned.replace(',', '.');
+  }
+
+  const numberValue = Number(normalized);
 
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
 function toPercent(value) {
-  return toNumber(value) / 100;
+  return safePercent(value);
+}
+
+function safePercent(value) {
+  const numberValue = num(value);
+
+  return Math.abs(numberValue) > 1 ? numberValue / 100 : numberValue;
+}
+
+function rupiahFormat() {
+  return '"Rp" #,##0';
+}
+
+function firstValue(...values) {
+  for (let index = 0; index < values.length; index += 1) {
+    if (hasValue(values[index])) {
+      return values[index];
+    }
+  }
+
+  return '';
+}
+
+function hasValue(value) {
+  return value !== undefined && value !== null && value !== '';
 }
 
 function safeDivide(numerator, denominator) {
-  const safeNumerator = toNumber(numerator);
-  const safeDenominator = toNumber(denominator);
+  const safeNumerator = num(numerator);
+  const safeDenominator = num(denominator);
 
   return safeDenominator > 0 ? safeNumerator / safeDenominator : 0;
 }
@@ -1042,12 +1257,12 @@ report sheet. The visible report uses a readable label such as:
 The script updates these sheets:
 
 * `Laporan Penjualan`: replaces the old block for the same date or period.
-* `_Data Rekap Internal`: upserts one source row by `Report Key`.
-* `_Data Produk Internal`: replaces old product rows for the same `Report Key`.
+* `_Data Rekap Internal`: upserts one raw numeric source row by `Report Key`.
+* `_Data Produk Internal`: replaces old raw numeric product rows for the same `Report Key`.
 * `Rekap Bulanan`: recalculates monthly rows from stored synced data.
 * `Rekap Produk Bulanan`: recalculates product rows from stored synced data.
 * `Rekap Keseluruhan`: recalculates automatically after every successful sync.
-* `Sync Logs`: appends every sync attempt for troubleshooting.
+* `Sync Logs`: appends every sync attempt with report key, month key, processed menu rows, internal row counts, status, and message.
 
 You do not need to sync `Semua Waktu` just to update `Rekap Keseluruhan`.
 Syncing daily or monthly reports is enough because the script stores each synced
@@ -1059,23 +1274,30 @@ or decrease the all-time totals correctly after you sync the corrected date.
 
 ## 6. Test Safely
 
-Use `Hari Ini` first with a small test report.
+If you are using a Google Sheet that already contains broken data from old
+script tests, run `resetSantaraReportData()` once from Apps Script first. You
+can also start with a fresh Google Sheet.
+
+Then use `Hari Ini` first with a small test report.
 
 Check:
 
 * `Laporan Penjualan` has a readable report block.
-* `_Data Rekap Internal` has one row for the synced report key/date.
+* `_Data Rekap Internal` has one clean row for the synced report key/date.
 * `_Data Produk Internal` has product rows for the synced report key/date.
 * `Jumlah Terjual` is a plain number, not Rupiah.
 * The product table has blue headers and a pink total row.
 * Payment, discount, expenses, and closing summaries appear below the product table.
-* `Rekap Bulanan` has one row for the month.
-* `Rekap Produk Bulanan` has product rows for the month.
-* `Rekap Keseluruhan` has non-zero totals after the daily sync.
+* `Rekap Bulanan` is filled with one row for `Juni 2026` or the correct synced month.
+* `Rekap Produk Bulanan` is filled with product rows for the month, and the `Bulan` column is a readable month label.
+* `Rekap Keseluruhan` has correct non-zero totals after the daily sync.
 * `Sync Logs` records the sync attempt.
 
 Then click `Sync Google Sheet` again for the same period. The old report block,
 internal rows, recap rows, and all-time totals should update without double counting.
+
+Finally, sync another date with sales and confirm monthly/all-time totals
+increase correctly.
 
 If sync fails, Santara POS still keeps data locally. Check that the Apps Script
 deployment is active and that the URL ends with `/exec`.
