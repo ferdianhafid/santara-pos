@@ -45,9 +45,14 @@ It also creates hidden internal sheets:
 * `_Data Rekap Internal`
 * `_Data Produk Internal`
 
-Those hidden sheets store one clean row per synced date/month and product. They
-allow `Rekap Keseluruhan` to be recalculated after every sync, so syncing the
-same date again replaces old data instead of double counting.
+Those hidden sheets store the source data for the recap sheets:
+
+* `_Data Rekap Internal`: one row per `Report Key`.
+* `_Data Produk Internal`: product rows for the latest sync of each `Report Key`.
+
+Every successful sync updates those internal rows first, then rebuilds
+`Rekap Bulanan`, `Rekap Produk Bulanan`, and `Rekap Keseluruhan`. Syncing the
+same date again replaces old internal data instead of double counting.
 
 Quantity columns such as `Jumlah Terjual` are formatted as normal numbers, not
 Rupiah. Currency formatting is only used for money columns, and margin columns
@@ -125,40 +130,40 @@ const SYNC_LOG_HEADERS = [
 ];
 
 const RAW_SUMMARY_HEADERS = [
-  'Data Key',
   'Report Key',
-  'Report Mode Slug',
-  'Period Value',
-  'Period Label',
   'Month Key',
-  'Month Label',
+  'Period Label',
   'Generated At',
-  'Gross Sales',
+  'Penjualan Kotor',
   'Total Discount',
-  'Net Sales',
+  'Penjualan Bersih',
   'Total HPP',
-  'Gross Profit',
-  'Total Expenses',
-  'Net Profit',
+  'Laba Kotor',
+  'Gross Margin',
+  'Total Pengeluaran',
+  'Laba Bersih',
+  'Net Margin',
   'Cash Sales',
   'QRIS Sales',
   'Debit Sales',
-  'Total Transactions',
+  'Total Transaksi',
+  'Average Transaction Value',
+  'Source Transaction Count',
 ];
 
 const RAW_PRODUCT_HEADERS = [
-  'Data Key',
   'Report Key',
   'Month Key',
-  'Month Label',
-  'Product Name',
-  'Category',
-  'Quantity',
-  'Gross Sales',
-  'Discount',
-  'Net Sales',
+  'Period Label',
+  'Nama Produk',
+  'Kategori',
+  'Jumlah Terjual',
+  'Penjualan Kotor',
+  'Diskon',
+  'Penjualan Bersih',
   'HPP',
-  'Profit',
+  'Laba Kotor',
+  'Margin',
 ];
 
 function doPost(e) {
@@ -182,7 +187,14 @@ function doPost(e) {
     rebuildMonthlySummary(setupTableSheet(spreadsheet, MONTHLY_SHEET_NAME, MONTHLY_HEADERS), rawSummarySheet);
     rebuildProductMonthlySummary(setupTableSheet(spreadsheet, PRODUCT_MONTHLY_SHEET_NAME, PRODUCT_MONTHLY_HEADERS), rawProductSheet);
     rebuildAllTimeSummary(setupTableSheet(spreadsheet, ALL_TIME_SHEET_NAME, ALL_TIME_HEADERS), rawSummarySheet);
-    appendSyncLog(setupSyncLogSheet(spreadsheet), syncedAt, reportKey, reportMode, 'success', 'Sync berhasil');
+    appendSyncLog(
+      setupSyncLogSheet(spreadsheet),
+      syncedAt,
+      reportKey,
+      reportMode,
+      'success',
+      `Sync berhasil: ${(payload.menuSales || []).length} baris menu diproses, semua rekap dibangun ulang`,
+    );
 
     return jsonResponse({ ok: true, message: 'Data berhasil dikirim ke Google Sheets.' });
   } catch (error) {
@@ -241,7 +253,17 @@ function setupRawSheet(spreadsheet, sheetName, headers) {
   const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  sheet.hideSheet();
+  sheet.getRange(1, 1, 1, headers.length)
+    .setFontWeight('bold')
+    .setBackground(BLUE_HEADER)
+    .setFontColor(TEXT_COLOR);
+  sheet.setFrozenRows(1);
+
+  try {
+    sheet.hideSheet();
+  } catch (error) {
+    // Jika Google Sheets menolak hide karena hanya ada satu sheet terlihat, data tetap aman.
+  }
 
   return sheet;
 }
@@ -407,44 +429,49 @@ function formatReportBlock(sheet, startRow, rowCount, totalRowIndexInRows) {
 function upsertRawSummary(sheet, payload) {
   const metadata = payload.metadata || {};
   const summary = payload.summary || {};
-  const dataKey = getDataKey(metadata, summary);
+  const reportKey = metadata.reportKey || summary.reportKey || buildFallbackReportKey(metadata);
+  const monthKey = metadata.monthKey || summary.monthKey || getMonthKeyFromReportKey(reportKey);
+  const totalTransactions = toNumber(summary.totalTransactions);
+  const netSales = toNumber(summary.netSales);
   const row = [
-    dataKey,
-    metadata.reportKey || summary.reportKey || dataKey,
-    metadata.reportModeSlug || '',
-    metadata.periodValue || summary.periodValue || '',
+    reportKey,
+    monthKey,
     metadata.periodLabel || summary.periodLabel || '',
-    metadata.monthKey || summary.monthKey || '',
-    metadata.monthLabel || summary.monthLabel || '',
     metadata.generatedAt || new Date(),
     toNumber(summary.grossSales),
     toNumber(summary.totalDiscount),
-    toNumber(summary.netSales),
+    netSales,
     toNumber(summary.totalHpp),
     toNumber(summary.grossProfit),
+    safeDivide(toNumber(summary.grossProfit), netSales),
     toNumber(summary.totalExpenses),
     toNumber(summary.netProfit),
+    safeDivide(toNumber(summary.netProfit), netSales),
     toNumber(summary.cashSales),
     toNumber(summary.qrisSales),
     toNumber(summary.debitSales),
-    toNumber(summary.totalTransactions),
+    totalTransactions,
+    toNumber(summary.averageTransactionValue) || safeDivide(netSales, totalTransactions),
+    toNumber(summary.sourceTransactionCount || metadata.sourceTransactionCount),
   ];
 
-  upsertRowByFirstColumn(sheet, dataKey, row, RAW_SUMMARY_HEADERS.length, 2);
+  upsertRowByFirstColumn(sheet, reportKey, row, RAW_SUMMARY_HEADERS.length, 2);
+  formatRawSummarySheet(sheet);
 }
 
 function replaceRawProducts(sheet, payload) {
   const metadata = payload.metadata || {};
   const summary = payload.summary || {};
-  const dataKey = getDataKey(metadata, summary);
+  const reportKey = metadata.reportKey || summary.reportKey || buildFallbackReportKey(metadata);
+  const monthKey = metadata.monthKey || summary.monthKey || getMonthKeyFromReportKey(reportKey);
+  const periodLabel = metadata.periodLabel || summary.periodLabel || '';
 
-  deleteRowsByFirstColumn(sheet, dataKey, 2);
+  deleteRowsByFirstColumn(sheet, reportKey, 2);
 
   const rows = (payload.menuSales || []).map((item) => [
-    dataKey,
-    metadata.reportKey || summary.reportKey || dataKey,
-    metadata.monthKey || summary.monthKey || '',
-    metadata.monthLabel || summary.monthLabel || '',
+    reportKey,
+    monthKey,
+    periodLabel,
     item.name || '',
     item.category || '',
     toNumber(item.quantity),
@@ -453,11 +480,14 @@ function replaceRawProducts(sheet, payload) {
     toNumber(item.netSales),
     toNumber(item.hpp),
     toNumber(item.estimatedProfit),
+    toPercent(item.margin),
   ]);
 
   if (rows.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, RAW_PRODUCT_HEADERS.length).setValues(rows);
   }
+
+  formatRawProductSheet(sheet);
 }
 
 function rebuildMonthlySummary(sheet, rawSummarySheet) {
@@ -494,24 +524,12 @@ function rebuildMonthlySummary(sheet, rawSummarySheet) {
 
 function rebuildProductMonthlySummary(sheet, rawProductSheet) {
   const productRows = getRawProductRows(rawProductSheet);
-  const monthHasOverride = new Set(
-    productRows
-      .filter((row) => row.dataKey.startsWith('month:'))
-      .map((row) => row.monthKey),
-  );
   const productMap = new Map();
 
   productRows
     .filter((row) => row.monthKey)
-    .filter((row) => {
-      if (row.dataKey.startsWith('month:')) {
-        return true;
-      }
-
-      return !monthHasOverride.has(row.monthKey);
-    })
     .forEach((row) => {
-      const key = `${row.monthKey}|${row.productName}`;
+      const key = `${row.monthKey}|${row.productName}|${row.category}`;
       const current = productMap.get(key) || createProductRollup(row);
 
       current.quantity += row.quantity;
@@ -548,9 +566,9 @@ function rebuildProductMonthlySummary(sheet, rawProductSheet) {
 }
 
 function rebuildAllTimeSummary(sheet, rawSummarySheet) {
-  const rollups = getAllTimeSourceRollups(rawSummarySheet);
-  const totals = rollups.reduce((total, rollup) => addSummaryTotals(total, rollup), createEmptySummary());
-  const lastSync = rollups.reduce((latest, rollup) => {
+  const rawRows = getRawSummaryRows(rawSummarySheet);
+  const totals = rawRows.reduce((total, rollup) => addSummaryTotals(total, rollup), createEmptySummary());
+  const lastSync = rawRows.reduce((latest, rollup) => {
     const latestTime = new Date(latest).getTime();
     const nextTime = new Date(rollup.generatedAt).getTime();
 
@@ -579,34 +597,12 @@ function rebuildAllTimeSummary(sheet, rawSummarySheet) {
   formatAllTimeSheet(sheet, rows);
 }
 
-function getAllTimeSourceRollups(rawSummarySheet) {
-  const monthlyRollups = getMonthlyRollups(rawSummarySheet);
-
-  if (monthlyRollups.length > 0) {
-    return monthlyRollups;
-  }
-
-  return getRawSummaryRows(rawSummarySheet).filter((row) => row.modeSlug === 'semua-waktu');
-}
-
 function getMonthlyRollups(rawSummarySheet) {
-  const rows = getRawSummaryRows(rawSummarySheet).filter((row) => row.modeSlug !== 'semua-waktu');
-  const monthOverrideKeys = new Set(
-    rows
-      .filter((row) => row.dataKey.startsWith('month:'))
-      .map((row) => row.monthKey),
-  );
+  const rows = getRawSummaryRows(rawSummarySheet);
   const monthMap = new Map();
 
   rows
     .filter((row) => row.monthKey)
-    .filter((row) => {
-      if (row.dataKey.startsWith('month:')) {
-        return true;
-      }
-
-      return !monthOverrideKeys.has(row.monthKey);
-    })
     .forEach((row) => {
       const current = monthMap.get(row.monthKey) || createMonthRollup(row);
       monthMap.set(row.monthKey, addSummaryTotals(current, row));
@@ -623,25 +619,25 @@ function getRawSummaryRows(sheet) {
   }
 
   return sheet.getRange(2, 1, lastRow - 1, RAW_SUMMARY_HEADERS.length).getValues().map((row) => ({
-    dataKey: String(row[0] || ''),
-    reportKey: String(row[1] || ''),
-    modeSlug: String(row[2] || ''),
-    periodValue: String(row[3] || ''),
-    periodLabel: String(row[4] || ''),
-    monthKey: String(row[5] || ''),
-    monthLabel: String(row[6] || ''),
-    generatedAt: row[7],
-    grossSales: toNumber(row[8]),
-    totalDiscount: toNumber(row[9]),
-    netSales: toNumber(row[10]),
-    totalHpp: toNumber(row[11]),
-    grossProfit: toNumber(row[12]),
-    totalExpenses: toNumber(row[13]),
-    netProfit: toNumber(row[14]),
-    cashSales: toNumber(row[15]),
-    qrisSales: toNumber(row[16]),
-    debitSales: toNumber(row[17]),
-    totalTransactions: toNumber(row[18]),
+    reportKey: String(row[0] || ''),
+    monthKey: String(row[1] || ''),
+    periodLabel: String(row[2] || ''),
+    generatedAt: row[3],
+    grossSales: toNumber(row[4]),
+    totalDiscount: toNumber(row[5]),
+    netSales: toNumber(row[6]),
+    totalHpp: toNumber(row[7]),
+    grossProfit: toNumber(row[8]),
+    grossMargin: toNumber(row[9]),
+    totalExpenses: toNumber(row[10]),
+    netProfit: toNumber(row[11]),
+    netMargin: toNumber(row[12]),
+    cashSales: toNumber(row[13]),
+    qrisSales: toNumber(row[14]),
+    debitSales: toNumber(row[15]),
+    totalTransactions: toNumber(row[16]),
+    averageTransactionValue: toNumber(row[17]),
+    sourceTransactionCount: toNumber(row[18]),
   }));
 }
 
@@ -653,18 +649,18 @@ function getRawProductRows(sheet) {
   }
 
   return sheet.getRange(2, 1, lastRow - 1, RAW_PRODUCT_HEADERS.length).getValues().map((row) => ({
-    dataKey: String(row[0] || ''),
-    reportKey: String(row[1] || ''),
-    monthKey: String(row[2] || ''),
-    monthLabel: String(row[3] || ''),
-    productName: String(row[4] || ''),
-    category: String(row[5] || ''),
-    quantity: toNumber(row[6]),
-    grossSales: toNumber(row[7]),
-    discount: toNumber(row[8]),
-    netSales: toNumber(row[9]),
-    hpp: toNumber(row[10]),
-    profit: toNumber(row[11]),
+    reportKey: String(row[0] || ''),
+    monthKey: String(row[1] || ''),
+    periodLabel: String(row[2] || ''),
+    productName: String(row[3] || ''),
+    category: String(row[4] || ''),
+    quantity: toNumber(row[5]),
+    grossSales: toNumber(row[6]),
+    discount: toNumber(row[7]),
+    netSales: toNumber(row[8]),
+    hpp: toNumber(row[9]),
+    profit: toNumber(row[10]),
+    margin: toNumber(row[11]),
   }));
 }
 
@@ -672,7 +668,7 @@ function createMonthRollup(row) {
   return {
     ...createEmptySummary(),
     monthKey: row.monthKey,
-    monthLabel: row.monthLabel || formatMonthLabel(row.monthKey),
+    monthLabel: formatMonthLabel(row.monthKey),
     generatedAt: row.generatedAt,
   };
 }
@@ -680,7 +676,7 @@ function createMonthRollup(row) {
 function createProductRollup(row) {
   return {
     monthKey: row.monthKey,
-    monthLabel: row.monthLabel || formatMonthLabel(row.monthKey),
+    monthLabel: formatMonthLabel(row.monthKey),
     productName: row.productName,
     category: row.category,
     quantity: 0,
@@ -776,6 +772,37 @@ function deleteRowsByFirstColumn(sheet, key, headerRows) {
       sheet.deleteRow(index + headerRows);
     }
   }
+}
+
+function formatRawSummarySheet(sheet) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return;
+  }
+
+  sheet.getRange(2, 5, lastRow - 1, 5).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(2, 10, lastRow - 1, 1).setNumberFormat('0.00%');
+  sheet.getRange(2, 11, lastRow - 1, 2).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(2, 13, lastRow - 1, 1).setNumberFormat('0.00%');
+  sheet.getRange(2, 14, lastRow - 1, 3).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(2, 17, lastRow - 1, 1).setNumberFormat('#,##0');
+  sheet.getRange(2, 18, lastRow - 1, 1).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(2, 19, lastRow - 1, 1).setNumberFormat('#,##0');
+  sheet.autoResizeColumns(1, RAW_SUMMARY_HEADERS.length);
+}
+
+function formatRawProductSheet(sheet) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow < 2) {
+    return;
+  }
+
+  sheet.getRange(2, 6, lastRow - 1, 1).setNumberFormat('#,##0');
+  sheet.getRange(2, 7, lastRow - 1, 5).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(2, 12, lastRow - 1, 1).setNumberFormat('0.00%');
+  sheet.autoResizeColumns(1, RAW_PRODUCT_HEADERS.length);
 }
 
 function formatMonthlySheet(sheet) {
@@ -903,26 +930,18 @@ function padRow(values) {
   return row;
 }
 
-function getDataKey(metadata, summary) {
-  const modeSlug = metadata.reportModeSlug || '';
-  const periodValue = metadata.periodValue || summary.periodValue || metadata.selectedDate || '';
-
-  if (modeSlug === 'semua-waktu') {
-    return 'all:semua-waktu';
-  }
-
-  if (modeSlug === 'bulan-ini') {
-    return `month:${periodValue}`;
-  }
-
-  return `date:${periodValue}`;
-}
-
 function buildFallbackReportKey(metadata) {
   const mode = metadata.reportModeSlug || metadata.reportMode || 'report';
   const date = metadata.periodValue || metadata.selectedDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
   return `${String(mode).toLowerCase().replace(/\s+/g, '-')}-${date}`;
+}
+
+function getMonthKeyFromReportKey(reportKey) {
+  const value = String(reportKey || '');
+  const match = value.match(/(\d{4}-\d{2})/);
+
+  return match ? match[1] : '';
 }
 
 function formatMonthLabel(monthKey) {
@@ -1023,6 +1042,8 @@ report sheet. The visible report uses a readable label such as:
 The script updates these sheets:
 
 * `Laporan Penjualan`: replaces the old block for the same date or period.
+* `_Data Rekap Internal`: upserts one source row by `Report Key`.
+* `_Data Produk Internal`: replaces old product rows for the same `Report Key`.
 * `Rekap Bulanan`: recalculates monthly rows from stored synced data.
 * `Rekap Produk Bulanan`: recalculates product rows from stored synced data.
 * `Rekap Keseluruhan`: recalculates automatically after every successful sync.
@@ -1043,16 +1064,18 @@ Use `Hari Ini` first with a small test report.
 Check:
 
 * `Laporan Penjualan` has a readable report block.
+* `_Data Rekap Internal` has one row for the synced report key/date.
+* `_Data Produk Internal` has product rows for the synced report key/date.
 * `Jumlah Terjual` is a plain number, not Rupiah.
 * The product table has blue headers and a pink total row.
 * Payment, discount, expenses, and closing summaries appear below the product table.
 * `Rekap Bulanan` has one row for the month.
 * `Rekap Produk Bulanan` has product rows for the month.
-* `Rekap Keseluruhan` updates after the daily sync.
+* `Rekap Keseluruhan` has non-zero totals after the daily sync.
 * `Sync Logs` records the sync attempt.
 
 Then click `Sync Google Sheet` again for the same period. The old report block,
-matching summary rows, and all-time totals should update without double counting.
+internal rows, recap rows, and all-time totals should update without double counting.
 
 If sync fails, Santara POS still keeps data locally. Check that the Apps Script
 deployment is active and that the URL ends with `/exec`.
