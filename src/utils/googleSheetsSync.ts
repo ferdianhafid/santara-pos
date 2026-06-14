@@ -83,6 +83,7 @@ export function buildGoogleSheetPayload(
 ) {
   const generatedAt = new Date().toISOString();
   const reportKey = getReportKey(reportMode, selectedDate);
+  const periodValue = getPeriodValue(reportMode, selectedDate);
   const periodLabel = getPeriodLabel(reportMode, selectedDate);
   const cashSales =
     report.paymentSummary.find((summary) => summary.method === 'Cash')?.total ?? 0;
@@ -97,6 +98,7 @@ export function buildGoogleSheetPayload(
       reportKey,
       reportMode: reportModeLabels[reportMode],
       reportModeSlug: reportModeSlugs[reportMode],
+      periodValue,
       periodLabel,
       selectedDate: reportMode === 'date' ? selectedDate : null,
       syncedBy,
@@ -105,6 +107,7 @@ export function buildGoogleSheetPayload(
     },
     summary: {
       reportKey,
+      periodValue,
       periodLabel,
       grossSales: report.grossSales,
       totalDiscount: report.totalDiscount,
@@ -128,7 +131,10 @@ export function buildGoogleSheetPayload(
       discountedTransactionCount: report.discountedTransactionCount,
       averageDiscountPerDiscountedTransaction: report.averageDiscount,
     },
-    menuSales: report.menuSales,
+    menuSales: report.menuSales.map((item) => ({
+      ...item,
+      unitPrice: item.quantity > 0 ? item.grossSales / item.quantity : 0,
+    })),
     bestSellers: report.bestSellers.map((item, index) => ({
       rank: index + 1,
       menu: item.name,
@@ -159,9 +165,9 @@ function getReportKey(reportMode: ReportMode, selectedDate: string) {
   return `${reportModeSlugs.today}-${getTodayInputValue()}`;
 }
 
-function getPeriodLabel(reportMode: ReportMode, selectedDate: string) {
+function getPeriodValue(reportMode: ReportMode, selectedDate: string) {
   if (reportMode === 'all') {
-    return 'Semua Waktu';
+    return 'semua-waktu';
   }
 
   if (reportMode === 'month') {
@@ -173,6 +179,21 @@ function getPeriodLabel(reportMode: ReportMode, selectedDate: string) {
   }
 
   return getTodayInputValue();
+}
+
+function getPeriodLabel(reportMode: ReportMode, selectedDate: string) {
+  if (reportMode === 'all') {
+    return 'Periode: Semua Waktu';
+  }
+
+  if (reportMode === 'month') {
+    return `Periode: ${formatMonthLabel(getCurrentMonthValue())}`;
+  }
+
+  const dateValue =
+    reportMode === 'date' ? selectedDate || getTodayInputValue() : getTodayInputValue();
+
+  return `Tanggal: ${formatDateLabel(dateValue)}`;
 }
 
 function getCurrentMonthValue() {
@@ -190,6 +211,45 @@ function getTodayInputValue() {
   const day = String(date.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(dateValue: string) {
+  const [year, month, day] = dateValue.split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return dateValue;
+  }
+
+  return `${day} ${getIndonesianMonthName(month)} ${year}`;
+}
+
+function formatMonthLabel(monthValue: string) {
+  const [year, month] = monthValue.split('-').map(Number);
+
+  if (!year || !month) {
+    return monthValue;
+  }
+
+  return `${getIndonesianMonthName(month)} ${year}`;
+}
+
+function getIndonesianMonthName(month: number) {
+  const monthNames = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+  ];
+
+  return monthNames[month - 1] ?? String(month);
 }
 
 function toExpensePayload(expense: Expense) {

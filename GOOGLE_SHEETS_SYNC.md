@@ -8,7 +8,7 @@ This is intentionally simple:
 * No Google OAuth inside Santara POS.
 * No Google API client inside Santara POS.
 * The app sends the selected report to your Apps Script endpoint.
-* Apps Script writes clean log-style rows into your Google Sheet.
+* Apps Script writes a readable cafe sales report into Google Sheets.
 
 ## 1. Create the Google Sheet
 
@@ -32,84 +32,43 @@ https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit
 5. Replace `SPREADSHEET_ID_HERE` with your spreadsheet ID.
 6. Save the script.
 
-This script creates these sheets:
+This script creates a main sheet named `Laporan Penjualan`.
 
-* `Daily Report`
-* `Menu Sales Log`
-* `Payment Log`
-* `Expense Log`
-* `Closing Log`
-* `Sync Logs`
+Each sync writes a readable report block with:
 
-When the same report period is synced again, the script updates or replaces the
-matching rows instead of creating duplicates.
+* report title by date or period;
+* product sales table;
+* total row;
+* payment summary;
+* discount summary;
+* expense summary;
+* daily closing summary.
+
+If the same date or period is synced again, the old block is replaced instead
+of duplicated.
 
 ```js
 const SPREADSHEET_ID = 'SPREADSHEET_ID_HERE';
+const REPORT_SHEET_NAME = 'Laporan Penjualan';
+const SYNC_LOG_SHEET_NAME = 'Sync Logs';
+const START_MARKER = '__SANTARA_REPORT_START__';
+const END_MARKER = '__SANTARA_REPORT_END__';
+const BLUE_HEADER = '#d9eaf7';
+const PINK_TOTAL = '#f8d7da';
+const SOFT_GRAY = '#f7f7f7';
+const TEXT_COLOR = '#1f2933';
 
-const DAILY_REPORT_HEADERS = [
-  'Report Key',
-  'Report Mode',
-  'Date / Period',
-  'Generated At',
-  'Gross Sales',
-  'Total Discount',
-  'Net Sales',
-  'Total HPP',
-  'Gross Profit',
-  'Gross Margin',
-  'Total Expenses',
-  'Net Profit',
-  'Net Margin',
-  'Cash Sales',
-  'QRIS Sales',
-  'Debit Sales',
-  'Total Transactions',
-  'Average Transaction Value',
-  'Source Transaction Count',
-];
-
-const MENU_SALES_HEADERS = [
-  'Report Key',
-  'Date / Period',
-  'Menu',
-  'Category',
-  'Qty',
-  'Gross Sales',
-  'Discount',
-  'Net Sales',
+const PRODUCT_HEADERS = [
+  'No',
+  'Nama Produk',
+  'Harga Satuan',
+  'Jumlah Terjual',
+  'Pendapatan Kotor',
+  'Diskon',
+  'Pendapatan Bersih',
   'HPP',
-  'Profit',
+  'Laba Kotor',
   'Margin',
-];
-
-const PAYMENT_HEADERS = [
-  'Report Key',
-  'Date / Period',
-  'Payment Method',
-  'Transaction Count',
-  'Total',
-];
-
-const EXPENSE_HEADERS = [
-  'Report Key',
-  'Date / Period',
-  'Expense Date',
-  'Name',
-  'Category',
-  'Amount',
-  'Payment Method',
-  'Notes',
-];
-
-const CLOSING_HEADERS = [
-  'Report Key',
-  'Date / Period',
-  'Expected Cash',
-  'Actual Cash',
-  'Cash Difference',
-  'Notes',
-  'Saved At / Updated At',
 ];
 
 const SYNC_LOG_HEADERS = [
@@ -129,49 +88,90 @@ function doPost(e) {
     const payload = JSON.parse(e.postData.contents || '{}');
     const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
     const metadata = payload.metadata || {};
-    const summary = payload.summary || {};
 
-    reportKey = metadata.reportKey || summary.reportKey || buildFallbackReportKey(metadata);
+    reportKey = metadata.reportKey || payload.summary?.reportKey || buildFallbackReportKey(metadata);
     reportMode = metadata.reportMode || 'Unknown';
-    const periodLabel = metadata.periodLabel || summary.periodLabel || metadata.selectedDate || '';
 
-    const dailySheet = setupSheet(spreadsheet, 'Daily Report', DAILY_REPORT_HEADERS);
-    const menuSheet = setupSheet(spreadsheet, 'Menu Sales Log', MENU_SALES_HEADERS);
-    const paymentSheet = setupSheet(spreadsheet, 'Payment Log', PAYMENT_HEADERS);
-    const expenseSheet = setupSheet(spreadsheet, 'Expense Log', EXPENSE_HEADERS);
-    const closingSheet = setupSheet(spreadsheet, 'Closing Log', CLOSING_HEADERS);
-    const syncLogSheet = setupSheet(spreadsheet, 'Sync Logs', SYNC_LOG_HEADERS);
+    const reportSheet = setupReportSheet(spreadsheet);
+    const syncLogSheet = setupSyncLogSheet(spreadsheet);
 
-    upsertRowByKey(dailySheet, reportKey, [
-      reportKey,
-      reportMode,
-      periodLabel,
-      metadata.generatedAt || syncedAt,
-      toNumber(summary.grossSales),
-      toNumber(summary.totalDiscount),
-      toNumber(summary.netSales),
-      toNumber(summary.totalHpp),
-      toNumber(summary.grossProfit),
-      toPercent(summary.grossMargin),
-      toNumber(summary.totalExpenses),
-      toNumber(summary.netProfit),
-      toPercent(summary.netMargin),
-      toNumber(summary.cashSales),
-      toNumber(summary.qrisSales),
-      toNumber(summary.debitSales),
-      toNumber(summary.totalTransactions),
-      toNumber(summary.averageTransactionValue),
-      toNumber(summary.sourceTransactionCount),
-    ]);
+    replaceReportBlock(reportSheet, reportKey, payload);
+    appendSyncLog(syncLogSheet, syncedAt, reportKey, reportMode, 'success', 'Sync berhasil');
 
-    replaceRowsForReportKey(
-      menuSheet,
-      reportKey,
-      (payload.menuSales || []).map((item) => [
-        reportKey,
-        periodLabel,
-        item.name,
-        item.category,
+    return jsonResponse({ ok: true, message: 'Data berhasil dikirim ke Google Sheets.' });
+  } catch (error) {
+    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const syncLogSheet = setupSyncLogSheet(spreadsheet);
+    const message = String(error);
+
+    appendSyncLog(syncLogSheet, syncedAt, reportKey, reportMode, 'error', message);
+
+    return jsonResponse({ ok: false, message });
+  }
+}
+
+function setupReportSheet(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName(REPORT_SHEET_NAME) || spreadsheet.insertSheet(REPORT_SHEET_NAME);
+
+  sheet.getRange(1, 1, 1, PRODUCT_HEADERS.length)
+    .merge()
+    .setValue('Santara Coffee - Laporan Penjualan')
+    .setFontWeight('bold')
+    .setFontSize(14)
+    .setFontColor(TEXT_COLOR)
+    .setBackground(BLUE_HEADER)
+    .setHorizontalAlignment('center');
+
+  sheet.setFrozenRows(1);
+
+  return sheet;
+}
+
+function setupSyncLogSheet(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName(SYNC_LOG_SHEET_NAME) || spreadsheet.insertSheet(SYNC_LOG_SHEET_NAME);
+
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, SYNC_LOG_HEADERS.length).setValues([SYNC_LOG_HEADERS]);
+  }
+
+  sheet.getRange(1, 1, 1, SYNC_LOG_HEADERS.length)
+    .setFontWeight('bold')
+    .setBackground(BLUE_HEADER)
+    .setFontColor(TEXT_COLOR);
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, SYNC_LOG_HEADERS.length);
+
+  return sheet;
+}
+
+function replaceReportBlock(sheet, reportKey, payload) {
+  deleteExistingReportBlock(sheet, reportKey);
+
+  const metadata = payload.metadata || {};
+  const summary = payload.summary || {};
+  const menuSales = payload.menuSales || [];
+  const paymentSummary = payload.paymentSummary || [];
+  const expenseSummary = payload.expenseSummary || [];
+  const dailyClosing = payload.dailyClosing || null;
+  const periodLabel = metadata.periodLabel || summary.periodLabel || metadata.selectedDate || 'Periode laporan';
+  const generatedAt = metadata.generatedAt || new Date();
+  const startRow = Math.max(sheet.getLastRow() + 2, 3);
+  const rows = [];
+
+  rows.push(padRow([`${START_MARKER}:${reportKey}`]));
+  rows.push(padRow([periodLabel]));
+  rows.push(padRow([`Dibuat: ${formatDateTime(generatedAt)}`]));
+  rows.push(padRow([]));
+  rows.push(PRODUCT_HEADERS);
+
+  if (menuSales.length === 0) {
+    rows.push(padRow(['-', 'Belum ada penjualan menu', '', '', 0, 0, 0, 0, 0, 0]));
+  } else {
+    menuSales.forEach((item, index) => {
+      rows.push([
+        index + 1,
+        item.name || '',
+        toNumber(item.unitPrice),
         toNumber(item.quantity),
         toNumber(item.grossSales),
         toNumber(item.discountAmount),
@@ -179,190 +179,183 @@ function doPost(e) {
         toNumber(item.hpp),
         toNumber(item.estimatedProfit),
         toPercent(item.margin),
-      ]),
-    );
-
-    replaceRowsForReportKey(
-      paymentSheet,
-      reportKey,
-      (payload.paymentSummary || []).map((payment) => [
-        reportKey,
-        periodLabel,
-        payment.method,
-        toNumber(payment.transactionCount),
-        toNumber(payment.total),
-      ]),
-    );
-
-    replaceRowsForReportKey(
-      expenseSheet,
-      reportKey,
-      (payload.expenseList || []).map((expense) => [
-        reportKey,
-        periodLabel,
-        expense.date,
-        expense.name,
-        expense.category,
-        toNumber(expense.amount),
-        expense.paymentMethod,
-        expense.notes,
-      ]),
-    );
-
-    replaceRowsForReportKey(
-      closingSheet,
-      reportKey,
-      payload.dailyClosing
-        ? [[
-            reportKey,
-            periodLabel,
-            toNumber(payload.dailyClosing.expectedCash),
-            toNumber(payload.dailyClosing.actualCash),
-            toNumber(payload.dailyClosing.cashDifference),
-            payload.dailyClosing.notes || '',
-            payload.dailyClosing.updatedAt || payload.dailyClosing.date || '',
-          ]]
-        : [],
-    );
-
-    appendSyncLog(syncLogSheet, syncedAt, reportKey, reportMode, 'success', 'Sync berhasil');
-    applyAllFormats(spreadsheet);
-
-    return jsonResponse({ ok: true, message: 'Data berhasil dikirim ke Google Sheets.' });
-  } catch (error) {
-    const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const syncLogSheet = setupSheet(spreadsheet, 'Sync Logs', SYNC_LOG_HEADERS);
-    const message = String(error);
-    appendSyncLog(syncLogSheet, syncedAt, reportKey, reportMode, 'error', message);
-
-    return jsonResponse({ ok: false, message });
-  }
-}
-
-function setupSheet(spreadsheet, sheetName, headers) {
-  const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
-  const currentHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-  const shouldResetHeaders = currentHeaders.join('|') !== headers.join('|');
-
-  if (shouldResetHeaders) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      ]);
+    });
   }
 
-  styleHeader(sheet, headers.length);
+  const totalGrossProfit = toNumber(summary.netSales) - toNumber(summary.totalHpp);
+  const totalMargin = toNumber(summary.netSales) > 0 ? totalGrossProfit / toNumber(summary.netSales) : 0;
+  const totalRowIndexInRows = rows.length;
 
-  return sheet;
+  rows.push([
+    '',
+    'TOTAL',
+    '',
+    menuSales.reduce((total, item) => total + toNumber(item.quantity), 0),
+    toNumber(summary.grossSales),
+    toNumber(summary.totalDiscount),
+    toNumber(summary.netSales),
+    toNumber(summary.totalHpp),
+    totalGrossProfit,
+    totalMargin,
+  ]);
+
+  rows.push(padRow([]));
+  rows.push(padRow(['Ringkasan Pembayaran']));
+  ['Cash', 'QRIS', 'Debit'].forEach((method) => {
+    const payment = paymentSummary.find((item) => item.method === method) || {};
+    rows.push(padRow([method, toNumber(payment.total), `${toNumber(payment.transactionCount)} transaksi`]));
+  });
+
+  rows.push(padRow([]));
+  rows.push(padRow(['Ringkasan Diskon']));
+  rows.push(padRow(['Total diskon', toNumber(summary.totalDiscount)]));
+  rows.push(padRow(['Transaksi berdiskon', `${toNumber(payload.discountSummary?.discountedTransactionCount)} transaksi`]));
+
+  rows.push(padRow([]));
+  rows.push(padRow(['Ringkasan Pengeluaran']));
+  rows.push(padRow(['Total pengeluaran', toNumber(summary.totalExpenses)]));
+  if (expenseSummary.length === 0) {
+    rows.push(padRow(['Kategori', '-']));
+  } else {
+    expenseSummary.forEach((expense) => {
+      rows.push(padRow([expense.category || 'Lainnya', toNumber(expense.total)]));
+    });
+  }
+
+  rows.push(padRow([]));
+  rows.push(padRow(['Closing Harian']));
+  rows.push(padRow(['Kas seharusnya', dailyClosing ? toNumber(dailyClosing.expectedCash) : 0]));
+  rows.push(padRow(['Kas aktual', dailyClosing ? toNumber(dailyClosing.actualCash) : 0]));
+  rows.push(padRow(['Selisih kas', dailyClosing ? toNumber(dailyClosing.cashDifference) : 0]));
+  rows.push(padRow(['Catatan', dailyClosing?.notes || '-']));
+  rows.push(padRow([`${END_MARKER}:${reportKey}`]));
+
+  sheet.getRange(startRow, 1, rows.length, PRODUCT_HEADERS.length).setValues(rows);
+  formatReportBlock(sheet, startRow, rows.length, totalRowIndexInRows);
 }
 
-function styleHeader(sheet, columnCount) {
-  sheet.setFrozenRows(1);
-  sheet
-    .getRange(1, 1, 1, columnCount)
+function formatReportBlock(sheet, startRow, rowCount, totalRowIndexInRows) {
+  const titleRow = startRow + 1;
+  const generatedRow = startRow + 2;
+  const headerRow = startRow + 4;
+  const totalRow = startRow + totalRowIndexInRows;
+  const endRow = startRow + rowCount - 1;
+
+  sheet.hideRows(startRow);
+  sheet.hideRows(endRow);
+
+  sheet.getRange(titleRow, 1, 1, PRODUCT_HEADERS.length)
+    .merge()
     .setFontWeight('bold')
-    .setBackground('#efe2cf')
-    .setFontColor('#4b2f22');
+    .setFontSize(13)
+    .setBackground(BLUE_HEADER)
+    .setFontColor(TEXT_COLOR)
+    .setHorizontalAlignment('center');
+
+  sheet.getRange(generatedRow, 1, 1, PRODUCT_HEADERS.length)
+    .merge()
+    .setFontStyle('italic')
+    .setFontColor('#5f6b7a');
+
+  sheet.getRange(headerRow, 1, 1, PRODUCT_HEADERS.length)
+    .setFontWeight('bold')
+    .setBackground(BLUE_HEADER)
+    .setHorizontalAlignment('center');
+
+  sheet.getRange(headerRow, 1, totalRow - headerRow + 1, PRODUCT_HEADERS.length)
+    .setBorder(true, true, true, true, true, true);
+
+  sheet.getRange(totalRow, 1, 1, PRODUCT_HEADERS.length)
+    .setFontWeight('bold')
+    .setBackground(PINK_TOTAL);
+
+  sheet.getRange(headerRow + 1, 1, totalRow - headerRow, 1).setHorizontalAlignment('center');
+  sheet.getRange(headerRow + 1, 4, totalRow - headerRow, 1).setHorizontalAlignment('center');
+  sheet.getRange(headerRow + 1, 3, totalRow - headerRow, 7).setHorizontalAlignment('right');
+  sheet.getRange(headerRow + 1, 3, totalRow - headerRow, 6).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(headerRow + 1, 9, totalRow - headerRow, 1).setNumberFormat('"Rp" #,##0');
+  sheet.getRange(headerRow + 1, 10, totalRow - headerRow, 1).setNumberFormat('0.00%');
+
+  formatSectionTitles(sheet, startRow, rowCount);
+  formatSummaryCurrency(sheet, startRow, rowCount);
+
+  sheet.autoResizeColumns(1, PRODUCT_HEADERS.length);
 }
 
-function upsertRowByKey(sheet, reportKey, row) {
-  const existingRow = findRowByKey(sheet, reportKey);
+function formatSectionTitles(sheet, startRow, rowCount) {
+  const values = sheet.getRange(startRow, 1, rowCount, 1).getValues();
+  const titles = [
+    'Ringkasan Pembayaran',
+    'Ringkasan Diskon',
+    'Ringkasan Pengeluaran',
+    'Closing Harian',
+  ];
 
-  if (existingRow) {
-    sheet.getRange(existingRow, 1, 1, row.length).setValues([row]);
-    return;
-  }
-
-  sheet.appendRow(row);
+  values.forEach((row, index) => {
+    if (titles.includes(row[0])) {
+      sheet.getRange(startRow + index, 1, 1, 3)
+        .setFontWeight('bold')
+        .setBackground(SOFT_GRAY)
+        .setBorder(true, true, true, true, false, false);
+    }
+  });
 }
 
-function replaceRowsForReportKey(sheet, reportKey, rows) {
-  deleteRowsByKey(sheet, reportKey);
-
-  if (rows.length === 0) {
-    return;
-  }
-
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+function formatSummaryCurrency(sheet, startRow, rowCount) {
+  sheet.getRange(startRow, 2, rowCount, 1).setNumberFormat('"Rp" #,##0');
 }
 
-function findRowByKey(sheet, reportKey) {
+function deleteExistingReportBlock(sheet, reportKey) {
   const lastRow = sheet.getLastRow();
 
   if (lastRow < 2) {
-    return null;
-  }
-
-  const keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-
-  for (let index = 0; index < keys.length; index += 1) {
-    if (keys[index][0] === reportKey) {
-      return index + 2;
-    }
-  }
-
-  return null;
-}
-
-function deleteRowsByKey(sheet, reportKey) {
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
     return;
   }
 
-  const keys = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  const values = sheet.getRange(1, 1, lastRow, 1).getValues().map((row) => String(row[0]));
+  const startMarker = `${START_MARKER}:${reportKey}`;
+  const endMarker = `${END_MARKER}:${reportKey}`;
+  const startIndex = values.indexOf(startMarker);
+  const endIndex = values.indexOf(endMarker);
 
-  for (let index = keys.length - 1; index >= 0; index -= 1) {
-    if (keys[index][0] === reportKey) {
-      sheet.deleteRow(index + 2);
-    }
+  if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+    return;
   }
+
+  sheet.deleteRows(startIndex + 1, endIndex - startIndex + 1);
 }
 
 function appendSyncLog(sheet, syncedAt, reportKey, reportMode, status, message) {
   sheet.appendRow([syncedAt, reportKey, reportMode, status, message]);
+  sheet.autoResizeColumns(1, SYNC_LOG_HEADERS.length);
 }
 
-function applyAllFormats(spreadsheet) {
-  formatSheet(spreadsheet.getSheetByName('Daily Report'), {
-    currency: ['E:I', 'K:P', 'R:R'],
-    percent: ['J:J', 'M:M'],
-  });
-  formatSheet(spreadsheet.getSheetByName('Menu Sales Log'), {
-    currency: ['F:J'],
-    percent: ['K:K'],
-  });
-  formatSheet(spreadsheet.getSheetByName('Payment Log'), {
-    currency: ['E:E'],
-  });
-  formatSheet(spreadsheet.getSheetByName('Expense Log'), {
-    currency: ['F:F'],
-  });
-  formatSheet(spreadsheet.getSheetByName('Closing Log'), {
-    currency: ['C:E'],
-  });
-  formatSheet(spreadsheet.getSheetByName('Sync Logs'), {});
-}
+function padRow(values) {
+  const row = values.slice(0, PRODUCT_HEADERS.length);
 
-function formatSheet(sheet, formats) {
-  if (!sheet) {
-    return;
+  while (row.length < PRODUCT_HEADERS.length) {
+    row.push('');
   }
 
-  (formats.currency || []).forEach((range) => {
-    sheet.getRange(range).setNumberFormat('"Rp" #,##0');
-  });
-
-  (formats.percent || []).forEach((range) => {
-    sheet.getRange(range).setNumberFormat('0.00%');
-  });
-
-  sheet.autoResizeColumns(1, sheet.getLastColumn());
+  return row;
 }
 
 function buildFallbackReportKey(metadata) {
   const mode = metadata.reportModeSlug || metadata.reportMode || 'report';
-  const date = metadata.selectedDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const date = metadata.periodValue || metadata.selectedDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
   return `${String(mode).toLowerCase().replace(/\s+/g, '-')}-${date}`;
+}
+
+function formatDateTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value || '-');
+  }
+
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'dd MMMM yyyy HH:mm');
 }
 
 function toNumber(value) {
@@ -407,45 +400,35 @@ https://script.google.com/macros/s/.../exec
 5. Click `Simpan URL`.
 6. Click `Sync Google Sheet`.
 
-## 5. How Sync Updates Rows
+## 5. How Sync Updates Report Blocks
 
-Santara POS now sends a stable `Report Key`.
+Santara POS sends an internal `Report Key`, but the key is hidden in the main
+report sheet. The visible report uses a readable label such as:
 
-Examples:
+* `Tanggal: 14 Juni 2026`
+* `Periode: Juni 2026`
+* `Periode: Semua Waktu`
 
-* `hari-ini-2026-06-14`
-* `pilih-tanggal-2026-06-10`
-* `bulan-ini-2026-06`
-* `semua-waktu`
+The Apps Script uses hidden start/end marker rows to find the old block for the
+same period. When you sync the same report again, it deletes the old block and
+writes the updated one.
 
-The Apps Script uses that key to:
-
-* update one row in `Daily Report`;
-* clear and rewrite matching rows in `Menu Sales Log`;
-* clear and rewrite matching rows in `Payment Log`;
-* clear and rewrite matching rows in `Expense Log`;
-* clear and rewrite matching rows in `Closing Log`;
-* append every sync attempt to `Sync Logs`.
-
-This keeps weekly and monthly tracking cleaner because repeat syncs refresh the
-same period instead of making duplicates.
+The technical `Report Key` is still visible in `Sync Logs` so you can debug sync
+history if needed.
 
 ## 6. Test Safely
 
 Use `Hari Ini` first with a small test report.
 
-Check these sheets:
+Check:
 
-* Daily Report
-* Menu Sales Log
-* Payment Log
-* Expense Log
-* Closing Log
-* Sync Logs
+* `Laporan Penjualan` has a readable report block.
+* The product table has blue headers and a pink total row.
+* Payment, discount, expenses, and closing summaries appear below the product table.
+* `Sync Logs` records the sync attempt.
 
-Then click `Sync Google Sheet` again for the same period. The `Daily Report`
-row should update, and the log sheets should not duplicate old rows for the
-same `Report Key`.
+Then click `Sync Google Sheet` again for the same period. The old block should
+be replaced, not duplicated.
 
 If sync fails, Santara POS still keeps data locally. Check that the Apps Script
 deployment is active and that the URL ends with `/exec`.
