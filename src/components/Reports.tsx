@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { CompletedTransaction } from '../types';
 import { formatRupiah } from '../utils/format';
+import { exportReportCsv, exportReportJson } from '../utils/reportExport';
 import {
   buildSalesReport,
   getTodayInputValue,
@@ -27,6 +28,11 @@ export function Reports({ transactions }: ReportsProps) {
     [reportMode, selectedDate, transactions],
   );
   const hasTransactions = report.totalTransactions > 0;
+  const exportContext = {
+    report,
+    reportMode,
+    selectedDate,
+  };
 
   return (
     <section className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
@@ -43,32 +49,58 @@ export function Reports({ transactions }: ReportsProps) {
           </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px] lg:w-[620px]">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {reportModes.map((mode) => (
-              <button
-                className={`rounded-lg px-3 py-3 text-xs font-black transition ${
-                  reportMode === mode.value
-                    ? 'bg-santara-bean text-white shadow-soft'
-                    : 'bg-white text-santara-roast ring-1 ring-santara-latte hover:bg-santara-cream'
-                }`}
-                key={mode.value}
-                onClick={() => setReportMode(mode.value)}
-                type="button"
-              >
-                {mode.label}
-              </button>
-            ))}
+        <div className="grid gap-2 lg:w-[720px]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {reportModes.map((mode) => (
+                <button
+                  className={`rounded-lg px-3 py-3 text-xs font-black transition ${
+                    reportMode === mode.value
+                      ? 'bg-santara-bean text-white shadow-soft'
+                      : 'bg-white text-santara-roast ring-1 ring-santara-latte hover:bg-santara-cream'
+                  }`}
+                  key={mode.value}
+                  onClick={() => setReportMode(mode.value)}
+                  type="button"
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
+            {reportMode === 'date' && (
+              <input
+                className="rounded-lg bg-white px-3 py-3 text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte transition focus:ring-2 focus:ring-santara-clay"
+                onChange={(event) => setSelectedDate(event.target.value)}
+                type="date"
+                value={selectedDate}
+              />
+            )}
           </div>
 
-          {reportMode === 'date' && (
-            <input
-              className="rounded-lg bg-white px-3 py-3 text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte transition focus:ring-2 focus:ring-santara-clay"
-              onChange={(event) => setSelectedDate(event.target.value)}
-              type="date"
-              value={selectedDate}
-            />
-          )}
+          <div className="grid gap-2 sm:grid-cols-[1fr_140px_140px] sm:items-center">
+            <p className="text-xs font-bold text-santara-roast/60">
+              {hasTransactions
+                ? 'Download laporan sesuai filter aktif.'
+                : 'Tidak ada data laporan'}
+            </p>
+            <button
+              className="rounded-lg bg-santara-bean px-3 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!hasTransactions}
+              onClick={() => exportReportCsv(exportContext)}
+              type="button"
+            >
+              Export CSV
+            </button>
+            <button
+              className="rounded-lg bg-white px-3 py-2.5 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!hasTransactions}
+              onClick={() => exportReportJson(exportContext)}
+              type="button"
+            >
+              Export JSON
+            </button>
+          </div>
         </div>
       </div>
 
