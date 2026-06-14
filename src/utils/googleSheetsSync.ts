@@ -16,6 +16,13 @@ const reportModeLabels: Record<ReportMode, string> = {
   all: 'Semua Waktu',
 };
 
+const reportModeSlugs: Record<ReportMode, string> = {
+  today: 'hari-ini',
+  date: 'pilih-tanggal',
+  month: 'bulan-ini',
+  all: 'semua-waktu',
+};
+
 export async function syncReportToGoogleSheet({
   endpointUrl,
   report,
@@ -35,7 +42,9 @@ export async function syncReportToGoogleSheet({
 
   try {
     const response = await fetch(endpointUrl.trim(), {
-      body: JSON.stringify(buildGoogleSheetPayload(report, reportMode, selectedDate)),
+      body: JSON.stringify(
+        buildGoogleSheetPayload(report, reportMode, selectedDate, syncedBy),
+      ),
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
@@ -70,16 +79,33 @@ export function buildGoogleSheetPayload(
   report: SalesReport,
   reportMode: ReportMode,
   selectedDate: string,
+  syncedBy = 'Santara User',
 ) {
+  const generatedAt = new Date().toISOString();
+  const reportKey = getReportKey(reportMode, selectedDate);
+  const periodLabel = getPeriodLabel(reportMode, selectedDate);
+  const cashSales =
+    report.paymentSummary.find((summary) => summary.method === 'Cash')?.total ?? 0;
+  const qrisSales =
+    report.paymentSummary.find((summary) => summary.method === 'QRIS')?.total ?? 0;
+  const debitSales =
+    report.paymentSummary.find((summary) => summary.method === 'Debit')?.total ?? 0;
+
   return {
     metadata: {
-      generatedAt: new Date().toISOString(),
+      generatedAt,
+      reportKey,
       reportMode: reportModeLabels[reportMode],
+      reportModeSlug: reportModeSlugs[reportMode],
+      periodLabel,
       selectedDate: reportMode === 'date' ? selectedDate : null,
+      syncedBy,
       sourceTransactionCount: report.sourceTransactionCount,
       sourceLegacyCount: report.sourceLegacyCount,
     },
     summary: {
+      reportKey,
+      periodLabel,
       grossSales: report.grossSales,
       totalDiscount: report.totalDiscount,
       netSales: report.netSales,
@@ -89,8 +115,12 @@ export function buildGoogleSheetPayload(
       totalExpenses: report.totalExpenses,
       netProfit: report.netProfit,
       netMargin: report.netMargin,
+      cashSales,
+      qrisSales,
+      debitSales,
       totalTransactions: report.totalTransactions,
       averageTransactionValue: report.averageTransactionValue,
+      sourceTransactionCount: report.sourceTransactionCount,
     },
     paymentSummary: report.paymentSummary,
     discountSummary: {
@@ -113,6 +143,55 @@ export function buildGoogleSheetPayload(
   };
 }
 
+function getReportKey(reportMode: ReportMode, selectedDate: string) {
+  if (reportMode === 'all') {
+    return reportModeSlugs.all;
+  }
+
+  if (reportMode === 'month') {
+    return `${reportModeSlugs.month}-${getCurrentMonthValue()}`;
+  }
+
+  if (reportMode === 'date') {
+    return `${reportModeSlugs.date}-${selectedDate || getTodayInputValue()}`;
+  }
+
+  return `${reportModeSlugs.today}-${getTodayInputValue()}`;
+}
+
+function getPeriodLabel(reportMode: ReportMode, selectedDate: string) {
+  if (reportMode === 'all') {
+    return 'Semua Waktu';
+  }
+
+  if (reportMode === 'month') {
+    return getCurrentMonthValue();
+  }
+
+  if (reportMode === 'date') {
+    return selectedDate || getTodayInputValue();
+  }
+
+  return getTodayInputValue();
+}
+
+function getCurrentMonthValue() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+
+  return `${year}-${month}`;
+}
+
+function getTodayInputValue() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
 function toExpensePayload(expense: Expense) {
   return {
     date: expense.date,
@@ -126,11 +205,13 @@ function toExpensePayload(expense: Expense) {
 
 function toDailyClosingPayload(closing: DailyClosing) {
   return {
+    closingDate: closing.closingDate,
     date: closing.closingDate,
     expectedCash: closing.expectedCash,
     actualCash: closing.actualCash,
     cashDifference: closing.cashDifference,
     notes: closing.notes,
+    updatedAt: closing.updatedAt,
   };
 }
 

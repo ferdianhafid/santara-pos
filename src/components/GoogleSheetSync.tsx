@@ -76,6 +76,9 @@ export function GoogleSheetSync({
         <p className="mt-1 text-sm text-santara-roast/65">
           Sync laporan aktif ke Apps Script Web App URL.
         </p>
+        <p className="mt-1 text-xs font-bold text-santara-roast/55">
+          Sync akan update baris laporan dengan periode yang sama, bukan membuat duplikat.
+        </p>
       </div>
 
       <form className="mt-3 grid gap-2 lg:grid-cols-[1fr_120px_150px]" onSubmit={saveUrl}>
