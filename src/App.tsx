@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckoutModal } from './components/CheckoutModal';
 import { Expenses } from './components/Expenses';
 import { ConfirmOrderModal, SaveOrderModal } from './components/HoldOrderModals';
-import { LegacyImport } from './components/LegacyImport';
+import { ItemDiscountModal } from './components/ItemDiscountModal';
 import { LoginScreen } from './components/LoginScreen';
 import { MenuAdmin } from './components/MenuAdmin';
 import { ReceiptHistory } from './components/ReceiptHistory';
@@ -49,11 +49,13 @@ import type {
   CartItem,
   CompletedTransaction,
   DailyClosing,
+  DiscountType,
   Expense,
   GoogleSheetSyncLog,
   GoogleSheetSyncSettings,
   LegacyImportBatch,
   LegacySale,
+  MenuCategory,
   MenuItem,
   PendingOrder,
 } from './types';
@@ -76,8 +78,7 @@ type AppTab =
   | 'menu'
   | 'receipts'
   | 'reports'
-  | 'expenses'
-  | 'legacy';
+  | 'expenses';
 type AuthStatus = 'loading' | 'local' | 'authenticated' | 'unauthenticated';
 
 type PendingOrderAction = {
@@ -99,7 +100,6 @@ const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'receipts', label: 'Riwayat Struk' },
   { id: 'reports', label: 'Laporan' },
   { id: 'expenses', label: 'Pengeluaran' },
-  { id: 'legacy', label: 'Import Data Lama' },
 ];
 
 function createReceiptNumber(date: Date, sequence: number) {
@@ -109,6 +109,9 @@ function createReceiptNumber(date: Date, sequence: number) {
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('cashier');
   const [initialAppData] = useState(() => loadAppState(defaultMenuItems));
+  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>(
+    initialAppData.menuCategories,
+  );
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialAppData.menuItems);
   const [activeCategoryName, setActiveCategoryName] = useState(
     initialAppData.menuItems[0]?.category ?? initialMenuCategories[0].name,
@@ -138,6 +141,7 @@ function App() {
   );
   const [receiptCounter, setReceiptCounter] = useState(initialAppData.receiptCounter);
   const [isSaveOrderOpen, setIsSaveOrderOpen] = useState(false);
+  const [discountItemId, setDiscountItemId] = useState<string | null>(null);
   const [pendingOrderAction, setPendingOrderAction] =
     useState<PendingOrderAction | null>(null);
   const [syncQueue, setSyncQueue] = useState<SyncOperation[]>(loadSyncQueue);
@@ -160,14 +164,27 @@ function App() {
     () => appTabs.filter((tab) => canAccessTab(tab.id, effectiveRole)),
     [effectiveRole],
   );
-  const categoryNames = useMemo(() => getCategoryNames(menuItems), [menuItems]);
+  const activeCategoryNames = useMemo(
+    () =>
+      menuCategories
+        .filter((category) => category.isActive)
+        .map((category) => category.name),
+    [menuCategories],
+  );
   const activeCategoryNameSafe =
-    categoryNames.includes(activeCategoryName) ? activeCategoryName : categoryNames[0];
+    activeCategoryNames.includes(activeCategoryName)
+      ? activeCategoryName
+      : activeCategoryNames[0];
   const activeMenuItems = menuItems.filter(
-    (item) => item.category === activeCategoryNameSafe && item.isActive,
+    (item) =>
+      item.category === activeCategoryNameSafe &&
+      item.isActive &&
+      activeCategoryNames.includes(item.category),
   );
 
-  const subtotal = useMemo(() => getCartSubtotal(cart), [cart]);
+  const subtotal = useMemo(() => getCartGrossSubtotal(cart), [cart]);
+  const itemDiscountTotal = useMemo(() => getCartItemDiscountTotal(cart), [cart]);
+  const cartNetSubtotal = Math.max(subtotal - itemDiscountTotal, 0);
 
   const totalQuantity = useMemo(() => getCartQuantity(cart), [cart]);
 
@@ -177,6 +194,7 @@ function App() {
   );
   const appData = useMemo<AppStateData>(
     () => ({
+      menuCategories,
       menuItems,
       pendingOrders,
       completedTransactions,
@@ -196,6 +214,7 @@ function App() {
       googleSheetSyncSettings,
       legacyImportBatches,
       legacySales,
+      menuCategories,
       menuItems,
       pendingOrders,
       receiptCounter,
@@ -303,6 +322,7 @@ function App() {
   }, []);
 
   const applyCloudAppData = useCallback((data: AppStateData) => {
+    setMenuCategories(data.menuCategories);
     setMenuItems(data.menuItems);
     setPendingOrders(data.pendingOrders);
     setCompletedTransactions(data.completedTransactions);
@@ -313,7 +333,11 @@ function App() {
     setGoogleSheetSyncSettings(data.googleSheetSyncSettings);
     setGoogleSheetSyncLogs(data.googleSheetSyncLogs);
     setReceiptCounter(data.receiptCounter);
-    setActiveCategoryName(data.menuItems[0]?.category ?? initialMenuCategories[0].name);
+    setActiveCategoryName(
+      data.menuCategories.find((category) => category.isActive)?.name ??
+        data.menuItems[0]?.category ??
+        initialMenuCategories[0].name,
+    );
     saveAppState(data);
     appDataRef.current = data;
   }, []);
@@ -472,7 +496,7 @@ function App() {
     const nextItems = [...menuItems, { ...item, id }];
 
     setMenuItems(nextItems);
-    enqueueSyncOperations([createMenuSyncOperation(nextItems)]);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems, menuCategories)]);
     setActiveCategoryName(item.category);
   };
 
@@ -482,7 +506,7 @@ function App() {
     );
 
     setMenuItems(nextItems);
-    enqueueSyncOperations([createMenuSyncOperation(nextItems)]);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems, menuCategories)]);
   };
 
   const toggleMenuItem = (id: string) => {
@@ -491,7 +515,68 @@ function App() {
     );
 
     setMenuItems(nextItems);
-    enqueueSyncOperations([createMenuSyncOperation(nextItems)]);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems, menuCategories)]);
+  };
+
+  const addMenuCategory = (name: string) => {
+    const cleanName = name.trim();
+
+    if (!cleanName || menuCategories.some((category) => category.name === cleanName)) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const nextCategories = [
+      ...menuCategories,
+      {
+        id: `category-${cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
+        name: cleanName,
+        isActive: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        items: [],
+      },
+    ];
+
+    setMenuCategories(nextCategories);
+    enqueueSyncOperations([createMenuSyncOperation(menuItems, nextCategories)]);
+    setActiveCategoryName(cleanName);
+  };
+
+  const renameMenuCategory = (id: string, nextName: string) => {
+    const cleanName = nextName.trim();
+    const category = menuCategories.find((item) => item.id === id);
+
+    if (!category || !cleanName) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const nextCategories = menuCategories.map((item) =>
+      item.id === id ? { ...item, name: cleanName, updatedAt: timestamp } : item,
+    );
+    const nextItems = menuItems.map((item) =>
+      item.category === category.name ? { ...item, category: cleanName } : item,
+    );
+
+    setMenuCategories(nextCategories);
+    setMenuItems(nextItems);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems, nextCategories)]);
+    setActiveCategoryName((currentCategory) =>
+      currentCategory === category.name ? cleanName : currentCategory,
+    );
+  };
+
+  const toggleMenuCategory = (id: string) => {
+    const timestamp = new Date().toISOString();
+    const nextCategories = menuCategories.map((category) =>
+      category.id === id
+        ? { ...category, isActive: !category.isActive, updatedAt: timestamp }
+        : category,
+    );
+
+    setMenuCategories(nextCategories);
+    enqueueSyncOperations([createMenuSyncOperation(menuItems, nextCategories)]);
   };
 
   const addItem = (item: MenuItem) => {
@@ -542,6 +627,44 @@ function App() {
 
   const removeItem = (id: string) => {
     setCart((currentCart) => currentCart.filter((item) => item.id !== id));
+  };
+
+  const applyItemDiscount = (
+    id: string,
+    discountType: DiscountType,
+    discountValue: number,
+  ) => {
+    setCart((currentCart) =>
+      currentCart.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+
+        if (discountType === 'none' || discountValue <= 0) {
+          return {
+            ...item,
+            itemDiscountType: 'none',
+            itemDiscountValue: 0,
+            itemDiscountAmount: 0,
+          };
+        }
+
+        const nextItem = {
+          ...item,
+          itemDiscountType: discountType,
+          itemDiscountValue:
+            discountType === 'percentage'
+              ? Math.min(discountValue, 100)
+              : discountValue,
+        };
+
+        return {
+          ...nextItem,
+          itemDiscountAmount: getCartLineDiscount(nextItem),
+        };
+      }),
+    );
+    setDiscountItemId(null);
   };
 
   const clearCart = () => {
@@ -604,6 +727,7 @@ function App() {
       | 'discountType'
       | 'discountValue'
       | 'discountAmount'
+      | 'transactionDiscountAmount'
       | 'totalAfterDiscount'
       | 'paymentMethod'
       | 'paidAmount'
@@ -618,11 +742,22 @@ function App() {
       cashierName: CASHIER_NAME,
       items: cart.map((item) => ({
         ...item,
+        itemDiscountAmount: getCartLineDiscount(item),
         hppSnapshot: item.hppSnapshot ?? 0,
-        subtotal: item.unitPriceSnapshot * item.quantity,
+        subtotal: getCartLineGross(item),
+        grossLineTotal: getCartLineGross(item),
+        lineNetTotal: getCartLineNet(item),
+        unitHppSnapshot: item.hppSnapshot ?? 0,
+        totalHpp: (item.hppSnapshot ?? 0) * item.quantity,
+        profit: getCartLineNet(item) - (item.hppSnapshot ?? 0) * item.quantity,
       })),
       subtotalBeforeDiscount: subtotal,
+      itemDiscountAmount: itemDiscountTotal,
       ...checkout,
+      status: 'completed',
+      voidedAt: null,
+      voidedBy: null,
+      voidReason: null,
     };
 
     setCompletedTransactions((transactions) => [...transactions, transaction]);
@@ -638,6 +773,36 @@ function App() {
     setLegacyImportBatches((batches) => [batch, ...batches]);
     setLegacySales((currentSales) => [...currentSales, ...sales]);
     enqueueSyncOperations([createLegacyImportSyncOperation(batch, sales)]);
+  };
+
+  const voidReceipt = (receiptNumber: string, reason: string) => {
+    const voidedAt = new Date().toISOString();
+    const voidedBy = authProfile?.fullName ?? CASHIER_NAME;
+    let voidedTransaction: CompletedTransaction | null = null;
+
+    setCompletedTransactions((transactions) =>
+      transactions.map((transaction) => {
+        if (transaction.receiptNumber !== receiptNumber) {
+          return transaction;
+        }
+
+        voidedTransaction = {
+          ...transaction,
+          status: 'voided',
+          voidedAt,
+          voidedBy,
+          voidReason: reason,
+        };
+
+        return voidedTransaction;
+      }),
+    );
+
+    if (voidedTransaction) {
+      enqueueSyncOperations(
+        createTransactionSyncOperations(voidedTransaction, receiptCounter),
+      );
+    }
   };
 
   const addExpense = (expense: Expense) => {
@@ -691,6 +856,7 @@ function App() {
   };
 
   const importAppData = (data: AppStateData) => {
+    setMenuCategories(data.menuCategories);
     setMenuItems(data.menuItems);
     setPendingOrders(data.pendingOrders);
     setCompletedTransactions(data.completedTransactions);
@@ -705,13 +871,35 @@ function App() {
     setIsCheckoutOpen(false);
     setIsSaveOrderOpen(false);
     setPendingOrderAction(null);
-    setActiveCategoryName(data.menuItems[0]?.category ?? initialMenuCategories[0].name);
+    setActiveCategoryName(
+      data.menuCategories.find((category) => category.isActive)?.name ??
+        data.menuItems[0]?.category ??
+        initialMenuCategories[0].name,
+    );
   };
 
   const resetLocalData = () => {
     const defaultState = createDefaultAppState(defaultMenuItems);
 
     importAppData(defaultState);
+  };
+
+  const resetOperationalTestingData = () => {
+    setPendingOrders([]);
+    setCompletedTransactions([]);
+    setLegacySales([]);
+    setLegacyImportBatches([]);
+    setExpenses([]);
+    setDailyClosings([]);
+    setGoogleSheetSyncLogs([]);
+    setReceiptCounter(0);
+    replaceSyncQueue([]);
+    saveSyncMeta({ lastSyncedAt: null, lastError: null });
+    setSyncMeta({ lastSyncedAt: null, lastError: null });
+    setCart([]);
+    setIsCheckoutOpen(false);
+    setIsSaveOrderOpen(false);
+    setPendingOrderAction(null);
   };
 
   if (authStatus === 'loading' && canUseSupabase()) {
@@ -790,12 +978,13 @@ function App() {
             activeCategoryName={activeCategoryNameSafe}
             activeMenuItems={activeMenuItems}
             cart={cart}
-            categoryNames={categoryNames}
+            categoryNames={activeCategoryNames}
             clearCart={clearCart}
             decreaseQuantity={decreaseQuantity}
             increaseQuantity={increaseQuantity}
             latestTransaction={latestTransaction}
             onAddItem={addItem}
+            onDiscountItem={setDiscountItemId}
             onDeletePending={(order) =>
               setPendingOrderAction({ type: 'delete', order })
             }
@@ -807,6 +996,8 @@ function App() {
             removeItem={removeItem}
             setActiveCategoryName={setActiveCategoryName}
             subtotal={subtotal}
+            itemDiscountTotal={itemDiscountTotal}
+            cartNetSubtotal={cartNetSubtotal}
             totalQuantity={totalQuantity}
           />
         )}
@@ -814,19 +1005,28 @@ function App() {
         {activeTab === 'menu' && canAccessTab('menu', effectiveRole) && (
           <MenuAdmin
             appData={appData}
-            categories={categoryNames}
+            categories={menuCategories}
             defaultMenuItems={defaultMenuItems}
             items={menuItems}
+            onAddCategory={addMenuCategory}
             onAddItem={addMenuItem}
             onImportData={importAppData}
             onResetData={resetLocalData}
+            onResetOperationalData={resetOperationalTestingData}
+            onRenameCategory={renameMenuCategory}
             onToggleItem={toggleMenuItem}
+            onToggleCategory={toggleMenuCategory}
             onUpdateItem={updateMenuItem}
           />
         )}
 
         {activeTab === 'receipts' && (
-          <ReceiptHistory transactions={completedTransactions} />
+          <ReceiptHistory
+            canVoid={effectiveRole === 'owner' || effectiveRole === 'admin'}
+            currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+            onVoidReceipt={voidReceipt}
+            transactions={completedTransactions}
+          />
         )}
 
         {activeTab === 'reports' && canAccessTab('reports', effectiveRole) && (
@@ -836,8 +1036,10 @@ function App() {
             expenses={expenses}
             googleSheetSyncLogs={googleSheetSyncLogs}
             googleSheetSyncSettings={googleSheetSyncSettings}
+            legacyImportBatches={legacyImportBatches}
             legacySales={legacySales}
             onAddGoogleSheetSyncLog={addGoogleSheetSyncLog}
+            onSaveLegacyImport={importLegacySales}
             onSaveClosing={saveDailyClosing}
             onSaveGoogleSheetSettings={saveGoogleSheetSettings}
             transactions={completedTransactions}
@@ -854,20 +1056,22 @@ function App() {
           />
         )}
 
-        {activeTab === 'legacy' && canAccessTab('legacy', effectiveRole) && (
-          <LegacyImport
-            batches={legacyImportBatches}
-            importedBy={authProfile?.fullName ?? CASHIER_NAME}
-            onSaveImport={importLegacySales}
-          />
-        )}
       </div>
 
       {isCheckoutOpen && (
         <CheckoutModal
           onClose={() => setIsCheckoutOpen(false)}
           onComplete={completeCheckout}
+          itemDiscountTotal={itemDiscountTotal}
           subtotal={subtotal}
+        />
+      )}
+
+      {discountItemId && (
+        <ItemDiscountModal
+          item={cart.find((item) => item.id === discountItemId) ?? null}
+          onApply={applyItemDiscount}
+          onClose={() => setDiscountItemId(null)}
         />
       )}
 
@@ -960,13 +1164,16 @@ type CashierViewProps = {
   activeCategoryName: string;
   activeMenuItems: MenuItem[];
   cart: CartItem[];
+  cartNetSubtotal: number;
   categoryNames: string[];
   clearCart: () => void;
   decreaseQuantity: (id: string) => void;
   increaseQuantity: (id: string) => void;
+  itemDiscountTotal: number;
   latestTransaction: CompletedTransaction | undefined;
   onAddItem: (item: MenuItem) => void;
   onDeletePending: (order: PendingOrder) => void;
+  onDiscountItem: (id: string) => void;
   onOpenCheckout: () => void;
   onOpenSaveOrder: () => void;
   onResumePending: (order: PendingOrder) => void;
@@ -982,13 +1189,16 @@ function CashierView({
   activeCategoryName,
   activeMenuItems,
   cart,
+  cartNetSubtotal,
   categoryNames,
   clearCart,
   decreaseQuantity,
   increaseQuantity,
+  itemDiscountTotal,
   latestTransaction,
   onAddItem,
   onDeletePending,
+  onDiscountItem,
   onOpenCheckout,
   onOpenSaveOrder,
   onResumePending,
@@ -1122,14 +1332,23 @@ function CashierView({
                           {formatRupiah(item.unitPriceSnapshot)} / item
                         </p>
                       </div>
-                      <button
-                        aria-label={`Remove ${item.nameSnapshot}`}
-                        className="rounded-full px-2.5 py-1 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
-                        onClick={() => removeItem(item.id)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <button
+                          className="rounded-full px-2.5 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-white"
+                          onClick={() => onDiscountItem(item.id)}
+                          type="button"
+                        >
+                          Diskon
+                        </button>
+                        <button
+                          aria-label={`Remove ${item.nameSnapshot}`}
+                          className="rounded-full px-2.5 py-1 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
+                          onClick={() => removeItem(item.id)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-2.5 flex items-center justify-between gap-3">
@@ -1155,9 +1374,21 @@ function CashierView({
                         </button>
                       </div>
                       <p className="text-base font-black text-santara-roast">
-                        {formatRupiah(item.unitPriceSnapshot * item.quantity)}
+                        {formatRupiah(getCartLineNet(item))}
                       </p>
                     </div>
+                    {getCartLineDiscount(item) > 0 && (
+                      <div className="mt-2 rounded-md bg-white px-2 py-1.5 text-[11px] font-bold text-santara-roast/70 ring-1 ring-santara-latte">
+                        <div className="flex justify-between gap-2">
+                          <span>Harga awal</span>
+                          <span>{formatRupiah(getCartLineGross(item))}</span>
+                        </div>
+                        <div className="flex justify-between gap-2 text-santara-clay">
+                          <span>Diskon item</span>
+                          <span>-{formatRupiah(getCartLineDiscount(item))}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1198,6 +1429,18 @@ function CashierView({
               {formatRupiah(subtotal)}
             </span>
           </div>
+          {itemDiscountTotal > 0 && (
+            <>
+              <div className="mt-1 flex items-center justify-between text-xs font-bold text-santara-clay">
+                <span>Diskon item</span>
+                <span>-{formatRupiah(itemDiscountTotal)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm font-black text-santara-roast">
+                <span>Subtotal net</span>
+                <span>{formatRupiah(cartNetSubtotal)}</span>
+              </div>
+            </>
+          )}
           <button
             className="mt-3 w-full rounded-lg bg-santara-bean px-5 py-3 text-base font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
             disabled={cart.length === 0}
@@ -1261,7 +1504,13 @@ function PendingOrdersSection({
                 <p className="truncate text-sm font-black">{order.label}</p>
                 <p className="mt-0.5 text-[11px] font-bold text-santara-roast/60">
                   {getCartQuantity(order.items)} item -{' '}
-                  {formatRupiah(getCartSubtotal(order.items))} -{' '}
+                  {formatRupiah(
+                    Math.max(
+                      getCartGrossSubtotal(order.items) -
+                        getCartItemDiscountTotal(order.items),
+                      0,
+                    ),
+                  )} -{' '}
                   {formatShortTime(order.createdAt)}
                 </p>
               </div>
@@ -1370,19 +1619,46 @@ function TabButton({ isActive, label, onClick }: TabButtonProps) {
   );
 }
 
-function getCartSubtotal(items: CartItem[]) {
+function getCartGrossSubtotal(items: CartItem[]) {
   return items.reduce(
-    (total, item) => total + item.unitPriceSnapshot * item.quantity,
+    (total, item) => total + getCartLineGross(item),
     0,
   );
 }
 
-function getCartQuantity(items: CartItem[]) {
-  return items.reduce((total, item) => total + item.quantity, 0);
+function getCartItemDiscountTotal(items: CartItem[]) {
+  return items.reduce((total, item) => total + getCartLineDiscount(item), 0);
 }
 
-function getCategoryNames(items: MenuItem[]) {
-  return Array.from(new Set(items.map((item) => item.category).filter(Boolean)));
+function getCartLineGross(item: CartItem) {
+  return item.unitPriceSnapshot * item.quantity;
+}
+
+function getCartLineDiscount(item: CartItem) {
+  const grossLineTotal = getCartLineGross(item);
+  const discountType = item.itemDiscountType ?? 'none';
+  const discountValue = item.itemDiscountValue ?? 0;
+
+  if (discountType === 'fixed') {
+    return Math.min(discountValue, grossLineTotal);
+  }
+
+  if (discountType === 'percentage') {
+    return Math.min(
+      Math.round((grossLineTotal * Math.min(discountValue, 100)) / 100),
+      grossLineTotal,
+    );
+  }
+
+  return 0;
+}
+
+function getCartLineNet(item: CartItem) {
+  return Math.max(getCartLineGross(item) - getCartLineDiscount(item), 0);
+}
+
+function getCartQuantity(items: CartItem[]) {
+  return items.reduce((total, item) => total + item.quantity, 0);
 }
 
 function getActiveTabLabel(tab: AppTab) {
@@ -1392,7 +1668,6 @@ function getActiveTabLabel(tab: AppTab) {
     receipts: 'Riwayat Struk',
     reports: 'Laporan',
     expenses: 'Pengeluaran',
-    legacy: 'Import Data Lama',
   };
 
   return labels[tab];

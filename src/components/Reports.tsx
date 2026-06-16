@@ -1,12 +1,14 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { DailyClosing } from './DailyClosing';
 import { GoogleSheetSync } from './GoogleSheetSync';
+import { LegacyImport } from './LegacyImport';
 import type {
   CompletedTransaction,
   DailyClosing as DailyClosingData,
   Expense,
   GoogleSheetSyncLog,
   GoogleSheetSyncSettings,
+  LegacyImportBatch,
   LegacySale,
 } from '../types';
 import { formatRupiah } from '../utils/format';
@@ -25,7 +27,9 @@ type ReportsProps = {
   dailyClosings: DailyClosingData[];
   googleSheetSyncSettings: GoogleSheetSyncSettings;
   googleSheetSyncLogs: GoogleSheetSyncLog[];
+  legacyImportBatches: LegacyImportBatch[];
   currentUserName: string;
+  onSaveLegacyImport: (batch: LegacyImportBatch, sales: LegacySale[]) => void;
   onSaveClosing: (closing: DailyClosingData) => void;
   onSaveGoogleSheetSettings: (settings: GoogleSheetSyncSettings) => void;
   onAddGoogleSheetSyncLog: (log: GoogleSheetSyncLog) => void;
@@ -44,14 +48,17 @@ export function Reports({
   expenses,
   googleSheetSyncLogs,
   googleSheetSyncSettings,
+  legacyImportBatches,
   legacySales,
   onAddGoogleSheetSyncLog,
   onSaveClosing,
   onSaveGoogleSheetSettings,
+  onSaveLegacyImport,
   transactions,
 }: ReportsProps) {
   const [reportMode, setReportMode] = useState<ReportMode>('today');
   const [selectedDate, setSelectedDate] = useState(getTodayInputValue);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const report = useMemo(
     () =>
       buildSalesReport(
@@ -65,6 +72,9 @@ export function Reports({
     [dailyClosings, expenses, legacySales, reportMode, selectedDate, transactions],
   );
   const hasReportData = report.totalTransactions > 0 || report.expenses.length > 0;
+  const voidedReceiptCount = transactions.filter(
+    (transaction) => transaction.status === 'voided',
+  ).length;
   const closingDate =
     reportMode === 'today' ? getTodayInputValue() : reportMode === 'date' ? selectedDate : '';
   const canUseDailyClosing = reportMode === 'today' || reportMode === 'date';
@@ -89,6 +99,10 @@ export function Reports({
           </p>
           <p className="mt-2 w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte">
             Termasuk data import lama
+          </p>
+          <p className="mt-2 text-xs font-bold text-santara-roast/55">
+            Struk dibatalkan tidak dihitung dalam laporan.
+            {voidedReceiptCount > 0 ? ` ${voidedReceiptCount} struk dibatalkan tersimpan.` : ''}
           </p>
         </div>
 
@@ -121,33 +135,72 @@ export function Reports({
             )}
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-[1fr_140px_140px] sm:items-center">
-            <p className="text-xs font-bold text-santara-roast/60">
-              {hasReportData
-                ? 'Download laporan sesuai filter aktif.'
-                : 'Tidak ada data laporan'}
-            </p>
-            <button
-              className="rounded-lg bg-santara-bean px-3 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!hasReportData}
-              onClick={() => exportReportCsv(exportContext)}
-              type="button"
-            >
-              Export CSV
-            </button>
-            <button
-              className="rounded-lg bg-white px-3 py-2.5 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={!hasReportData}
-              onClick={() => exportReportJson(exportContext)}
-              type="button"
-            >
-              Export JSON
-            </button>
-          </div>
+          <button
+            className="justify-self-start rounded-lg bg-white px-3 py-2.5 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream"
+            onClick={() => setIsAdvancedOpen((open) => !open)}
+            type="button"
+          >
+            {isAdvancedOpen ? 'Tutup Opsi Lanjutan' : 'Opsi Lanjutan'}
+          </button>
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pt-3">
+        {isAdvancedOpen && (
+          <section className="mb-3 space-y-3 rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+                Opsi Lanjutan
+              </p>
+              <h3 className="mt-1 text-lg font-black text-santara-roast">
+                Alat Admin Laporan
+              </h3>
+              <p className="mt-1 text-sm text-santara-roast/65">
+                Export laporan dan import data lama disimpan di sini agar alur
+                laporan harian tetap bersih.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_140px_140px] sm:items-center">
+              <p className="text-xs font-bold text-santara-roast/60">
+                {hasReportData
+                  ? 'Download laporan sesuai filter aktif.'
+                  : 'Tidak ada data laporan'}
+              </p>
+              <button
+                className="rounded-lg bg-santara-bean px-3 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={!hasReportData}
+                onClick={() => exportReportCsv(exportContext)}
+                type="button"
+              >
+                Export CSV
+              </button>
+              <button
+                className="rounded-lg bg-white px-3 py-2.5 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={!hasReportData}
+                onClick={() => exportReportJson(exportContext)}
+                type="button"
+              >
+                Export JSON
+              </button>
+            </div>
+            <div className="rounded-lg bg-santara-cream/70 p-3 ring-1 ring-santara-latte">
+              <p className="text-sm font-black text-santara-roast">
+                Import Data Lama POS
+              </p>
+              <p className="mt-1 text-sm text-santara-roast/65">
+                Gunakan hanya untuk memasukkan data penjualan lama dari POS
+                sebelumnya.
+              </p>
+              <div className="mt-3">
+                <LegacyImport
+                  batches={legacyImportBatches}
+                  importedBy={currentUserName}
+                  onSaveImport={onSaveLegacyImport}
+                />
+              </div>
+            </div>
+          </section>
+        )}
         {!hasReportData ? (
           <EmptyReportState />
         ) : (

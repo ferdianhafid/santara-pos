@@ -4,11 +4,13 @@ import { formatRupiah } from '../utils/format';
 
 type CheckoutModalProps = {
   subtotal: number;
+  itemDiscountTotal: number;
   onClose: () => void;
   onComplete: (checkout: {
     discountType: DiscountType;
     discountValue: number;
     discountAmount: number;
+    transactionDiscountAmount: number;
     totalAfterDiscount: number;
     paymentMethod: PaymentMethod;
     paidAmount: number | null;
@@ -23,7 +25,12 @@ const toPositiveNumber = (value: string) => {
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
 };
 
-export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalProps) {
+export function CheckoutModal({
+  itemDiscountTotal,
+  subtotal,
+  onClose,
+  onComplete,
+}: CheckoutModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [discountType, setDiscountType] = useState<DiscountType>('none');
   const [discountValueInput, setDiscountValueInput] = useState('');
@@ -32,20 +39,29 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
   const discountValue = toPositiveNumber(discountValueInput);
   const paidAmount = toPositiveNumber(paidAmountInput);
 
-  const discountAmount = useMemo(() => {
+  const subtotalAfterItemDiscount = Math.max(subtotal - itemDiscountTotal, 0);
+
+  const transactionDiscountAmount = useMemo(() => {
     if (discountType === 'fixed') {
-      return Math.min(discountValue, subtotal);
+      return Math.min(discountValue, subtotalAfterItemDiscount);
     }
 
     if (discountType === 'percentage') {
       const percentage = Math.min(discountValue, 100);
-      return Math.min(Math.round((subtotal * percentage) / 100), subtotal);
+      return Math.min(
+        Math.round((subtotalAfterItemDiscount * percentage) / 100),
+        subtotalAfterItemDiscount,
+      );
     }
 
     return 0;
-  }, [discountType, discountValue, subtotal]);
+  }, [discountType, discountValue, subtotalAfterItemDiscount]);
 
-  const totalAfterDiscount = Math.max(subtotal - discountAmount, 0);
+  const totalDiscountAmount = itemDiscountTotal + transactionDiscountAmount;
+  const totalAfterDiscount = Math.max(
+    subtotalAfterItemDiscount - transactionDiscountAmount,
+    0,
+  );
   const changeAmount =
     paymentMethod === 'Cash' ? Math.max(paidAmount - totalAfterDiscount, 0) : null;
   const isCashUnderpaid = paymentMethod === 'Cash' && paidAmount < totalAfterDiscount;
@@ -59,7 +75,8 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
     onComplete({
       discountType,
       discountValue: discountType === 'percentage' ? Math.min(discountValue, 100) : discountValue,
-      discountAmount,
+      discountAmount: totalDiscountAmount,
+      transactionDiscountAmount,
       totalAfterDiscount,
       paymentMethod,
       paidAmount: paymentMethod === 'Cash' ? paidAmount : null,
@@ -185,10 +202,30 @@ export function CheckoutModal({ subtotal, onClose, onComplete }: CheckoutModalPr
           <section className="rounded-lg bg-white p-4 ring-1 ring-santara-latte">
             <h3 className="text-lg font-black">Summary</h3>
             <div className="mt-4 space-y-3 text-sm font-bold">
-              <SummaryRow label="Subtotal" value={formatRupiah(subtotal)} />
+              <SummaryRow label="Subtotal / Penjualan kotor" value={formatRupiah(subtotal)} />
               <SummaryRow
-                label="Discount"
-                value={discountAmount > 0 ? `-${formatRupiah(discountAmount)}` : formatRupiah(0)}
+                label="Diskon item"
+                value={
+                  itemDiscountTotal > 0
+                    ? `-${formatRupiah(itemDiscountTotal)}`
+                    : formatRupiah(0)
+                }
+              />
+              <SummaryRow
+                label="Diskon transaksi"
+                value={
+                  transactionDiscountAmount > 0
+                    ? `-${formatRupiah(transactionDiscountAmount)}`
+                    : formatRupiah(0)
+                }
+              />
+              <SummaryRow
+                label="Total diskon"
+                value={
+                  totalDiscountAmount > 0
+                    ? `-${formatRupiah(totalDiscountAmount)}`
+                    : formatRupiah(0)
+                }
               />
               <SummaryRow
                 emphasis

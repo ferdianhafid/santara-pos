@@ -73,7 +73,11 @@ export function buildSalesReport(
   expenses: Expense[] = [],
   dailyClosings: DailyClosing[] = [],
 ): SalesReport {
-  const filteredTransactions = filterTransactions(transactions, mode, selectedDate);
+  const filteredTransactions = filterTransactions(
+    transactions,
+    mode,
+    selectedDate,
+  ).filter((transaction) => transaction.status !== 'voided');
   const filteredLegacySales = filterLegacySales(legacySales, mode, selectedDate);
   const filteredExpenses = filterExpenses(expenses, mode, selectedDate);
   const dailyClosing = findDailyClosing(dailyClosings, mode, selectedDate);
@@ -395,6 +399,15 @@ function mapTransactionToReportRecord(transaction: CompletedTransaction): Report
     transaction.subtotalBeforeDiscount - transaction.discountAmount,
     0,
   );
+  const itemDiscountTotal =
+    transaction.itemDiscountAmount ??
+    transaction.items.reduce(
+      (total, item) => total + safeNumber(item.itemDiscountAmount ?? 0),
+      0,
+    );
+  const transactionDiscountAmount =
+    transaction.transactionDiscountAmount ??
+    Math.max(transaction.discountAmount - itemDiscountTotal, 0);
 
   return {
     dateTime: transaction.dateTime,
@@ -404,11 +417,22 @@ function mapTransactionToReportRecord(transaction: CompletedTransaction): Report
     netSales,
     hpp: getTransactionHpp(transaction),
     items: transaction.items.map((item) => {
-      const grossSales = item.subtotal;
-      const discountAmount = getDiscountAllocation(transaction, grossSales);
+      const grossSales = item.grossLineTotal ?? item.subtotal;
+      const itemDiscountAmount = safeNumber(item.itemDiscountAmount ?? 0);
+      const lineNetBeforeTransactionDiscount = Math.max(
+        grossSales - itemDiscountAmount,
+        0,
+      );
+      const discountAmount =
+        itemDiscountAmount +
+        getDiscountAllocation(
+          transactionDiscountAmount,
+          Math.max(transaction.subtotalBeforeDiscount - itemDiscountTotal, 0),
+          lineNetBeforeTransactionDiscount,
+        );
       const itemNetSales = Math.max(grossSales - discountAmount, 0);
-      const unitHpp = safeNumber(item.hppSnapshot ?? 0);
-      const totalHpp = unitHpp * item.quantity;
+      const unitHpp = safeNumber(item.unitHppSnapshot ?? item.hppSnapshot ?? 0);
+      const totalHpp = safeNumber(item.totalHpp ?? unitHpp * item.quantity);
 
       return {
         key: `${item.nameSnapshot}|${item.categorySnapshot}`,
@@ -463,14 +487,15 @@ function safeNumber(value: number) {
 }
 
 function getDiscountAllocation(
-  transaction: CompletedTransaction,
-  itemGrossSales: number,
+  discountAmount: number,
+  allocationBase: number,
+  itemBase: number,
 ) {
-  if (transaction.discountAmount <= 0 || transaction.subtotalBeforeDiscount <= 0) {
+  if (discountAmount <= 0 || allocationBase <= 0) {
     return 0;
   }
 
-  return transaction.discountAmount * (itemGrossSales / transaction.subtotalBeforeDiscount);
+  return discountAmount * (itemBase / allocationBase);
 }
 
 function toInputDate(date: Date) {

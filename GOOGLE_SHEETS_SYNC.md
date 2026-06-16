@@ -59,6 +59,10 @@ They do not calculate totals from formatted visible cells such as `Rp 80.000`.
 The internal sheets store money and counts as raw numbers. Margins and average
 transaction value are recalculated during recap rebuilds.
 
+Voided receipts are excluded by Santara POS before sync. Item-level discounts
+are already included in `totalDiscount` and each menu row `discountAmount`, so
+the Apps Script can keep the same report design without extra manual formulas.
+
 Visible month labels are always rebuilt from a stable `YYYY-MM` month key and
 shown with Indonesian month names such as `Juni 2026`.
 

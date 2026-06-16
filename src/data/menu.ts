@@ -1,5 +1,7 @@
 import type { MenuCategory } from '../types';
 
+const initialTimestamp = '2026-06-14T00:00:00.000Z';
+
 const menuItem = (
   id: string,
   name: string,
@@ -18,6 +20,9 @@ export const menuCategories: MenuCategory[] = [
   {
     id: 'basic-coffee',
     name: 'Basic Coffee',
+    isActive: true,
+    createdAt: initialTimestamp,
+    updatedAt: initialTimestamp,
     items: [
       menuItem('americano', 'Americano', 'Basic Coffee', 18000),
       menuItem('ice-latte', 'Ice Latte', 'Basic Coffee', 22000),
@@ -27,6 +32,9 @@ export const menuCategories: MenuCategory[] = [
   {
     id: 'signature',
     name: 'Signature',
+    isActive: true,
+    createdAt: initialTimestamp,
+    updatedAt: initialTimestamp,
     items: [
       menuItem('santara-coffee', 'Santara Coffee', 'Signature', 25000),
       menuItem('scotchtie', 'Scotchtie', 'Signature', 26000),
@@ -42,6 +50,9 @@ export const menuCategories: MenuCategory[] = [
   {
     id: 'milk-base',
     name: 'Milk Base',
+    isActive: true,
+    createdAt: initialTimestamp,
+    updatedAt: initialTimestamp,
     items: [
       menuItem('matcha', 'Matcha', 'Milk Base', 23000),
       menuItem('pingky-matcha', 'Pingky Matcha', 'Milk Base', 25000),
@@ -53,6 +64,9 @@ export const menuCategories: MenuCategory[] = [
   {
     id: 'tea-others',
     name: 'Tea & Others',
+    isActive: true,
+    createdAt: initialTimestamp,
+    updatedAt: initialTimestamp,
     items: [
       menuItem('black-tea', 'Black Tea', 'Tea & Others', 12000),
       menuItem('lychee-tea', 'Lychee Tea', 'Tea & Others', 18000),
@@ -63,6 +77,9 @@ export const menuCategories: MenuCategory[] = [
   {
     id: 'main-dish',
     name: 'Main Dish',
+    isActive: true,
+    createdAt: initialTimestamp,
+    updatedAt: initialTimestamp,
     items: [
       menuItem('mie-rebus', 'Mie Rebus', 'Main Dish', 15000),
       menuItem('mie-goreng', 'Mie Goreng', 'Main Dish', 15000),
@@ -72,6 +89,9 @@ export const menuCategories: MenuCategory[] = [
   {
     id: 'snack',
     name: 'Snack',
+    isActive: true,
+    createdAt: initialTimestamp,
+    updatedAt: initialTimestamp,
     items: [
       menuItem('french-fries', 'French Fries', 'Snack', 18000),
       menuItem('mix-platter', 'Mix Platter', 'Snack', 28000),

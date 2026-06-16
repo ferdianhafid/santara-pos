@@ -50,6 +50,7 @@ Open Supabase SQL Editor and run these files in order:
 3. `supabase/migrations/20260614000300_santara_pos_auth_policies.sql`
 4. `supabase/migrations/20260614000400_santara_pos_legacy_sales.sql`
 5. `supabase/migrations/20260614000500_santara_pos_expenses_closing.sql`
+6. `supabase/migrations/20260614000600_santara_pos_phase8_controls.sql`
 
 The Phase 5C migration removes the temporary anon sync policies and replaces
 them with authenticated owner/admin/cashier policies.
@@ -61,6 +62,10 @@ The Phase 7 migration adds expenses, simple daily closings, Google Sheet sync
 settings, and Google Sheet sync logs. These tables use owner/admin policies for
 expense, closing, and Google Sheet settings because they affect financial
 reporting.
+
+The Phase 8 migration adds item-level discount snapshots, pending-order item
+discount fields, and void receipt audit fields. Old transactions default to
+`completed`, so existing data remains readable.
 
 ## 6. Create a Supabase Auth User
 

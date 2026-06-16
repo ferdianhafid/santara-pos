@@ -10,6 +10,7 @@ import type {
   GoogleSheetSyncSettings,
   LegacyImportBatch,
   LegacySale,
+  MenuCategory,
   MenuItem,
   PaymentMethod,
   PendingOrder,
@@ -33,7 +34,7 @@ export async function pushSyncOperation(operation: SyncOperation) {
   const payload = operation.payload;
 
   if (operation.type === 'menu-snapshot-upsert' && 'menuItems' in payload) {
-    await upsertMenuItems(payload.menuItems);
+    await upsertMenuItems(payload.menuItems, payload.menuCategories ?? []);
     return;
   }
 
@@ -102,6 +103,7 @@ export async function pullCloudAppState(
 
   const [
     menuItems,
+    menuCategories,
     completedTransactions,
     pendingOrders,
     receiptCounter,
@@ -113,6 +115,7 @@ export async function pullCloudAppState(
   ] =
     await Promise.all([
       fetchMenuItems(),
+      fetchMenuCategories(),
       fetchTransactions(),
       fetchPendingOrders(),
       fetchReceiptCounter(),
@@ -125,6 +128,7 @@ export async function pullCloudAppState(
 
   const hasCloudData =
     menuItems.length > 0 ||
+    menuCategories.length > 0 ||
     completedTransactions.length > 0 ||
     pendingOrders.length > 0 ||
     legacyData.sales.length > 0 ||
@@ -140,6 +144,8 @@ export async function pullCloudAppState(
   }
 
   return {
+    menuCategories:
+      menuCategories.length > 0 ? menuCategories : currentData.menuCategories,
     menuItems: menuItems.length > 0 ? menuItems : currentData.menuItems,
     pendingOrders:
       pendingOrders.length > 0 || currentData.pendingOrders.length === 0
@@ -182,20 +188,33 @@ export async function pullCloudAppState(
   };
 }
 
-async function upsertMenuItems(menuItems: MenuItem[]) {
-  if (!supabase || menuItems.length === 0) {
+async function upsertMenuItems(
+  menuItems: MenuItem[],
+  menuCategories: MenuCategory[],
+) {
+  if (!supabase || (menuItems.length === 0 && menuCategories.length === 0)) {
     return;
   }
 
   const categoryNames = Array.from(
-    new Set(menuItems.map((item) => item.category).filter(Boolean)),
+    new Set([
+      ...menuCategories.map((category) => category.name),
+      ...menuItems.map((item) => item.category),
+    ].filter(Boolean)),
   );
-  const categories = categoryNames.map((name, index) => ({
-    id: stableUuid('category', name),
-    name,
-    sort_order: index,
-    is_active: true,
-  }));
+  const categoryByName = new Map(
+    menuCategories.map((category) => [category.name, category]),
+  );
+  const categories = categoryNames.map((name, index) => {
+    const category = categoryByName.get(name);
+
+    return {
+      id: stableUuid('category', category?.id ?? name),
+      name,
+      sort_order: index,
+      is_active: category?.isActive ?? true,
+    };
+  });
 
   if (categories.length > 0) {
     const { error } = await supabase
@@ -206,7 +225,10 @@ async function upsertMenuItems(menuItems: MenuItem[]) {
 
   const rows = menuItems.map((item) => ({
     id: stableUuid('menu', item.id),
-    category_id: stableUuid('category', item.category),
+    category_id: stableUuid(
+      'category',
+      categoryByName.get(item.category)?.id ?? item.category,
+    ),
     category_name: item.category,
     name: item.name,
     price: item.price,
@@ -236,10 +258,16 @@ async function upsertTransaction(transaction: CompletedTransaction) {
       discount_type: transaction.discountType,
       discount_value: transaction.discountValue,
       discount_amount: transaction.discountAmount,
+      item_discount_amount: transaction.itemDiscountAmount ?? 0,
+      transaction_discount_amount: transaction.transactionDiscountAmount ?? 0,
       total_after_discount: transaction.totalAfterDiscount,
       payment_method: transaction.paymentMethod,
       paid_amount: transaction.paidAmount,
       change_amount: transaction.changeAmount,
+      status: transaction.status ?? 'completed',
+      voided_at: transaction.voidedAt ?? null,
+      voided_by_name: transaction.voidedBy ?? null,
+      void_reason: transaction.voidReason ?? null,
     },
     { onConflict: 'id' },
   );
@@ -259,6 +287,20 @@ async function upsertTransaction(transaction: CompletedTransaction) {
     hpp_snapshot: item.hppSnapshot ?? 0,
     quantity: item.quantity,
     subtotal: item.subtotal,
+    gross_line_total: item.grossLineTotal ?? item.subtotal,
+    item_discount_type: item.itemDiscountType ?? 'none',
+    item_discount_value: item.itemDiscountValue ?? 0,
+    item_discount_amount: item.itemDiscountAmount ?? 0,
+    line_net_total:
+      item.lineNetTotal ??
+      Math.max(item.subtotal - (item.itemDiscountAmount ?? 0), 0),
+    unit_hpp_snapshot: item.unitHppSnapshot ?? item.hppSnapshot ?? 0,
+    total_hpp:
+      item.totalHpp ?? (item.hppSnapshot ?? 0) * Math.max(1, item.quantity),
+    profit:
+      item.profit ??
+      Math.max(item.subtotal - (item.itemDiscountAmount ?? 0), 0) -
+        (item.hppSnapshot ?? 0) * Math.max(1, item.quantity),
   }));
 
   if (items.length > 0) {
@@ -296,6 +338,9 @@ async function upsertPendingOrder(order: PendingOrder) {
     unit_price_snapshot: item.unitPriceSnapshot,
     hpp_snapshot: item.hppSnapshot ?? 0,
     quantity: item.quantity,
+    item_discount_type: item.itemDiscountType ?? 'none',
+    item_discount_value: item.itemDiscountValue ?? 0,
+    item_discount_amount: item.itemDiscountAmount ?? 0,
   }));
 
   if (items.length > 0) {
@@ -533,6 +578,29 @@ async function fetchMenuItems(): Promise<MenuItem[]> {
   }));
 }
 
+async function fetchMenuCategories(): Promise<MenuCategory[]> {
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('menu_categories')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+
+  throwIfError(error, 'Gagal mengambil kategori menu cloud.');
+
+  return (data ?? []).map((row: DbRow) => ({
+    id: toStringValue(row.id),
+    name: toStringValue(row.name),
+    isActive: row.is_active !== false,
+    createdAt: toStringValue(row.created_at),
+    updatedAt: toStringValue(row.updated_at),
+    items: [],
+  }));
+}
+
 async function fetchTransactions(): Promise<CompletedTransaction[]> {
   if (!supabase) {
     return [];
@@ -557,10 +625,16 @@ async function fetchTransactions(): Promise<CompletedTransaction[]> {
       discountType: toDiscountType(row.discount_type),
       discountValue: toNumberValue(row.discount_value),
       discountAmount: toNumberValue(row.discount_amount),
+      itemDiscountAmount: toNumberValue(row.item_discount_amount),
+      transactionDiscountAmount: toNumberValue(row.transaction_discount_amount),
       totalAfterDiscount: toNumberValue(row.total_after_discount),
       paymentMethod: toPaymentMethod(row.payment_method),
       paidAmount: toNullableNumberValue(row.paid_amount),
       changeAmount: toNullableNumberValue(row.change_amount),
+      status: toStringValue(row.status) === 'voided' ? 'voided' : 'completed',
+      voidedAt: toStringValue(row.voided_at) || null,
+      voidedBy: toStringValue(row.voided_by_name) || null,
+      voidReason: toStringValue(row.void_reason) || null,
     };
   });
 }
@@ -588,6 +662,9 @@ async function fetchPendingOrders(): Promise<PendingOrder[]> {
       unitPriceSnapshot: toNumberValue(itemRow.unit_price_snapshot),
       hppSnapshot: toNumberValue(itemRow.hpp_snapshot),
       quantity: Math.max(1, toNumberValue(itemRow.quantity)),
+      itemDiscountType: toDiscountType(itemRow.item_discount_type),
+      itemDiscountValue: toNumberValue(itemRow.item_discount_value),
+      itemDiscountAmount: toNumberValue(itemRow.item_discount_amount),
     })),
   }));
 }
@@ -781,14 +858,30 @@ async function fetchGoogleSheetSyncLogs(): Promise<GoogleSheetSyncLog[]> {
 }
 
 function mapTransactionItem(row: DbRow): TransactionItem {
+  const subtotal = toNumberValue(row.subtotal);
+  const itemDiscountAmount = toNumberValue(row.item_discount_amount);
+  const lineNetTotal = toNumberValue(row.line_net_total) || Math.max(subtotal - itemDiscountAmount, 0);
+  const hppSnapshot = toNumberValue(row.hpp_snapshot);
+  const quantity = Math.max(1, toNumberValue(row.quantity));
+
   return {
     id: toStringValue(row.menu_item_id || row.id),
     nameSnapshot: toStringValue(row.menu_name_snapshot),
     categorySnapshot: toStringValue(row.category_name_snapshot),
     unitPriceSnapshot: toNumberValue(row.unit_price_snapshot),
-    hppSnapshot: toNumberValue(row.hpp_snapshot),
-    quantity: Math.max(1, toNumberValue(row.quantity)),
-    subtotal: toNumberValue(row.subtotal),
+    hppSnapshot,
+    quantity,
+    itemDiscountType: toDiscountType(row.item_discount_type),
+    itemDiscountValue: toNumberValue(row.item_discount_value),
+    itemDiscountAmount,
+    subtotal,
+    grossLineTotal: toNumberValue(row.gross_line_total) || subtotal,
+    lineNetTotal,
+    unitHppSnapshot: toNumberValue(row.unit_hpp_snapshot) || hppSnapshot,
+    totalHpp: toNumberValue(row.total_hpp) || hppSnapshot * quantity,
+    profit:
+      toSignedNumberValue(row.profit) ||
+      lineNetTotal - hppSnapshot * quantity,
   };
 }
 

@@ -6,10 +6,20 @@ type ReceiptPreviewProps = {
 };
 
 export function ReceiptPreview({ transaction }: ReceiptPreviewProps) {
+  const itemDiscountAmount = transaction.itemDiscountAmount ?? 0;
+  const transactionDiscountAmount =
+    transaction.transactionDiscountAmount ??
+    Math.max(transaction.discountAmount - itemDiscountAmount, 0);
+
   return (
     <section className="receipt-print-area rounded-lg bg-white p-4 ring-1 ring-santara-latte">
       <div className="receipt-paper mx-auto bg-white text-[#111]">
         <div className="text-center">
+          {transaction.status === 'voided' && (
+            <p className="mb-2 border border-[#111] py-1 text-[11px] font-black">
+              STRUK DIBATALKAN
+            </p>
+          )}
           <p className="text-[15px] font-black uppercase tracking-wide">
             Santara Coffee
           </p>
@@ -34,6 +44,12 @@ export function ReceiptPreview({ transaction }: ReceiptPreviewProps) {
                 </span>
                 <span>{formatRupiah(item.subtotal)}</span>
               </div>
+              {(item.itemDiscountAmount ?? 0) > 0 && (
+                <div className="flex justify-between gap-2">
+                  <span>Diskon item</span>
+                  <span>-{formatRupiah(item.itemDiscountAmount ?? 0)}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -43,9 +59,21 @@ export function ReceiptPreview({ transaction }: ReceiptPreviewProps) {
             label="Subtotal"
             value={formatRupiah(transaction.subtotalBeforeDiscount)}
           />
+          {itemDiscountAmount > 0 && (
+            <ReceiptRow
+              label="Diskon item"
+              value={`-${formatRupiah(itemDiscountAmount)}`}
+            />
+          )}
+          {transactionDiscountAmount > 0 && (
+            <ReceiptRow
+              label="Diskon transaksi"
+              value={`-${formatRupiah(transactionDiscountAmount)}`}
+            />
+          )}
           {transaction.discountAmount > 0 && (
             <ReceiptRow
-              label="Discount"
+              label="Total diskon"
               value={`-${formatRupiah(transaction.discountAmount)}`}
             />
           )}
@@ -66,6 +94,9 @@ export function ReceiptPreview({ transaction }: ReceiptPreviewProps) {
         </div>
 
         <div className="border-t border-dashed border-[#111] pt-2 text-center text-[10px] leading-relaxed">
+          {transaction.status === 'voided' && transaction.voidReason && (
+            <p className="mb-2">Alasan batal: {transaction.voidReason}</p>
+          )}
           <p>WiFi: chillwithsantara</p>
           <p className="mt-2">Terima kasih sudah singgah di Santara.</p>
         </div>

@@ -10,6 +10,7 @@ import type {
   GoogleSheetSyncSettings,
   LegacyImportBatch,
   LegacySale,
+  MenuCategory,
   MenuItem,
   PaymentMethod,
   PendingOrder,
@@ -36,6 +37,7 @@ const discountTypes: DiscountType[] = ['none', 'fixed', 'percentage'];
 
 export function createDefaultAppState(defaultMenuItems: MenuItem[]): AppStateData {
   return {
+    menuCategories: deriveMenuCategories(defaultMenuItems),
     menuItems: defaultMenuItems.map((item) => ({ ...item })),
     pendingOrders: [],
     completedTransactions: [],
@@ -133,6 +135,7 @@ function normalizeAppState(
   }
 
   const menuItems = normalizeMenuItems(value.menuItems);
+  const menuCategories = normalizeMenuCategories(value.menuCategories);
   const pendingOrders = normalizePendingOrders(value.pendingOrders);
   const completedTransactions = normalizeCompletedTransactions(
     value.completedTransactions,
@@ -153,6 +156,7 @@ function normalizeAppState(
 
   if (
     !menuItems ||
+    !menuCategories ||
     !pendingOrders ||
     !completedTransactions ||
     !legacySales ||
@@ -166,8 +170,14 @@ function normalizeAppState(
     return null;
   }
 
+  const normalizedMenuItems = menuItems.length > 0 ? menuItems : defaultMenuItems;
+
   return {
-    menuItems: menuItems.length > 0 ? menuItems : defaultMenuItems,
+    menuCategories:
+      menuCategories.length > 0
+        ? mergeMissingCategories(menuCategories, normalizedMenuItems)
+        : deriveMenuCategories(normalizedMenuItems),
+    menuItems: normalizedMenuItems,
     pendingOrders,
     completedTransactions,
     legacySales,
@@ -177,6 +187,43 @@ function normalizeAppState(
     googleSheetSyncSettings,
     googleSheetSyncLogs,
     receiptCounter,
+  };
+}
+
+function normalizeMenuCategories(value: unknown): MenuCategory[] | null {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const categories = value.map(normalizeMenuCategory);
+
+  return categories.every(Boolean) ? (categories as MenuCategory[]) : null;
+}
+
+function normalizeMenuCategory(value: unknown): MenuCategory | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (!isString(value.id) || !isString(value.name)) {
+    return null;
+  }
+
+  const createdAt = isString(value.createdAt)
+    ? value.createdAt
+    : new Date().toISOString();
+
+  return {
+    id: value.id,
+    name: value.name,
+    isActive: typeof value.isActive === 'boolean' ? value.isActive : true,
+    createdAt,
+    updatedAt: isString(value.updatedAt) ? value.updatedAt : createdAt,
+    items: [],
   };
 }
 
@@ -285,10 +332,26 @@ function normalizeCompletedTransaction(value: unknown): CompletedTransaction | n
     discountType: value.discountType,
     discountValue: toNonNegativeNumber(value.discountValue),
     discountAmount: toNonNegativeNumber(value.discountAmount),
+    itemDiscountAmount:
+      value.itemDiscountAmount === undefined
+        ? getTransactionItemDiscountTotal(items)
+        : toNonNegativeNumber(value.itemDiscountAmount),
+    transactionDiscountAmount:
+      value.transactionDiscountAmount === undefined
+        ? Math.max(
+            toNonNegativeNumber(value.discountAmount) -
+              getTransactionItemDiscountTotal(items),
+            0,
+          )
+        : toNonNegativeNumber(value.transactionDiscountAmount),
     totalAfterDiscount: toNonNegativeNumber(value.totalAfterDiscount),
     paymentMethod: value.paymentMethod,
     paidAmount: toNullableNonNegativeNumber(value.paidAmount),
     changeAmount: toNullableNonNegativeNumber(value.changeAmount),
+    status: value.status === 'voided' ? 'voided' : 'completed',
+    voidedAt: isString(value.voidedAt) ? value.voidedAt : null,
+    voidedBy: isString(value.voidedBy) ? value.voidedBy : null,
+    voidReason: isString(value.voidReason) ? value.voidReason : null,
   };
 }
 
@@ -560,6 +623,34 @@ function normalizeTransactionItems(value: unknown): TransactionItem[] | null {
     return {
       ...cartItem,
       subtotal: toNonNegativeNumber(item.subtotal),
+      grossLineTotal: toNonNegativeNumber(
+        item.grossLineTotal ?? item.subtotal,
+      ),
+      lineNetTotal: toNonNegativeNumber(
+        item.lineNetTotal ??
+          Math.max(
+            toNonNegativeNumber(item.subtotal) -
+              toNonNegativeNumber(item.itemDiscountAmount),
+            0,
+          ),
+      ),
+      unitHppSnapshot: toNonNegativeNumber(
+        item.unitHppSnapshot ?? item.hppSnapshot,
+      ),
+      totalHpp: toNonNegativeNumber(
+        item.totalHpp ??
+          toNonNegativeNumber(item.hppSnapshot) *
+            Math.max(1, Math.floor(toNonNegativeNumber(item.quantity))),
+      ),
+      profit: toNumber(
+        item.profit ??
+          toNonNegativeNumber(item.lineNetTotal ?? item.subtotal) -
+            toNonNegativeNumber(
+              item.totalHpp ??
+                toNonNegativeNumber(item.hppSnapshot) *
+                  Math.max(1, Math.floor(toNonNegativeNumber(item.quantity))),
+            ),
+      ),
     };
   });
 
@@ -596,7 +687,19 @@ function normalizeCartItem(value: unknown): CartItem | null {
     unitPriceSnapshot: toNonNegativeNumber(value.unitPriceSnapshot),
     hppSnapshot: toNonNegativeNumber(value.hppSnapshot),
     quantity: Math.max(1, Math.floor(toNonNegativeNumber(value.quantity))),
+    itemDiscountType: isDiscountType(value.itemDiscountType)
+      ? value.itemDiscountType
+      : 'none',
+    itemDiscountValue: toNonNegativeNumber(value.itemDiscountValue),
+    itemDiscountAmount: toNonNegativeNumber(value.itemDiscountAmount),
   };
+}
+
+function getTransactionItemDiscountTotal(items: TransactionItem[]) {
+  return items.reduce(
+    (total, item) => total + toNonNegativeNumber(item.itemDiscountAmount),
+    0,
+  );
 }
 
 function normalizeReceiptCounter(value: unknown): number | null {
@@ -663,4 +766,38 @@ function canUseLocalStorage() {
   } catch {
     return false;
   }
+}
+
+function deriveMenuCategories(menuItems: MenuItem[]): MenuCategory[] {
+  const timestamp = new Date().toISOString();
+
+  return Array.from(
+    new Set(menuItems.map((item) => item.category).filter(Boolean)),
+  ).map((name) => ({
+    id: createCategoryId(name),
+    name,
+    isActive: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    items: [],
+  }));
+}
+
+function mergeMissingCategories(
+  categories: MenuCategory[],
+  menuItems: MenuItem[],
+) {
+  const categoryMap = new Map(categories.map((category) => [category.name, category]));
+
+  deriveMenuCategories(menuItems).forEach((category) => {
+    if (!categoryMap.has(category.name)) {
+      categoryMap.set(category.name, category);
+    }
+  });
+
+  return Array.from(categoryMap.values());
+}
+
+function createCategoryId(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }

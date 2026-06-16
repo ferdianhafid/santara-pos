@@ -84,14 +84,14 @@ export function LegacyImport({
       <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/70 pb-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
-            Import Data Lama
+            Import Data Lama POS
           </p>
           <h2 className="text-2xl font-black text-santara-roast">
-            Import Data Lama
+            Import Data Lama POS
           </h2>
           <p className="mt-1 text-sm text-santara-roast/65">
-            Data import lama akan ikut dihitung di laporan, tanpa muncul sebagai
-            struk normal.
+            Gunakan hanya untuk memasukkan data penjualan lama dari POS
+            sebelumnya.
           </p>
         </div>
 

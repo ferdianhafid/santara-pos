@@ -4,6 +4,9 @@ import type { CompletedTransaction, PaymentMethod } from '../types';
 import { formatReceiptDate, formatRupiah } from '../utils/format';
 
 type ReceiptHistoryProps = {
+  canVoid: boolean;
+  currentUserName: string;
+  onVoidReceipt: (receiptNumber: string, reason: string) => void;
   transactions: CompletedTransaction[];
 };
 
@@ -11,16 +14,24 @@ type PaymentFilter = 'Semua' | PaymentMethod;
 
 const paymentFilters: PaymentFilter[] = ['Semua', 'Cash', 'QRIS', 'Debit'];
 
-export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
+export function ReceiptHistory({
+  canVoid,
+  currentUserName,
+  onVoidReceipt,
+  transactions,
+}: ReceiptHistoryProps) {
   const [search, setSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('Semua');
+  const [voidTarget, setVoidTarget] = useState<CompletedTransaction | null>(null);
   const [selectedReceiptNumber, setSelectedReceiptNumber] = useState<string | null>(
     transactions[transactions.length - 1]?.receiptNumber ?? null,
   );
 
   const todayKey = new Date().toDateString();
   const todayTransactions = transactions.filter(
-    (transaction) => new Date(transaction.dateTime).toDateString() === todayKey,
+    (transaction) =>
+      transaction.status !== 'voided' &&
+      new Date(transaction.dateTime).toDateString() === todayKey,
   );
   const totalSalesToday = todayTransactions.reduce(
     (total, transaction) => total + transaction.totalAfterDiscount,
@@ -128,6 +139,11 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-black">{transaction.receiptNumber}</p>
+                      {transaction.status === 'voided' && (
+                        <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-700 ring-1 ring-red-100">
+                          Dibatalkan
+                        </span>
+                      )}
                       <p className="mt-1 text-xs font-bold opacity-75">
                         {formatReceiptDate(transaction.dateTime)} -{' '}
                         {transaction.cashierName}
@@ -159,14 +175,26 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
               Buka detail dan reprint struk.
             </p>
           </div>
-          <button
-            className="rounded-full bg-santara-bean px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!selectedTransaction}
-            onClick={() => window.print()}
-            type="button"
-          >
-            Reprint
-          </button>
+          <div className="flex gap-2">
+            {canVoid && selectedTransaction?.status !== 'voided' && (
+              <button
+                className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
+                disabled={!selectedTransaction}
+                onClick={() => setVoidTarget(selectedTransaction)}
+                type="button"
+              >
+                Batalkan
+              </button>
+            )}
+            <button
+              className="rounded-full bg-santara-bean px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!selectedTransaction}
+              onClick={() => window.print()}
+              type="button"
+            >
+              Reprint
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -184,6 +212,34 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
                     value={formatReceiptDate(selectedTransaction.dateTime)}
                   />
                   <DetailRow label="Kasir" value={selectedTransaction.cashierName} />
+                  <DetailRow
+                    label="Status"
+                    value={
+                      selectedTransaction.status === 'voided'
+                        ? 'Struk Dibatalkan'
+                        : 'Selesai'
+                    }
+                  />
+                  {selectedTransaction.status === 'voided' && (
+                    <>
+                      <DetailRow
+                        label="Alasan pembatalan"
+                        value={selectedTransaction.voidReason ?? '-'}
+                      />
+                      <DetailRow
+                        label="Dibatalkan oleh"
+                        value={selectedTransaction.voidedBy ?? '-'}
+                      />
+                      <DetailRow
+                        label="Waktu batal"
+                        value={
+                          selectedTransaction.voidedAt
+                            ? formatReceiptDate(selectedTransaction.voidedAt)
+                            : '-'
+                        }
+                      />
+                    </>
+                  )}
                   <DetailRow
                     label="Metode Pembayaran"
                     value={selectedTransaction.paymentMethod}
@@ -277,6 +333,17 @@ export function ReceiptHistory({ transactions }: ReceiptHistoryProps) {
           )}
         </div>
       </aside>
+      {voidTarget && (
+        <VoidReceiptModal
+          currentUserName={currentUserName}
+          onCancel={() => setVoidTarget(null)}
+          onConfirm={(reason) => {
+            onVoidReceipt(voidTarget.receiptNumber, reason);
+            setVoidTarget(null);
+          }}
+          transaction={voidTarget}
+        />
+      )}
     </section>
   );
 }
@@ -350,4 +417,108 @@ function formatDiscountLabel(transaction: CompletedTransaction) {
   }
 
   return 'Tidak ada diskon';
+}
+
+type VoidReceiptModalProps = {
+  currentUserName: string;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+  transaction: CompletedTransaction;
+};
+
+const voidReasonOptions = [
+  'Salah input menu',
+  'Salah metode pembayaran',
+  'Customer batal',
+  'Double input',
+  'Lainnya',
+];
+
+function VoidReceiptModal({
+  currentUserName,
+  onCancel,
+  onConfirm,
+  transaction,
+}: VoidReceiptModalProps) {
+  const [reasonPreset, setReasonPreset] = useState(voidReasonOptions[0]);
+  const [notes, setNotes] = useState('');
+  const reason =
+    reasonPreset === 'Lainnya'
+      ? notes.trim()
+      : notes.trim()
+        ? `${reasonPreset} - ${notes.trim()}`
+        : reasonPreset;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-santara-roast/55 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-lg bg-santara-foam p-5 shadow-soft ring-1 ring-santara-latte">
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+          Batalkan Struk
+        </p>
+        <h2 className="mt-1 text-2xl font-black text-santara-roast">
+          {transaction.receiptNumber}
+        </h2>
+        <p className="mt-2 text-sm font-medium leading-relaxed text-santara-roast/70">
+          Struk tidak akan dihapus. Sistem akan menandai struk sebagai
+          dibatalkan dan laporan tidak akan menghitung nilainya.
+        </p>
+        <p className="mt-2 text-xs font-bold text-santara-roast/55">
+          Dibatalkan oleh: {currentUserName}
+        </p>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {voidReasonOptions.map((option) => (
+            <button
+              className={`rounded-lg px-3 py-2 text-sm font-black transition ${
+                reasonPreset === option
+                  ? 'bg-santara-bean text-white'
+                  : 'bg-white text-santara-roast ring-1 ring-santara-latte'
+              }`}
+              key={option}
+              onClick={() => setReasonPreset(option)}
+              type="button"
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <label className="mt-3 block">
+          <span className="text-sm font-bold text-santara-roast/70">
+            Keterangan
+          </span>
+          <textarea
+            className="mt-2 min-h-24 w-full rounded-lg bg-white px-3 py-2 text-sm font-bold text-santara-roast outline-none ring-1 ring-santara-latte transition focus:ring-2 focus:ring-santara-clay"
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Tambahkan catatan pembatalan"
+            value={notes}
+          />
+        </label>
+
+        {reasonPreset === 'Lainnya' && !notes.trim() && (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
+            Keterangan wajib diisi untuk alasan lainnya.
+          </p>
+        )}
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            className="rounded-lg bg-white px-4 py-3 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
+            onClick={onCancel}
+            type="button"
+          >
+            Batal
+          </button>
+          <button
+            className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!reason}
+            onClick={() => onConfirm(reason)}
+            type="button"
+          >
+            Batalkan Struk
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

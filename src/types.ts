@@ -10,6 +10,9 @@ export type MenuItem = {
 export type MenuCategory = {
   id: string;
   name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
   items: MenuItem[];
 };
 
@@ -20,10 +23,18 @@ export type CartItem = {
   unitPriceSnapshot: number;
   hppSnapshot: number;
   quantity: number;
+  itemDiscountType?: DiscountType;
+  itemDiscountValue?: number;
+  itemDiscountAmount?: number;
 };
 
 export type TransactionItem = CartItem & {
   subtotal: number;
+  grossLineTotal: number;
+  lineNetTotal: number;
+  unitHppSnapshot: number;
+  totalHpp: number;
+  profit: number;
 };
 
 export type PaymentMethod = 'Cash' | 'QRIS' | 'Debit';
@@ -46,10 +57,16 @@ export type CompletedTransaction = {
   discountType: DiscountType;
   discountValue: number;
   discountAmount: number;
+  itemDiscountAmount: number;
+  transactionDiscountAmount: number;
   totalAfterDiscount: number;
   paymentMethod: PaymentMethod;
   paidAmount: number | null;
   changeAmount: number | null;
+  status: 'completed' | 'voided';
+  voidedAt?: string | null;
+  voidedBy?: string | null;
+  voidReason?: string | null;
 };
 
 export type PendingOrder = {
@@ -145,6 +162,7 @@ export type GoogleSheetSyncLog = {
 };
 
 export type AppStateData = {
+  menuCategories: MenuCategory[];
   menuItems: MenuItem[];
   pendingOrders: PendingOrder[];
   completedTransactions: CompletedTransaction[];

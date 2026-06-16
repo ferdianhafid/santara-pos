@@ -6,6 +6,7 @@ import type {
   GoogleSheetSyncSettings,
   LegacyImportBatch,
   LegacySale,
+  MenuCategory,
   MenuItem,
   PendingOrder,
 } from '../types';
@@ -29,7 +30,7 @@ export type SyncOperation = {
   dedupeKey: string;
   createdAt: string;
   payload:
-    | { menuItems: MenuItem[] }
+    | { menuItems: MenuItem[]; menuCategories?: MenuCategory[] }
     | { transaction: CompletedTransaction }
     | { pendingOrder: PendingOrder }
     | { pendingOrderId: string }
@@ -155,11 +156,13 @@ export function saveSyncMeta(meta: SyncMeta) {
 
 export function createMenuSyncOperation(
   menuItems: MenuItem[],
+  menuCategories: MenuCategory[] = [],
 ): Omit<SyncOperation, 'id' | 'createdAt'> {
   return {
     type: 'menu-snapshot-upsert',
     dedupeKey: 'menu:snapshot',
     payload: {
+      menuCategories,
       menuItems,
     },
   };

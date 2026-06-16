@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { LocalDataPanel } from './LocalDataPanel';
-import type { AppStateData, MenuItem } from '../types';
+import type { AppStateData, MenuCategory, MenuItem } from '../types';
 import { formatRupiah } from '../utils/format';
 
 type MenuAdminProps = {
   items: MenuItem[];
-  categories: string[];
+  categories: MenuCategory[];
   appData: AppStateData;
   defaultMenuItems: MenuItem[];
+  onAddCategory: (name: string) => void;
   onAddItem: (item: Omit<MenuItem, 'id'>) => void;
   onImportData: (data: AppStateData) => void;
   onResetData: () => void;
+  onResetOperationalData: () => void;
+  onRenameCategory: (id: string, name: string) => void;
   onUpdateItem: (id: string, updates: Partial<Omit<MenuItem, 'id'>>) => void;
+  onToggleCategory: (id: string) => void;
   onToggleItem: (id: string) => void;
 };
 
@@ -28,16 +32,28 @@ export function MenuAdmin({
   categories,
   appData,
   defaultMenuItems,
+  onAddCategory,
   onAddItem,
   onImportData,
   onResetData,
+  onResetOperationalData,
+  onRenameCategory,
+  onToggleCategory,
   onUpdateItem,
   onToggleItem,
 }: MenuAdminProps) {
-  const [newItemCategory, setNewItemCategory] = useState(categories[0] ?? '');
+  const activeCategoryNames = categories
+    .filter((category) => category.isActive)
+    .map((category) => category.name);
+  const allCategoryNames = categories.map((category) => category.name);
+  const [newItemCategory, setNewItemCategory] = useState(
+    activeCategoryNames[0] ?? allCategoryNames[0] ?? '',
+  );
+  const [newCategoryName, setNewCategoryName] = useState('');
   const groupedItems = categories.map((category) => ({
-    category,
-    items: items.filter((item) => item.category === category),
+    category: category.name,
+    categoryRecord: category,
+    items: items.filter((item) => item.category === category.name),
   }));
 
   const handleAddItem = (event: React.FormEvent<HTMLFormElement>) => {
@@ -60,7 +76,18 @@ export function MenuAdmin({
       hpp,
     });
     event.currentTarget.reset();
-    setNewItemCategory(categories[0] ?? '');
+    setNewItemCategory(activeCategoryNames[0] ?? allCategoryNames[0] ?? '');
+  };
+
+  const handleAddCategory = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!newCategoryName.trim()) {
+      return;
+    }
+
+    onAddCategory(newCategoryName);
+    setNewCategoryName('');
   };
 
   return (
@@ -82,7 +109,7 @@ export function MenuAdmin({
       >
         <InputField name="name" placeholder="Nama Menu" />
         <CategoryDropdown
-          categories={categories}
+          categories={activeCategoryNames}
           label="Kategori"
           onChange={setNewItemCategory}
           value={newItemCategory}
@@ -97,11 +124,67 @@ export function MenuAdmin({
         </button>
       </form>
 
+      <section className="mt-3 rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+            Kategori
+          </p>
+          <h3 className="text-lg font-black text-santara-roast">
+            Kelola Kategori Menu
+          </h3>
+          <p className="text-sm text-santara-roast/65">
+            Kategori aktif muncul di tab kasir. Kategori nonaktif dan menunya
+            disembunyikan dari kasir.
+          </p>
+        </div>
+        <form className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleAddCategory}>
+          <InputField
+            placeholder="Nama kategori baru"
+            value={newCategoryName}
+            onChange={setNewCategoryName}
+          />
+          <button
+            className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white transition hover:bg-santara-roast"
+            type="submit"
+          >
+            Tambah Kategori
+          </button>
+        </form>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {categories.map((category) => (
+            <article
+              className={`grid gap-2 rounded-lg p-2 ring-1 ring-santara-latte sm:grid-cols-[minmax(0,1fr)_110px] ${
+                category.isActive ? 'bg-santara-cream/70' : 'bg-santara-cream/40 opacity-75'
+              }`}
+              key={category.id}
+            >
+              <InputField
+                ariaLabel={`Nama kategori ${category.name}`}
+                value={category.name}
+                onChange={(value) => onRenameCategory(category.id, value)}
+              />
+              <button
+                className={`rounded-lg px-3 py-2 text-sm font-black transition ${
+                  category.isActive
+                    ? 'bg-santara-bean text-white hover:bg-santara-roast'
+                    : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
+                }`}
+                onClick={() => onToggleCategory(category.id)}
+                type="button"
+              >
+                {category.isActive ? 'Aktif' : 'Nonaktif'}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <LocalDataPanel
         appData={appData}
         defaultMenuItems={defaultMenuItems}
         onImportData={onImportData}
         onResetData={onResetData}
+        onResetOperationalData={onResetOperationalData}
       />
 
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
@@ -114,7 +197,8 @@ export function MenuAdmin({
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h3 className="font-black text-santara-roast">{group.category}</h3>
                 <span className="rounded-full bg-santara-cream px-2 py-1 text-xs font-black text-santara-bean">
-                  {group.items.length} menu
+                  {group.items.length} menu -{' '}
+                  {group.categoryRecord.isActive ? 'Aktif' : 'Nonaktif'}
                 </span>
               </div>
 
@@ -132,7 +216,7 @@ export function MenuAdmin({
                       onChange={(value) => onUpdateItem(item.id, { name: value })}
                     />
                     <CategoryDropdown
-                      categories={categories}
+                      categories={allCategoryNames}
                       label={`Kategori ${item.name}`}
                       value={item.category}
                       onChange={(category) => onUpdateItem(item.id, { category })}
