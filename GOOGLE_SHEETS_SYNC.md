@@ -62,6 +62,11 @@ transaction value are recalculated during recap rebuilds.
 Visible month labels are always rebuilt from a stable `YYYY-MM` month key and
 shown with Indonesian month names such as `Juni 2026`.
 
+For each menu row, Santara POS sends explicit HPP/profit fields: `hpp`,
+`totalHpp`, `unitHpp`, `estimatedProfit`, `profit`, and `margin`. The `hpp`
+and `totalHpp` fields are total HPP for that menu row, while `unitHpp` is the
+per-item HPP snapshot when it can be derived from quantity.
+
 If you have tested older script versions and the recap sheets already look
 broken, run the optional `resetSantaraReportData()` function once from Apps
 Script after replacing the script. It clears internal/recap/log sheets but does

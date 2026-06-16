@@ -137,10 +137,7 @@ export function buildGoogleSheetPayload(
       discountedTransactionCount: report.discountedTransactionCount,
       averageDiscountPerDiscountedTransaction: report.averageDiscount,
     },
-    menuSales: report.menuSales.map((item) => ({
-      ...item,
-      unitPrice: item.quantity > 0 ? item.grossSales / item.quantity : 0,
-    })),
+    menuSales: report.menuSales.map(toGoogleSheetMenuSalePayload),
     bestSellers: report.bestSellers.map((item, index) => ({
       rank: index + 1,
       menu: item.name,
@@ -153,6 +150,38 @@ export function buildGoogleSheetPayload(
       ? toDailyClosingPayload(report.dailyClosing)
       : null,
   };
+}
+
+function toGoogleSheetMenuSalePayload(item: SalesReport['menuSales'][number]) {
+  const quantity = safeNumber(item.quantity);
+  const grossSales = safeNumber(item.grossSales);
+  const discountAmount = safeNumber(item.discountAmount);
+  const netSales = safeNumber(item.netSales);
+  const totalHpp = safeNumber(item.hpp);
+  const profit = netSales - totalHpp;
+  const unitPrice = quantity > 0 ? grossSales / quantity : 0;
+  const unitHpp = quantity > 0 ? totalHpp / quantity : 0;
+  const margin = netSales > 0 ? profit / netSales : 0;
+
+  return {
+    ...item,
+    discountAmount,
+    estimatedProfit: profit,
+    grossSales,
+    hpp: totalHpp,
+    margin,
+    marginPercent: margin * 100,
+    netSales,
+    profit,
+    quantity,
+    totalHpp,
+    unitHpp,
+    unitPrice,
+  };
+}
+
+function safeNumber(value: number) {
+  return Number.isFinite(value) ? value : 0;
 }
 
 function getReportKey(reportMode: ReportMode, selectedDate: string) {

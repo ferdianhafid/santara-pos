@@ -158,7 +158,7 @@ export function exportReportJson(context: ExportContext) {
     },
     expenseSummary: context.report.expenseSummary,
     expenseList: context.report.expenses,
-    menuSales: context.report.menuSales,
+    menuSales: context.report.menuSales.map(toMenuSalesExportItem),
     bestSellers: context.report.bestSellers.map((item, index) => ({
       rank: index + 1,
       menu: item.name,
@@ -176,6 +176,35 @@ export function exportReportJson(context: ExportContext) {
     JSON.stringify(payload, null, 2),
     'application/json;charset=utf-8',
   );
+}
+
+function toMenuSalesExportItem(item: SalesReport['menuSales'][number]) {
+  const quantity = safeNumber(item.quantity);
+  const grossSales = safeNumber(item.grossSales);
+  const discountAmount = safeNumber(item.discountAmount);
+  const netSales = safeNumber(item.netSales);
+  const totalHpp = safeNumber(item.hpp);
+  const profit = netSales - totalHpp;
+  const unitHpp = quantity > 0 ? totalHpp / quantity : 0;
+  const margin = netSales > 0 ? (profit / netSales) * 100 : 0;
+
+  return {
+    ...item,
+    discountAmount,
+    estimatedProfit: profit,
+    grossSales,
+    hpp: totalHpp,
+    margin,
+    netSales,
+    profit,
+    quantity,
+    totalHpp,
+    unitHpp,
+  };
+}
+
+function safeNumber(value: number) {
+  return Number.isFinite(value) ? value : 0;
 }
 
 export function downloadTextFile(
