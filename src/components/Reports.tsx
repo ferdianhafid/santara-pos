@@ -217,7 +217,32 @@ export function Reports({
           </section>
         )}
         {!hasReportData ? (
-          <EmptyReportState />
+          <div className="space-y-3">
+            <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
+              <EmptyReportState />
+              <GoogleSheetSync
+                currentUserName={currentUserName}
+                hasReportData={hasReportData}
+                logs={googleSheetSyncLogs}
+                onAddLog={onAddGoogleSheetSyncLog}
+                onSaveSettings={onSaveGoogleSheetSettings}
+                report={report}
+                reportMode={reportMode}
+                selectedDate={selectedDate}
+                settings={googleSheetSyncSettings}
+              />
+            </section>
+
+            {canUseDailyClosing && (
+              <DailyClosing
+                cashierName={currentUserName}
+                key={report.dailyClosing?.id ?? closingDate}
+                onSaveClosing={onSaveClosing}
+                report={report}
+                selectedDate={closingDate}
+              />
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
             <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -370,6 +395,7 @@ export function Reports({
 
               <GoogleSheetSync
                 currentUserName={currentUserName}
+                hasReportData={hasReportData}
                 logs={googleSheetSyncLogs}
                 onAddLog={onAddGoogleSheetSyncLog}
                 onSaveSettings={onSaveGoogleSheetSettings}

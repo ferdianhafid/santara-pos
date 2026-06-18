@@ -13,10 +13,12 @@ type GoogleSheetSyncProps = {
   reportMode: ReportMode;
   selectedDate: string;
   settings: GoogleSheetSyncSettings;
+  hasReportData: boolean;
 };
 
 export function GoogleSheetSync({
   currentUserName,
+  hasReportData,
   logs,
   onAddLog,
   onSaveSettings,
@@ -52,6 +54,11 @@ export function GoogleSheetSync({
       return;
     }
 
+    if (!hasReportData) {
+      setStatusMessage('Belum ada data laporan untuk disinkronkan.');
+      return;
+    }
+
     setIsSyncing(true);
     const log = await syncReportToGoogleSheet({
       endpointUrl,
@@ -79,6 +86,11 @@ export function GoogleSheetSync({
         <p className="mt-1 text-xs font-bold text-santara-roast/55">
           Sync akan memperbarui blok laporan, rekap bulanan/produk, dan Rekap Keseluruhan tanpa duplikat.
         </p>
+        {!hasReportData && (
+          <p className="mt-2 rounded-lg bg-santara-cream px-3 py-2 text-xs font-black text-santara-clay ring-1 ring-santara-latte">
+            Belum ada data laporan untuk disinkronkan.
+          </p>
+        )}
       </div>
 
       <form className="mt-3 grid gap-2 lg:grid-cols-[1fr_120px_150px]" onSubmit={saveUrl}>
@@ -101,7 +113,7 @@ export function GoogleSheetSync({
         </button>
         <button
           className="rounded-lg bg-santara-bean px-3 py-3 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45 lg:self-end"
-          disabled={isSyncing}
+          disabled={isSyncing || !hasReportData}
           onClick={syncNow}
           type="button"
         >

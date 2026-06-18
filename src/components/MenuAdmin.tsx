@@ -89,7 +89,7 @@ export function MenuAdmin({
   };
 
   return (
-    <section className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
+    <section className="my-3 min-h-0 flex-1 overflow-y-auto rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
       <div className="flex flex-col gap-1 border-b border-santara-latte/70 pb-3">
         <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
           Admin
@@ -184,7 +184,7 @@ export function MenuAdmin({
         onResetData={onResetData}
       />
 
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+      <div className="mt-3">
         <div className="space-y-3">
           {groupedItems.map((group) => (
             <section
