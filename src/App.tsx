@@ -94,12 +94,12 @@ type SyncStatus =
   | 'error'
   | 'login-required';
 
-const appTabs: Array<{ id: AppTab; label: string }> = [
-  { id: 'cashier', label: 'Kasir' },
-  { id: 'menu', label: 'Kelola Menu' },
-  { id: 'receipts', label: 'Riwayat Struk' },
-  { id: 'reports', label: 'Laporan' },
-  { id: 'expenses', label: 'Pengeluaran' },
+const appTabs: Array<{ id: AppTab; label: string; icon: string }> = [
+  { id: 'cashier', label: 'Kasir', icon: '🛒' },
+  { id: 'menu', label: 'Menu', icon: '📋' },
+  { id: 'receipts', label: 'Struk', icon: '🧾' },
+  { id: 'reports', label: 'Laporan', icon: '📊' },
+  { id: 'expenses', label: 'Pengeluaran', icon: '💰' },
 ];
 
 function createReceiptNumber(date: Date, sequence: number) {
@@ -917,153 +917,209 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-santara-cream via-santara-foam to-santara-cream text-santara-roast lg:h-screen lg:overflow-hidden">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-3 py-3 sm:px-4 lg:h-screen lg:min-h-0 lg:px-5">
-        {/* Premium Header */}
-        <header className="flex shrink-0 flex-col gap-4 border-b border-santara-latte/60 pb-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            {/* Logo with glow effect */}
-            <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-premium blur-lg opacity-40"></div>
-              <div className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-premium text-lg font-black text-white shadow-glow">
-                SC
-              </div>
+    <div className="min-h-screen bg-cream flex">
+      {/* Sidebar */}
+      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
+        <div className="flex flex-col flex-1 bg-white border-r border-gray-100">
+          {/* Logo */}
+          <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-100">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-lg">
+              <span className="text-white font-extrabold text-lg">SC</span>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
-                Santara POS
-              </p>
-              <h1 className="font-display text-2xl font-black leading-tight tracking-tight text-santara-roast sm:text-3xl">
-                Santara Coffee
-              </h1>
-              <p className="mt-0.5 text-xs font-medium italic text-santara-roast/60 sm:text-sm">
-                Ruang untuk cerita, jeda untuk jiwa
-              </p>
-              <SyncStatusIndicator
-                lastSyncedAt={syncMeta.lastSyncedAt}
-                onSyncNow={() => processSyncQueue({ pullAfterSuccess: true })}
-                pendingCount={syncQueue.length}
-                status={syncStatus}
-              />
-              <AuthSummary
-                authProfile={authProfile}
-                authStatus={authStatus}
-                effectiveRole={effectiveRole}
-                onLogout={logoutFromSupabase}
-                roleMissing={Boolean(authProfile?.isMissing)}
-              />
+              <h1 className="font-extrabold text-lg text-coffee-dark tracking-tight">Santara</h1>
+              <p className="text-xs text-gray-500 font-medium">Coffee POS</p>
             </div>
           </div>
 
-          {/* Premium Status Tiles */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 lg:w-[660px] xl:w-[720px]">
-            <StatusTile label="Mode" value={getActiveTabLabel(activeTab)} />
-            <StatusTile label="Cart" value={`${totalQuantity} item`} />
-            <StatusTile label="Subtotal" value={formatRupiah(subtotal)} />
-            <StatusTile label="Pending" value={`${pendingOrders.length} order`} />
-            <StatusTile
-              label="Last Receipt"
-              value={latestTransaction?.receiptNumber ?? '-'}
+          {/* Navigation */}
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            {visibleTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`nav-item w-full ${activeTab === tab.id ? 'nav-item-active' : ''}`}
+              >
+                <span className="text-xl">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {/* User Section */}
+          <div className="px-4 py-4 border-t border-gray-100">
+            <AuthSummary
+              authProfile={authProfile}
+              authStatus={authStatus}
+              effectiveRole={effectiveRole}
+              onLogout={logoutFromSupabase}
+              roleMissing={Boolean(authProfile?.isMissing)}
+            />
+            <SyncStatusIndicator
+              lastSyncedAt={syncMeta.lastSyncedAt}
+              onSyncNow={() => processSyncQueue({ pullAfterSuccess: true })}
+              pendingCount={syncQueue.length}
+              status={syncStatus}
             />
           </div>
-        </header>
+        </div>
+      </aside>
 
-        {/* Premium Navigation Tabs */}
-        <nav className="grid shrink-0 grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2 border-b border-santara-latte/50 py-3">
-          {visibleTabs.map((tab) => (
-            <TabButton
-              isActive={activeTab === tab.id}
-              key={tab.id}
-              label={tab.label}
-              onClick={() => setActiveTab(tab.id)}
-            />
-          ))}
-        </nav>
-
-        {activeTab === 'cashier' && (
-          <CashierView
-            activeCategoryName={activeCategoryNameSafe}
-            activeMenuItems={activeMenuItems}
-            cart={cart}
-            categoryNames={activeCategoryNames}
-            clearCart={clearCart}
-            decreaseQuantity={decreaseQuantity}
-            increaseQuantity={increaseQuantity}
-            latestTransaction={latestTransaction}
-            onAddItem={addItem}
-            onDiscountItem={setDiscountItemId}
-            onDeletePending={(order) =>
-              setPendingOrderAction({ type: 'delete', order })
-            }
-            onOpenCheckout={() => setIsCheckoutOpen(true)}
-            onOpenSaveOrder={() => setIsSaveOrderOpen(true)}
-            onResumePending={requestResumePendingOrder}
-            pendingOrderCount={pendingOrderCount}
-            pendingOrders={pendingOrders}
-            removeItem={removeItem}
-            setActiveCategoryName={setActiveCategoryName}
-            subtotal={subtotal}
-            itemDiscountTotal={itemDiscountTotal}
-            cartNetSubtotal={cartNetSubtotal}
-            totalQuantity={totalQuantity}
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-md">
+              <span className="text-white font-extrabold">SC</span>
+            </div>
+            <div>
+              <h1 className="font-extrabold text-coffee-dark">Santara Coffee</h1>
+              <p className="text-xs text-gray-500">Kasir</p>
+            </div>
+          </div>
+          <SyncStatusIndicator
+            lastSyncedAt={syncMeta.lastSyncedAt}
+            onSyncNow={() => processSyncQueue({ pullAfterSuccess: true })}
+            pendingCount={syncQueue.length}
+            status={syncStatus}
           />
-        )}
+        </div>
+      </header>
 
-        {activeTab === 'menu' && canAccessTab('menu', effectiveRole) && (
-          <MenuAdmin
-            appData={appData}
-            categories={menuCategories}
-            defaultMenuItems={defaultMenuItems}
-            items={menuItems}
-            onAddCategory={addMenuCategory}
-            onAddItem={addMenuItem}
-            onImportData={importAppData}
-            onResetData={resetLocalData}
-            onRenameCategory={renameMenuCategory}
-            onToggleItem={toggleMenuItem}
-            onToggleCategory={toggleMenuCategory}
-            onUpdateItem={updateMenuItem}
-          />
-        )}
+      {/* Main Content */}
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
+        <div className="h-screen overflow-hidden flex flex-col">
+          {/* Quick Stats Bar */}
+          <div className="bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
+            <div className="flex items-center gap-4 overflow-x-auto">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                <span className="text-sm font-semibold text-gray-500">Mode:</span>
+                <span className="badge badge-primary">{getActiveTabLabel(activeTab)}</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                <span className="text-sm font-semibold text-gray-500">Cart:</span>
+                <span className="font-bold text-coffee-dark">{totalQuantity} item</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                <span className="text-sm font-semibold text-gray-500">Subtotal:</span>
+                <span className="font-bold text-coffee-dark">{formatRupiah(subtotal)}</span>
+              </div>
+              {pendingOrders.length > 0 && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50">
+                  <span className="text-sm font-semibold text-amber-700">Pending:</span>
+                  <span className="font-bold text-amber-700">{pendingOrders.length} order</span>
+                </div>
+              )}
+            </div>
+          </div>
 
-        {activeTab === 'receipts' && (
-          <ReceiptHistory
-            canVoid={effectiveRole === 'owner' || effectiveRole === 'admin'}
-            currentUserName={authProfile?.fullName ?? CASHIER_NAME}
-            onVoidReceipt={voidReceipt}
-            transactions={completedTransactions}
-          />
-        )}
+          {/* Mobile Bottom Navigation */}
+          <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-2 py-2">
+            <div className="flex justify-around">
+              {visibleTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-coffee/10 text-coffee-dark'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  <span className="text-2xl">{tab.icon}</span>
+                  <span className="text-xs font-semibold">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
 
-        {activeTab === 'reports' && canAccessTab('reports', effectiveRole) && (
-          <Reports
-            currentUserName={authProfile?.fullName ?? CASHIER_NAME}
-            dailyClosings={dailyClosings}
-            expenses={expenses}
-            googleSheetSyncLogs={googleSheetSyncLogs}
-            googleSheetSyncSettings={googleSheetSyncSettings}
-            legacyImportBatches={legacyImportBatches}
-            legacySales={legacySales}
-            onAddGoogleSheetSyncLog={addGoogleSheetSyncLog}
-            onSaveLegacyImport={importLegacySales}
-            onSaveClosing={saveDailyClosing}
-            onSaveGoogleSheetSettings={saveGoogleSheetSettings}
-            onResetOperationalData={resetOperationalTestingData}
-            transactions={completedTransactions}
-          />
-        )}
+          {/* Page Content */}
+          <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+            {activeTab === 'cashier' && (
+              <CashierView
+                activeCategoryName={activeCategoryNameSafe}
+                activeMenuItems={activeMenuItems}
+                cart={cart}
+                categoryNames={activeCategoryNames}
+                clearCart={clearCart}
+                decreaseQuantity={decreaseQuantity}
+                increaseQuantity={increaseQuantity}
+                latestTransaction={latestTransaction}
+                onAddItem={addItem}
+                onDiscountItem={setDiscountItemId}
+                onDeletePending={(order) =>
+                  setPendingOrderAction({ type: 'delete', order })
+                }
+                onOpenCheckout={() => setIsCheckoutOpen(true)}
+                onOpenSaveOrder={() => setIsSaveOrderOpen(true)}
+                onResumePending={requestResumePendingOrder}
+                pendingOrderCount={pendingOrderCount}
+                pendingOrders={pendingOrders}
+                removeItem={removeItem}
+                setActiveCategoryName={setActiveCategoryName}
+                subtotal={subtotal}
+                itemDiscountTotal={itemDiscountTotal}
+                cartNetSubtotal={cartNetSubtotal}
+                totalQuantity={totalQuantity}
+              />
+            )}
 
-        {activeTab === 'expenses' && canAccessTab('expenses', effectiveRole) && (
-          <Expenses
-            currentUserName={authProfile?.fullName ?? CASHIER_NAME}
-            expenses={expenses}
-            onAddExpense={addExpense}
-            onDeleteExpense={deleteExpense}
-            onUpdateExpense={updateExpense}
-          />
-        )}
+            {activeTab === 'menu' && canAccessTab('menu', effectiveRole) && (
+              <MenuAdmin
+                appData={appData}
+                categories={menuCategories}
+                defaultMenuItems={defaultMenuItems}
+                items={menuItems}
+                onAddCategory={addMenuCategory}
+                onAddItem={addMenuItem}
+                onImportData={importAppData}
+                onResetData={resetLocalData}
+                onRenameCategory={renameMenuCategory}
+                onToggleItem={toggleMenuItem}
+                onToggleCategory={toggleMenuCategory}
+                onUpdateItem={updateMenuItem}
+              />
+            )}
 
-      </div>
+            {activeTab === 'receipts' && (
+              <ReceiptHistory
+                canVoid={effectiveRole === 'owner' || effectiveRole === 'admin'}
+                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                onVoidReceipt={voidReceipt}
+                transactions={completedTransactions}
+              />
+            )}
+
+            {activeTab === 'reports' && canAccessTab('reports', effectiveRole) && (
+              <Reports
+                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                dailyClosings={dailyClosings}
+                expenses={expenses}
+                googleSheetSyncLogs={googleSheetSyncLogs}
+                googleSheetSyncSettings={googleSheetSyncSettings}
+                legacyImportBatches={legacyImportBatches}
+                legacySales={legacySales}
+                onAddGoogleSheetSyncLog={addGoogleSheetSyncLog}
+                onSaveLegacyImport={importLegacySales}
+                onSaveClosing={saveDailyClosing}
+                onSaveGoogleSheetSettings={saveGoogleSheetSettings}
+                onResetOperationalData={resetOperationalTestingData}
+                transactions={completedTransactions}
+              />
+            )}
+
+            {activeTab === 'expenses' && canAccessTab('expenses', effectiveRole) && (
+              <Expenses
+                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                expenses={expenses}
+                onAddExpense={addExpense}
+                onDeleteExpense={deleteExpense}
+                onUpdateExpense={updateExpense}
+              />
+            )}
+          </div>
+        </div>
+      </main>
 
       {isCheckoutOpen && (
         <CheckoutModal
@@ -1097,29 +1153,26 @@ function App() {
               resumePendingOrder(pendingOrderAction.order);
               return;
             }
-
             deletePendingOrder(pendingOrderAction.order);
           }}
           order={pendingOrderAction.order}
         />
       )}
-    </main>
+    </div>
   );
 }
 
 function LoadingScreen() {
   return (
-    <main className="grid min-h-screen place-items-center bg-santara-cream px-4 text-santara-roast">
-      <section className="w-full max-w-sm rounded-xl bg-santara-foam p-5 text-center shadow-soft ring-1 ring-santara-latte">
-        <div className="mx-auto grid size-12 place-items-center rounded-full bg-santara-bean text-base font-black text-white shadow-soft">
-          SC
+    <div className="min-h-screen bg-cream flex items-center justify-center">
+      <div className="card text-center max-w-sm">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-lg mb-4">
+          <span className="text-white font-extrabold text-xl">SC</span>
         </div>
-        <h1 className="mt-3 text-xl font-black">Memeriksa sesi login...</h1>
-        <p className="mt-2 text-sm font-medium text-santara-roast/65">
-          Santara POS sedang menyiapkan akses cloud.
-        </p>
-      </section>
-    </main>
+        <h1 className="text-xl font-extrabold text-coffee-dark">Memeriksa sesi login...</h1>
+        <p className="text-sm text-gray-500 mt-2">Santara POS sedang menyiapkan akses cloud.</p>
+      </div>
+    </div>
   );
 }
 
@@ -1217,267 +1270,170 @@ function CashierView({
   totalQuantity,
 }: CashierViewProps) {
   return (
-    <section className="grid flex-1 gap-4 py-3 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_450px]">
-      {/* Premium Menu Section */}
-      <div className="flex min-h-[420px] flex-col overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 sm:min-h-[480px] lg:min-h-0">
-        <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-black tracking-tight">Menu</h2>
-              <p className="text-xs text-santara-roast/60 mt-0.5">
-                Pilih kategori lalu tap menu untuk menambah pesanan.
-              </p>
-            </div>
-            <span className="badge badge-gold hidden sm:inline-flex">
-              {activeMenuItems.length} menu
-            </span>
+    <div className="flex flex-1 h-full lg:gap-6">
+      {/* Left Panel - Menu */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-extrabold text-coffee-dark tracking-tight">Menu</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{activeMenuItems.length} item tersedia</p>
           </div>
-
-          {/* Premium Category Pills */}
-          <div className="flex flex-wrap gap-2">
-            {categoryNames.map((category) => {
-              const isActive = category === activeCategoryName;
-
-              return (
-                <button
-                  className={`category-pill ${isActive ? 'category-pill-active' : 'category-pill-inactive'}`}
-                  key={category}
-                  onClick={() => setActiveCategoryName(category)}
-                  type="button"
-                >
-                  {category}
-                </button>
-              );
-            })}
-          </div>
+          <span className="badge badge-primary">{activeCategoryName}</span>
         </div>
 
-        {/* Premium Menu Grid */}
-        <div className="grid flex-1 auto-rows-[120px] grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-3 overflow-y-auto py-4 pr-1 sm:auto-rows-[130px] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(175px,1fr))]">
-          {activeMenuItems.length === 0 ? (
-            <div className="col-span-full grid min-h-56 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
-              <p className="text-sm font-bold text-santara-roast/50">
-                Tidak ada menu aktif di kategori ini.
-              </p>
-            </div>
-          ) : (
-            activeMenuItems.map((item) => (
-              <button
-                className="menu-card relative"
-                key={item.id}
-                onClick={() => onAddItem(item)}
-                type="button"
-              >
-                <span className="flex flex-col justify-between h-full">
-                  <span>
-                    <span className="line-clamp-2 block text-sm font-black leading-tight tracking-tight text-santara-roast sm:text-[15px]">
-                      {item.name}
-                    </span>
-                    <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.1em] text-santara-sage">
-                      {item.category}
-                    </span>
-                  </span>
-                  <span className="block text-lg font-black text-santara-bean mt-2">
-                    {formatRupiah(item.price)}
-                  </span>
-                </span>
-              </button>
-            ))
-          )}
+        {/* Category Filter */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1">
+          {categoryNames.map((category) => (
+            <button
+              key={category}
+              onClick={() => setActiveCategoryName(category)}
+              className={`cat-pill ${activeCategoryName === category ? 'cat-pill-active' : 'cat-pill-inactive'}`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
+        {/* Menu Grid */}
+        <div className="flex-1 overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {activeMenuItems.length === 0 ? (
+              <div className="col-span-full empty-state">
+                <div className="text-4xl mb-3">☕</div>
+                <p className="font-semibold text-gray-500">Tidak ada menu aktif</p>
+              </div>
+            ) : (
+              activeMenuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onAddItem(item)}
+                  className="menu-item text-left"
+                >
+                  <div className="flex flex-col h-full">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-coffee-dark text-sm leading-tight">{item.name}</h3>
+                      <p className="text-xs text-gray-400 mt-1 uppercase tracking-wide">{item.category}</p>
+                    </div>
+                    <p className="text-lg font-extrabold text-coffee mt-2">{formatRupiah(item.price)}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Premium Cart Sidebar */}
-      <aside className="cart-sidebar flex min-h-[440px] flex-col overflow-hidden lg:min-h-0">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-santara-latte/50 px-4 py-4">
-          <div>
-            <h2 className="text-lg font-black tracking-tight">Keranjang</h2>
-            <p className="text-xs text-santara-roast/60 mt-0.5">
-              Review pesanan & selesaikan pembayaran.
-            </p>
+      {/* Right Panel - Cart */}
+      <div className="hidden lg:flex lg:w-[400px] xl:w-[440px] flex-col">
+        <div className="card flex-1 flex flex-col overflow-hidden">
+          {/* Cart Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-xl font-extrabold text-coffee-dark tracking-tight">Keranjang</h2>
+              <p className="text-xs text-gray-500">{cart.length} item</p>
+            </div>
+            {cart.length > 0 && (
+              <button onClick={clearCart} className="btn btn-ghost text-sm">
+                Clear All
+              </button>
+            )}
           </div>
-          <button
-            className="btn-secondary px-4 py-2 text-xs font-bold rounded-xl disabled:opacity-40"
-            disabled={cart.length === 0}
-            onClick={clearCart}
-            type="button"
-          >
-            Clear
-          </button>
-        </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="space-y-3">
+          {/* Cart Items */}
+          <div className="flex-1 overflow-y-auto py-4 space-y-3">
             {cart.length === 0 ? (
-              <div className="grid min-h-36 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
-                <div>
-                  <p className="font-black text-santara-roast">Keranjang kosong</p>
-                  <p className="mt-1.5 text-xs text-santara-roast/60">
-                    Tap menu favorit pelanggan untuk mulai membuat pesanan.
-                  </p>
-                  {latestTransaction && (
-                    <p className="mt-3 rounded-xl bg-white px-4 py-2 text-xs font-bold text-santara-bean border border-santara-latte/50">
-                      Last completed: {latestTransaction.receiptNumber}
-                    </p>
-                  )}
-                </div>
+              <div className="empty-state h-full">
+                <div className="text-5xl mb-4">🛒</div>
+                <p className="font-semibold text-gray-500">Keranjang kosong</p>
+                <p className="text-sm text-gray-400 mt-1">Tap menu untuk menambahkan</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {cart.map((item) => (
-                  <div
-                    className="rounded-2xl border border-santara-latte/50 bg-santara-foam/80 p-4 transition-all duration-200"
-                    key={item.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black leading-tight tracking-tight">
-                          {item.nameSnapshot}
-                        </p>
-                        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-santara-sage">
-                          {item.categorySnapshot}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-santara-bean">
-                          {formatRupiah(item.unitPriceSnapshot)} / item
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col gap-1.5">
-                        <button
-                          className="btn-secondary px-3 py-1.5 text-xs font-bold rounded-lg"
-                          onClick={() => onDiscountItem(item.id)}
-                          type="button"
-                        >
-                          Diskon
-                        </button>
-                        <button
-                          aria-label={`Remove ${item.nameSnapshot}`}
-                          className="px-3 py-1.5 text-xs font-bold text-santara-clay rounded-lg border border-santara-latte/50 bg-white transition-all hover:bg-red-50 hover:border-red-200 hover:text-red-500"
-                          onClick={() => removeItem(item.id)}
-                          type="button"
-                        >
-                          Hapus
-                        </button>
-                      </div>
+              cart.map((item) => (
+                <div key={item.id} className="bg-gray-50 rounded-2xl p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-coffee-dark">{item.nameSnapshot}</h4>
+                      <p className="text-xs text-gray-400">{item.categorySnapshot}</p>
                     </div>
-
-                    {/* Premium Quantity Controls */}
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center rounded-xl bg-white p-1.5 border border-santara-latte/40 shadow-inner-soft">
-                        <button
-                          aria-label={`Decrease ${item.nameSnapshot}`}
-                          className="qty-btn qty-btn-minus"
-                          onClick={() => decreaseQuantity(item.id)}
-                          type="button"
-                        >
-                          -
-                        </button>
-                        <span className="min-w-12 text-center text-base font-black">
-                          {item.quantity}
-                        </span>
-                        <button
-                          aria-label={`Increase ${item.nameSnapshot}`}
-                          className="qty-btn qty-btn-plus"
-                          onClick={() => increaseQuantity(item.id)}
-                          type="button"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <p className="text-lg font-black text-santara-roast">
-                        {formatRupiah(getCartLineNet(item))}
-                      </p>
-                    </div>
-                    {getCartLineDiscount(item) > 0 && (
-                      <div className="mt-3 rounded-xl bg-white px-3 py-2.5 text-[11px] font-bold text-santara-roast/70 border border-santara-latte/40">
-                        <div className="flex justify-between gap-2">
-                          <span>Harga awal</span>
-                          <span>{formatRupiah(getCartLineGross(item))}</span>
-                        </div>
-                        <div className="flex justify-between gap-2 text-santara-clay mt-1">
-                          <span>Diskon item</span>
-                          <span>-{formatRupiah(getCartLineDiscount(item))}</span>
-                        </div>
-                      </div>
-                    )}
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      ✕
+                    </button>
                   </div>
-                ))}
+
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="qty-control">
+                      <button
+                        onClick={() => decreaseQuantity(item.id)}
+                        className="qty-btn qty-btn-minus"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center font-bold">{item.quantity}</span>
+                      <button
+                        onClick={() => increaseQuantity(item.id)}
+                        className="qty-btn qty-btn-plus"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <p className="font-bold text-coffee-dark">{formatRupiah(getCartLineNet(item))}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Cart Summary */}
+          <div className="pt-4 border-t border-gray-100 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Subtotal</span>
+              <span className="font-semibold">{formatRupiah(subtotal)}</span>
+            </div>
+            {itemDiscountTotal > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Diskon</span>
+                <span className="font-semibold">-{formatRupiah(itemDiscountTotal)}</span>
               </div>
             )}
-
-            <PendingOrdersSection
-              onDelete={onDeletePending}
-              onResume={onResumePending}
-              orders={pendingOrders}
-            />
-          </div>
-
-          {latestTransaction && (
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-black text-sm">Preview Struk</h3>
-                <button
-                  className="btn-secondary px-3 py-1.5 text-xs font-bold rounded-lg"
-                  onClick={() => window.print()}
-                  type="button"
-                >
-                  Print Struk
-                </button>
-              </div>
-              <ReceiptPreview transaction={latestTransaction} />
+            <div className="flex justify-between text-lg pt-2 border-t border-gray-100">
+              <span className="font-bold">Total</span>
+              <span className="font-extrabold text-coffee">{formatRupiah(cartNetSubtotal)}</span>
             </div>
-          )}
-        </div>
 
-        {/* Premium Cart Footer */}
-        <div className="shrink-0 border-t border-santara-latte/50 bg-gradient-to-t from-santara-cream to-white px-4 py-4">
-          <div className="flex items-center justify-between text-xs font-bold text-santara-roast/60">
-            <span>Total item</span>
-            <span className="badge badge-sage">{totalQuantity}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-base font-black">Subtotal</span>
-            <span className="text-2xl font-black text-santara-bean">
-              {formatRupiah(subtotal)}
-            </span>
-          </div>
-          {itemDiscountTotal > 0 && (
-            <>
-              <div className="mt-1.5 flex items-center justify-between text-xs font-bold text-santara-clay">
-                <span>Diskon item</span>
-                <span>-{formatRupiah(itemDiscountTotal)}</span>
-              </div>
-              <div className="mt-1.5 flex items-center justify-between text-sm font-black text-santara-roast">
-                <span>Subtotal net</span>
-                <span>{formatRupiah(cartNetSubtotal)}</span>
-              </div>
-            </>
-          )}
-          {/* Premium Checkout Button */}
-          <button
-            className="mt-4 w-full btn-primary px-6 py-4 text-base font-black rounded-xl shadow-glow"
-            disabled={cart.length === 0}
-            onClick={onOpenCheckout}
-            type="button"
-          >
-            Bayar Sekarang
-          </button>
-          {cart.length > 0 && (
             <button
-              className="mt-2 w-full btn-secondary px-5 py-3 text-sm font-bold rounded-xl"
-              onClick={onOpenSaveOrder}
-              type="button"
+              onClick={onOpenCheckout}
+              disabled={cart.length === 0}
+              className="btn btn-primary w-full mt-4"
             >
-              Simpan Order
+              Bayar Sekarang
             </button>
-          )}
-          {pendingOrders.length > 0 && (
-            <p className="mt-3 text-center text-[11px] font-bold text-santara-roast/50">
-              {pendingOrders.length} order tersimpan, {pendingOrderCount} item
-            </p>
-          )}
+
+            {cart.length > 0 && (
+              <button
+                onClick={onOpenSaveOrder}
+                className="btn btn-secondary w-full"
+              >
+                Simpan Order
+              </button>
+            )}
+          </div>
         </div>
-      </aside>
-    </section>
+      </div>
+
+      {/* Mobile Cart FAB */}
+      {cart.length > 0 && (
+        <button
+          onClick={onOpenCheckout}
+          className="lg:hidden fixed bottom-24 right-4 btn btn-primary shadow-xl rounded-2xl px-6 py-4"
+        >
+          <span>Bayar</span>
+          <span className="ml-2 font-extrabold">{formatRupiah(cartNetSubtotal)}</span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1573,21 +1529,16 @@ function SyncStatusIndicator({
         : '';
 
   return (
-    <div className="mt-2 flex w-fit items-center gap-2 rounded-full glass px-3 py-1.5 text-[11px] font-bold text-santara-roast">
-      <span className={`size-2 rounded-full ${dotClass} animate-pulse-subtle`} aria-hidden="true" />
+    <button
+      onClick={onSyncNow}
+      disabled={status === 'syncing'}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors"
+      title="Klik untuk sync"
+    >
+      <span className={`w-2 h-2 rounded-full ${dotClass}`} />
       <span>{label}</span>
-      {detail && <span className="text-santara-roast/50">{detail}</span>}
-      <button
-        aria-label="Sync Sekarang"
-        className="ml-1 grid size-6 place-items-center rounded-full bg-santara-foam text-sm font-black text-santara-bean transition-all hover:scale-110 hover:bg-santara-gold/20 hover:text-santara-gold disabled:opacity-40"
-        disabled={status === 'syncing'}
-        onClick={onSyncNow}
-        title="Sync Sekarang"
-        type="button"
-      >
-        ↻
-      </button>
-    </div>
+      {detail && <span className="text-gray-400">{detail}</span>}
+    </button>
   );
 }
 
