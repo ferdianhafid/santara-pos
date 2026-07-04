@@ -917,21 +917,26 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-santara-cream text-santara-roast lg:h-screen lg:overflow-hidden">
+    <main className="min-h-screen bg-gradient-to-br from-santara-cream via-santara-foam to-santara-cream text-santara-roast lg:h-screen lg:overflow-hidden">
       <div className="mx-auto flex min-h-screen w-full max-w-[1440px] flex-col px-3 py-3 sm:px-4 lg:h-screen lg:min-h-0 lg:px-5">
-        <header className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/80 pb-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="grid size-12 shrink-0 place-items-center rounded-full bg-santara-bean text-base font-black text-white shadow-soft">
-              SC
+        {/* Premium Header */}
+        <header className="flex shrink-0 flex-col gap-4 border-b border-santara-latte/60 pb-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            {/* Logo with glow effect */}
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-premium blur-lg opacity-40"></div>
+              <div className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-premium text-lg font-black text-white shadow-glow">
+                SC
+              </div>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-santara-clay">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
                 Santara POS
               </p>
-              <h1 className="font-display text-2xl font-black leading-tight text-santara-roast sm:text-3xl">
+              <h1 className="font-display text-2xl font-black leading-tight tracking-tight text-santara-roast sm:text-3xl">
                 Santara Coffee
               </h1>
-              <p className="mt-0.5 text-xs font-medium text-santara-roast/70 sm:text-sm">
+              <p className="mt-0.5 text-xs font-medium italic text-santara-roast/60 sm:text-sm">
                 Ruang untuk cerita, jeda untuk jiwa
               </p>
               <SyncStatusIndicator
@@ -950,7 +955,8 @@ function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[660px] xl:w-[720px]">
+          {/* Premium Status Tiles */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 lg:w-[660px] xl:w-[720px]">
             <StatusTile label="Mode" value={getActiveTabLabel(activeTab)} />
             <StatusTile label="Cart" value={`${totalQuantity} item`} />
             <StatusTile label="Subtotal" value={formatRupiah(subtotal)} />
@@ -962,7 +968,8 @@ function App() {
           </div>
         </header>
 
-        <nav className="grid shrink-0 grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 border-b border-santara-latte/70 py-3">
+        {/* Premium Navigation Tabs */}
+        <nav className="grid shrink-0 grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2 border-b border-santara-latte/50 py-3">
           {visibleTabs.map((tab) => (
             <TabButton
               isActive={activeTab === tab.id}
@@ -1210,32 +1217,30 @@ function CashierView({
   totalQuantity,
 }: CashierViewProps) {
   return (
-    <section className="grid flex-1 gap-3 py-3 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_430px]">
-      <div className="flex min-h-[420px] flex-col overflow-hidden rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70 sm:min-h-[480px] lg:min-h-0">
-        <div className="flex shrink-0 flex-col gap-2 border-b border-santara-latte/70 pb-3">
+    <section className="grid flex-1 gap-4 py-3 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_450px]">
+      {/* Premium Menu Section */}
+      <div className="flex min-h-[420px] flex-col overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 sm:min-h-[480px] lg:min-h-0">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black">Menu</h2>
-              <p className="text-xs text-santara-roast/65">
+              <h2 className="text-xl font-black tracking-tight">Menu</h2>
+              <p className="text-xs text-santara-roast/60 mt-0.5">
                 Pilih kategori lalu tap menu untuk menambah pesanan.
               </p>
             </div>
-            <p className="hidden rounded-full bg-white px-3 py-1 text-xs font-bold text-santara-bean ring-1 ring-santara-latte sm:block">
+            <span className="badge badge-gold hidden sm:inline-flex">
               {activeMenuItems.length} menu
-            </p>
+            </span>
           </div>
 
+          {/* Premium Category Pills */}
           <div className="flex flex-wrap gap-2">
             {categoryNames.map((category) => {
               const isActive = category === activeCategoryName;
 
               return (
                 <button
-                  className={`shrink-0 rounded-full px-4 py-3 text-sm font-black transition ${
-                    isActive
-                      ? 'bg-santara-bean text-white shadow-soft'
-                      : 'bg-white text-santara-roast ring-1 ring-santara-latte hover:bg-santara-latte/40'
-                  }`}
+                  className={`category-pill ${isActive ? 'category-pill-active' : 'category-pill-inactive'}`}
                   key={category}
                   onClick={() => setActiveCategoryName(category)}
                   type="button"
@@ -1247,31 +1252,34 @@ function CashierView({
           </div>
         </div>
 
-        <div className="grid flex-1 auto-rows-[112px] grid-cols-[repeat(auto-fill,minmax(132px,1fr))] content-start gap-2.5 overflow-y-auto py-3 pr-1 sm:auto-rows-[124px] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
+        {/* Premium Menu Grid */}
+        <div className="grid flex-1 auto-rows-[120px] grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-3 overflow-y-auto py-4 pr-1 sm:auto-rows-[130px] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(175px,1fr))]">
           {activeMenuItems.length === 0 ? (
-            <div className="col-span-full grid min-h-56 place-items-center rounded-lg border border-dashed border-santara-latte bg-white p-5 text-center">
-              <p className="text-sm font-bold text-santara-roast/60">
+            <div className="col-span-full grid min-h-56 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
+              <p className="text-sm font-bold text-santara-roast/50">
                 Tidak ada menu aktif di kategori ini.
               </p>
             </div>
           ) : (
             activeMenuItems.map((item) => (
               <button
-                className="flex h-full flex-col justify-between rounded-lg bg-white p-3 text-left shadow-sm ring-1 ring-santara-latte transition hover:-translate-y-0.5 hover:bg-santara-cream focus:outline-none focus:ring-2 focus:ring-santara-clay"
+                className="menu-card relative"
                 key={item.id}
                 onClick={() => onAddItem(item)}
                 type="button"
               >
-                <span>
-                  <span className="line-clamp-2 block text-sm font-black leading-tight text-santara-roast sm:text-[15px]">
-                    {item.name}
+                <span className="flex flex-col justify-between h-full">
+                  <span>
+                    <span className="line-clamp-2 block text-sm font-black leading-tight tracking-tight text-santara-roast sm:text-[15px]">
+                      {item.name}
+                    </span>
+                    <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.1em] text-santara-sage">
+                      {item.category}
+                    </span>
                   </span>
-                  <span className="mt-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
-                    {item.category}
+                  <span className="block text-lg font-black text-santara-bean mt-2">
+                    {formatRupiah(item.price)}
                   </span>
-                </span>
-                <span className="mt-2 block text-base font-black text-santara-bean">
-                  {formatRupiah(item.price)}
                 </span>
               </button>
             ))
@@ -1279,16 +1287,17 @@ function CashierView({
         </div>
       </div>
 
-      <aside className="flex min-h-[440px] flex-col overflow-hidden rounded-lg bg-white shadow-soft ring-1 ring-santara-latte lg:min-h-0">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-santara-latte px-3 py-3">
+      {/* Premium Cart Sidebar */}
+      <aside className="cart-sidebar flex min-h-[440px] flex-col overflow-hidden lg:min-h-0">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-santara-latte/50 px-4 py-4">
           <div>
-            <h2 className="text-lg font-black">Cart</h2>
-            <p className="text-xs text-santara-roast/65">
-              Review pesanan, beri diskon, lalu selesaikan pembayaran.
+            <h2 className="text-lg font-black tracking-tight">Keranjang</h2>
+            <p className="text-xs text-santara-roast/60 mt-0.5">
+              Review pesanan & selesaikan pembayaran.
             </p>
           </div>
           <button
-            className="rounded-full px-3 py-1.5 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn-secondary px-4 py-2 text-xs font-bold rounded-xl disabled:opacity-40"
             disabled={cart.length === 0}
             onClick={clearCart}
             type="button"
@@ -1297,44 +1306,44 @@ function CashierView({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <div className="space-y-3">
             {cart.length === 0 ? (
-              <div className="grid min-h-36 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-4 text-center">
+              <div className="grid min-h-36 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
                 <div>
-                  <p className="font-black">Cart masih kosong</p>
-                  <p className="mt-1.5 text-xs text-santara-roast/65">
+                  <p className="font-black text-santara-roast">Keranjang kosong</p>
+                  <p className="mt-1.5 text-xs text-santara-roast/60">
                     Tap menu favorit pelanggan untuk mulai membuat pesanan.
                   </p>
                   {latestTransaction && (
-                    <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold text-santara-bean ring-1 ring-santara-latte">
+                    <p className="mt-3 rounded-xl bg-white px-4 py-2 text-xs font-bold text-santara-bean border border-santara-latte/50">
                       Last completed: {latestTransaction.receiptNumber}
                     </p>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {cart.map((item) => (
                   <div
-                    className="rounded-lg border border-santara-latte bg-santara-foam p-2.5"
+                    className="rounded-2xl border border-santara-latte/50 bg-santara-foam/80 p-4 transition-all duration-200"
                     key={item.id}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-black leading-tight">
+                        <p className="text-sm font-black leading-tight tracking-tight">
                           {item.nameSnapshot}
                         </p>
-                        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.08em] text-santara-sage">
+                        <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-santara-sage">
                           {item.categorySnapshot}
                         </p>
                         <p className="mt-1 text-xs font-bold text-santara-bean">
                           {formatRupiah(item.unitPriceSnapshot)} / item
                         </p>
                       </div>
-                      <div className="flex shrink-0 flex-col gap-1">
+                      <div className="flex shrink-0 flex-col gap-1.5">
                         <button
-                          className="rounded-full px-2.5 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-white"
+                          className="btn-secondary px-3 py-1.5 text-xs font-bold rounded-lg"
                           onClick={() => onDiscountItem(item.id)}
                           type="button"
                         >
@@ -1342,48 +1351,49 @@ function CashierView({
                         </button>
                         <button
                           aria-label={`Remove ${item.nameSnapshot}`}
-                          className="rounded-full px-2.5 py-1 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
+                          className="px-3 py-1.5 text-xs font-bold text-santara-clay rounded-lg border border-santara-latte/50 bg-white transition-all hover:bg-red-50 hover:border-red-200 hover:text-red-500"
                           onClick={() => removeItem(item.id)}
                           type="button"
                         >
-                          Remove
+                          Hapus
                         </button>
                       </div>
                     </div>
 
-                    <div className="mt-2.5 flex items-center justify-between gap-3">
-                      <div className="flex items-center rounded-full bg-white p-1 ring-1 ring-santara-latte">
+                    {/* Premium Quantity Controls */}
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center rounded-xl bg-white p-1.5 border border-santara-latte/40 shadow-inner-soft">
                         <button
                           aria-label={`Decrease ${item.nameSnapshot}`}
-                          className="grid size-8 place-items-center rounded-full text-lg font-black text-santara-bean transition hover:bg-santara-latte/60"
+                          className="qty-btn qty-btn-minus"
                           onClick={() => decreaseQuantity(item.id)}
                           type="button"
                         >
                           -
                         </button>
-                        <span className="min-w-10 text-center text-base font-black">
+                        <span className="min-w-12 text-center text-base font-black">
                           {item.quantity}
                         </span>
                         <button
                           aria-label={`Increase ${item.nameSnapshot}`}
-                          className="grid size-8 place-items-center rounded-full bg-santara-bean text-lg font-black text-white transition hover:bg-santara-roast"
+                          className="qty-btn qty-btn-plus"
                           onClick={() => increaseQuantity(item.id)}
                           type="button"
                         >
                           +
                         </button>
                       </div>
-                      <p className="text-base font-black text-santara-roast">
+                      <p className="text-lg font-black text-santara-roast">
                         {formatRupiah(getCartLineNet(item))}
                       </p>
                     </div>
                     {getCartLineDiscount(item) > 0 && (
-                      <div className="mt-2 rounded-md bg-white px-2 py-1.5 text-[11px] font-bold text-santara-roast/70 ring-1 ring-santara-latte">
+                      <div className="mt-3 rounded-xl bg-white px-3 py-2.5 text-[11px] font-bold text-santara-roast/70 border border-santara-latte/40">
                         <div className="flex justify-between gap-2">
                           <span>Harga awal</span>
                           <span>{formatRupiah(getCartLineGross(item))}</span>
                         </div>
-                        <div className="flex justify-between gap-2 text-santara-clay">
+                        <div className="flex justify-between gap-2 text-santara-clay mt-1">
                           <span>Diskon item</span>
                           <span>-{formatRupiah(getCartLineDiscount(item))}</span>
                         </div>
@@ -1402,15 +1412,15 @@ function CashierView({
           </div>
 
           {latestTransaction && (
-            <div className="mt-3 space-y-2.5">
+            <div className="mt-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="font-black">Receipt Preview</h3>
+                <h3 className="font-black text-sm">Preview Struk</h3>
                 <button
-                  className="rounded-full bg-santara-bean px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast"
+                  className="btn-secondary px-3 py-1.5 text-xs font-bold rounded-lg"
                   onClick={() => window.print()}
                   type="button"
                 >
-                  Print Receipt
+                  Print Struk
                 </button>
               </div>
               <ReceiptPreview transaction={latestTransaction} />
@@ -1418,40 +1428,42 @@ function CashierView({
           )}
         </div>
 
-        <div className="shrink-0 border-t border-santara-latte bg-santara-cream/80 px-3 py-3">
-          <div className="flex items-center justify-between text-xs font-bold text-santara-roast/70">
+        {/* Premium Cart Footer */}
+        <div className="shrink-0 border-t border-santara-latte/50 bg-gradient-to-t from-santara-cream to-white px-4 py-4">
+          <div className="flex items-center justify-between text-xs font-bold text-santara-roast/60">
             <span>Total item</span>
-            <span>{totalQuantity}</span>
+            <span className="badge badge-sage">{totalQuantity}</span>
           </div>
-          <div className="mt-1.5 flex items-center justify-between">
+          <div className="mt-2 flex items-center justify-between">
             <span className="text-base font-black">Subtotal</span>
-            <span className="text-xl font-black text-santara-bean">
+            <span className="text-2xl font-black text-santara-bean">
               {formatRupiah(subtotal)}
             </span>
           </div>
           {itemDiscountTotal > 0 && (
             <>
-              <div className="mt-1 flex items-center justify-between text-xs font-bold text-santara-clay">
+              <div className="mt-1.5 flex items-center justify-between text-xs font-bold text-santara-clay">
                 <span>Diskon item</span>
                 <span>-{formatRupiah(itemDiscountTotal)}</span>
               </div>
-              <div className="mt-1 flex items-center justify-between text-sm font-black text-santara-roast">
+              <div className="mt-1.5 flex items-center justify-between text-sm font-black text-santara-roast">
                 <span>Subtotal net</span>
                 <span>{formatRupiah(cartNetSubtotal)}</span>
               </div>
             </>
           )}
+          {/* Premium Checkout Button */}
           <button
-            className="mt-3 w-full rounded-lg bg-santara-bean px-5 py-3 text-base font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+            className="mt-4 w-full btn-primary px-6 py-4 text-base font-black rounded-xl shadow-glow"
             disabled={cart.length === 0}
             onClick={onOpenCheckout}
             type="button"
           >
-            Checkout
+            Bayar Sekarang
           </button>
           {cart.length > 0 && (
             <button
-              className="mt-2 w-full rounded-lg bg-white px-5 py-2.5 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-foam"
+              className="mt-2 w-full btn-secondary px-5 py-3 text-sm font-bold rounded-xl"
               onClick={onOpenSaveOrder}
               type="button"
             >
@@ -1459,7 +1471,7 @@ function CashierView({
             </button>
           )}
           {pendingOrders.length > 0 && (
-            <p className="mt-2 text-center text-[11px] font-bold text-santara-roast/55">
+            <p className="mt-3 text-center text-[11px] font-bold text-santara-roast/50">
               {pendingOrders.length} order tersimpan, {pendingOrderCount} item
             </p>
           )}
@@ -1485,18 +1497,18 @@ function PendingOrdersSection({
   }
 
   return (
-    <section className="rounded-lg border border-santara-latte bg-white p-2.5">
+    <section className="rounded-2xl border border-santara-latte/50 bg-white/80 backdrop-blur-sm p-4 mt-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-black">Order Tersimpan</h3>
-        <span className="rounded-full bg-santara-cream px-2 py-1 text-[11px] font-black text-santara-bean">
+        <span className="badge badge-gold">
           {orders.length}
         </span>
       </div>
 
-      <div className="mt-2 space-y-2">
+      <div className="mt-3 space-y-2">
         {orders.map((order) => (
           <article
-            className="rounded-lg bg-santara-cream/80 p-2 ring-1 ring-santara-latte"
+            className="rounded-xl bg-santara-foam/80 p-3 border border-santara-latte/30 transition-all hover:shadow-soft"
             key={order.id}
           >
             <div className="flex items-start justify-between gap-2">
@@ -1515,20 +1527,20 @@ function PendingOrdersSection({
                 </p>
               </div>
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
-                className="rounded-md bg-santara-bean px-2 py-2 text-xs font-black text-white transition hover:bg-santara-roast"
+                className="btn-primary px-3 py-2.5 text-xs font-bold rounded-xl"
                 onClick={() => onResume(order)}
                 type="button"
               >
-                Lanjutkan Order
+                Lanjutkan
               </button>
               <button
-                className="rounded-md bg-white px-2 py-2 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-foam"
+                className="px-3 py-2.5 text-xs font-bold text-santara-clay rounded-xl border border-santara-latte/50 bg-white transition-all hover:bg-red-50 hover:border-red-200 hover:text-red-500"
                 onClick={() => onDelete(order)}
                 type="button"
               >
-                Hapus Order
+                Hapus
               </button>
             </div>
           </article>
@@ -1561,13 +1573,13 @@ function SyncStatusIndicator({
         : '';
 
   return (
-    <div className="mt-2 flex w-fit items-center gap-1.5 rounded-full bg-white px-2 py-1 text-[11px] font-black text-santara-roast shadow-sm ring-1 ring-santara-latte">
-      <span className={`size-2 rounded-full ${dotClass}`} aria-hidden="true" />
+    <div className="mt-2 flex w-fit items-center gap-2 rounded-full glass px-3 py-1.5 text-[11px] font-bold text-santara-roast">
+      <span className={`size-2 rounded-full ${dotClass} animate-pulse-subtle`} aria-hidden="true" />
       <span>{label}</span>
-      {detail && <span className="font-bold text-santara-roast/55">{detail}</span>}
+      {detail && <span className="text-santara-roast/50">{detail}</span>}
       <button
         aria-label="Sync Sekarang"
-        className="ml-0.5 grid size-6 place-items-center rounded-full text-sm font-black text-santara-bean transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-45"
+        className="ml-1 grid size-6 place-items-center rounded-full bg-santara-foam text-sm font-black text-santara-bean transition-all hover:scale-110 hover:bg-santara-gold/20 hover:text-santara-gold disabled:opacity-40"
         disabled={status === 'syncing'}
         onClick={onSyncNow}
         title="Sync Sekarang"
@@ -1586,11 +1598,11 @@ type StatusTileProps = {
 
 function StatusTile({ label, value }: StatusTileProps) {
   return (
-    <div className="min-h-[58px] rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-santara-latte">
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-santara-sage">
+    <div className="status-tile hover:shadow-elegant transition-all duration-200">
+      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-santara-sage/80">
         {label}
       </p>
-      <p className="mt-0.5 truncate text-base font-black text-santara-roast">
+      <p className="mt-0.5 truncate text-base font-black text-santara-roast tracking-tight">
         {value}
       </p>
     </div>
@@ -1606,11 +1618,7 @@ type TabButtonProps = {
 function TabButton({ isActive, label, onClick }: TabButtonProps) {
   return (
     <button
-      className={`rounded-lg px-3 py-3 text-sm font-black transition ${
-        isActive
-          ? 'bg-santara-bean text-white shadow-soft'
-          : 'bg-white text-santara-roast ring-1 ring-santara-latte hover:bg-santara-foam'
-      }`}
+      className={`tab-btn ${isActive ? 'tab-btn-active' : 'tab-btn-inactive'}`}
       onClick={onClick}
       type="button"
     >

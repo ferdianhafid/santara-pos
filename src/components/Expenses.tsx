@@ -94,31 +94,31 @@ export function Expenses({
   };
 
   return (
-    <section className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
-      <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/70 pb-3 lg:flex-row lg:items-end lg:justify-between">
+    <section className="flex min-h-0 flex-col rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+      {/* Premium Header */}
+      <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
             Pengeluaran
           </p>
-          <h2 className="text-2xl font-black text-santara-roast">Pengeluaran</h2>
-          <p className="mt-1 text-sm text-santara-roast/65">
+          <h2 className="text-2xl font-black text-santara-roast tracking-tight mt-1">Pengeluaran</h2>
+          <p className="text-sm text-santara-roast/60 mt-1">
             Catat biaya harian agar laporan laba bersih tetap akurat.
           </p>
         </div>
 
-        <div className="rounded-lg bg-white px-4 py-3 ring-1 ring-santara-latte">
-          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-santara-sage">
-            Total Pengeluaran
-          </p>
+        <div className="status-tile bg-gradient-to-br from-santara-foam to-white">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-santara-sage/80">Total Pengeluaran</p>
           <p className="mt-1 text-xl font-black text-santara-bean">
             {formatRupiah(totalExpense)}
           </p>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pt-3">
+      {/* Premium Add Expense Form */}
+      <div className="min-h-0 flex-1 overflow-y-auto pt-4">
         <form
-          className="grid gap-2 rounded-lg bg-white p-3 ring-1 ring-santara-latte lg:grid-cols-[140px_1.2fr_170px_140px_150px_1fr_auto]"
+          className="grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 lg:grid-cols-[140px_1.2fr_170px_140px_150px_1fr_auto]"
           onSubmit={handleSubmit}
         >
           <Input
@@ -148,7 +148,7 @@ export function Expenses({
           />
           <Select
             defaultValue={editingExpense?.paymentMethod ?? 'Cash'}
-            label="Metode Pembayaran"
+            label="Metode"
             name="paymentMethod"
             options={paymentMethods}
           />
@@ -158,16 +158,16 @@ export function Expenses({
             name="notes"
             placeholder="Opsional"
           />
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 content-start">
             <button
-              className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white transition hover:bg-santara-roast"
+              className="btn-primary px-4 py-3 text-sm font-bold rounded-xl"
               type="submit"
             >
-              {editingExpense ? 'Simpan' : 'Tambah Pengeluaran'}
+              {editingExpense ? 'Simpan' : 'Tambah'}
             </button>
             {editingExpense && (
               <button
-                className="rounded-lg bg-white px-4 py-3 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
+                className="btn-secondary px-4 py-3 text-sm font-bold rounded-xl"
                 onClick={() => setEditingExpense(null)}
                 type="button"
               >

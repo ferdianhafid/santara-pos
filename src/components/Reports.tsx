@@ -91,35 +91,39 @@ export function Reports({
   };
 
   return (
-    <section className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
-      <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/70 pb-3 lg:flex-row lg:items-end lg:justify-between">
+    <section className="flex min-h-0 flex-col rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+      {/* Premium Header */}
+      <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
             Laporan
           </p>
-          <h2 className="text-2xl font-black text-santara-roast">
-            Laporan Penjualan Lokal
+          <h2 className="text-2xl font-black text-santara-roast tracking-tight mt-1">
+            Laporan Penjualan
           </h2>
-          <p className="mt-1 text-sm text-santara-roast/65">
+          <p className="mt-1 text-sm text-santara-roast/60">
             Ringkasan gabungan dari transaksi POS dan data import lama.
           </p>
-          <p className="mt-2 w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte">
-            Termasuk data import lama
-          </p>
-          <p className="mt-2 text-xs font-bold text-santara-roast/55">
+          <div className="flex items-center gap-2 mt-3">
+            <span className="badge badge-gold">
+              Termasuk data import lama
+            </span>
+          </div>
+          <p className="mt-2 text-xs font-medium text-santara-roast/50">
             Struk dibatalkan tidak dihitung dalam laporan.
             {voidedReceiptCount > 0 ? ` ${voidedReceiptCount} struk dibatalkan tersimpan.` : ''}
           </p>
         </div>
 
-        <div className="grid gap-2 lg:w-[780px]">
+        {/* Premium Report Mode Buttons */}
+        <div className="grid gap-3 lg:w-[780px]">
           <div className="flex flex-wrap gap-2">
             {reportModes.map((mode) => (
               <button
-                className={`min-w-[132px] flex-1 rounded-lg px-3 py-3 text-xs font-black transition sm:flex-none ${
+                className={`min-w-[130px] flex-1 rounded-xl px-4 py-3 text-xs font-bold transition-all duration-200 sm:flex-none ${
                   reportMode === mode.value
-                    ? 'bg-santara-bean text-white shadow-soft'
-                    : 'bg-white text-santara-roast ring-1 ring-santara-latte hover:bg-santara-cream'
+                    ? 'btn-primary'
+                    : 'btn-secondary'
                 }`}
                 key={mode.value}
                 onClick={() => setReportMode(mode.value)}
@@ -129,21 +133,21 @@ export function Reports({
               </button>
             ))}
             <button
-              className={`min-w-[132px] flex-1 rounded-lg px-3 py-3 text-xs font-black transition sm:flex-none ${
+              className={`min-w-[130px] flex-1 rounded-xl px-4 py-3 text-xs font-bold transition-all duration-200 sm:flex-none ${
                 isAdminToolsOpen
-                  ? 'bg-santara-clay text-white shadow-soft'
-                  : 'bg-white text-santara-bean ring-1 ring-santara-latte hover:bg-santara-cream'
+                  ? 'btn-gold'
+                  : 'btn-secondary'
               }`}
               onClick={() => setIsAdminToolsOpen((open) => !open)}
               type="button"
             >
-              {isAdminToolsOpen ? 'Tutup Admin Tools' : 'Admin Tools'}
+              {isAdminToolsOpen ? 'Tutup Tools' : 'Admin Tools'}
             </button>
           </div>
 
           {reportMode === 'date' && (
             <input
-              className="w-full rounded-lg bg-white px-3 py-3 text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte transition focus:ring-2 focus:ring-santara-clay sm:w-[220px]"
+              className="input-premium w-full sm:w-[220px]"
               onChange={(event) => setSelectedDate(event.target.value)}
               type="date"
               value={selectedDate}
@@ -152,31 +156,31 @@ export function Reports({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pt-3">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-4">
         {isAdminToolsOpen && (
-          <section className="mb-3 rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+          <section className="mb-4 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-santara-clay">
                 Admin Tools
               </p>
               <h3 className="mt-1 text-lg font-black text-santara-roast">
                 Alat Admin Laporan
               </h3>
-              <p className="mt-1 text-sm text-santara-roast/65">
+              <p className="mt-1 text-sm text-santara-roast/60">
                 Export, import data lama, dan reset data testing disimpan di sini
                 agar alur laporan harian tetap bersih.
               </p>
             </div>
 
             {adminToolMessage && (
-              <p className="mt-3 rounded-lg bg-santara-cream px-3 py-2 text-sm font-black text-santara-bean ring-1 ring-santara-latte">
+              <p className="mt-3 rounded-xl bg-white px-4 py-3 text-sm font-bold text-santara-bean border border-santara-latte/40 animate-fade-in">
                 {adminToolMessage}
               </p>
             )}
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <button
-                className="rounded-lg bg-santara-bean px-3 py-3 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+                className="btn-primary px-4 py-3 text-sm font-bold rounded-xl"
                 disabled={!hasReportData}
                 onClick={() => exportReportCsv(exportContext)}
                 type="button"
@@ -184,7 +188,7 @@ export function Reports({
                 Export CSV
               </button>
               <button
-                className="rounded-lg bg-white px-3 py-3 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-45"
+                className="btn-secondary px-4 py-3 text-sm font-bold rounded-xl"
                 disabled={!hasReportData}
                 onClick={() => exportReportJson(exportContext)}
                 type="button"

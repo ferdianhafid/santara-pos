@@ -89,20 +89,22 @@ export function MenuAdmin({
   };
 
   return (
-    <section className="my-3 min-h-0 flex-1 overflow-y-auto rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
-      <div className="flex flex-col gap-1 border-b border-santara-latte/70 pb-3">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+    <section className="my-3 min-h-0 flex-1 overflow-y-auto rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+      {/* Premium Header */}
+      <div className="flex flex-col gap-2 border-b border-santara-latte/50 pb-4">
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
           Admin
         </p>
-        <h2 className="text-2xl font-black text-santara-roast">Kelola Menu</h2>
-        <p className="text-sm text-santara-roast/65">
+        <h2 className="text-2xl font-black text-santara-roast tracking-tight">Kelola Menu</h2>
+        <p className="text-sm text-santara-roast/60">
           Edit harga, HPP, kategori, dan status menu. Perubahan baru hanya
           berlaku untuk cart berikutnya.
         </p>
       </div>
 
+      {/* Premium Add Item Form */}
       <form
-        className="mt-3 grid gap-2 rounded-lg bg-white p-3 ring-1 ring-santara-latte md:grid-cols-[1.4fr_1fr_120px_120px_auto]"
+        className="mt-4 grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 md:grid-cols-[1.4fr_1fr_140px_140px_auto]"
         onSubmit={handleAddItem}
       >
         <InputField name="name" placeholder="Nama Menu" />
@@ -115,44 +117,45 @@ export function MenuAdmin({
         <InputField name="price" placeholder="Harga" type="number" />
         <InputField name="hpp" placeholder="HPP" type="number" />
         <button
-          className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white transition hover:bg-santara-roast"
+          className="btn-primary px-4 py-3 text-sm font-bold rounded-xl"
           type="submit"
         >
-          Tambah Menu
+          Tambah
         </button>
       </form>
 
-      <section className="mt-3 rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+      {/* Premium Category Management */}
+      <section className="mt-4 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30">
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-santara-clay">
             Kategori
           </p>
           <h3 className="text-lg font-black text-santara-roast">
             Kelola Kategori Menu
           </h3>
-          <p className="text-sm text-santara-roast/65">
+          <p className="text-sm text-santara-roast/60">
             Kategori aktif muncul di tab kasir. Kategori nonaktif dan menunya
             disembunyikan dari kasir.
           </p>
         </div>
-        <form className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleAddCategory}>
+        <form className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleAddCategory}>
           <InputField
             placeholder="Nama kategori baru"
             value={newCategoryName}
             onChange={setNewCategoryName}
           />
           <button
-            className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white transition hover:bg-santara-roast"
+            className="btn-primary px-4 py-3 text-sm font-bold rounded-xl whitespace-nowrap"
             type="submit"
           >
             Tambah Kategori
           </button>
         </form>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <div className="mt-4 grid gap-2 md:grid-cols-2">
           {categories.map((category) => (
             <article
-              className={`grid gap-2 rounded-lg p-2 ring-1 ring-santara-latte sm:grid-cols-[minmax(0,1fr)_110px] ${
-                category.isActive ? 'bg-santara-cream/70' : 'bg-santara-cream/40 opacity-75'
+              className={`grid gap-2 rounded-xl p-3 transition-all ${
+                category.isActive ? 'bg-white border border-santara-latte/40' : 'bg-santara-foam/50 border border-dashed border-santara-latte/30 opacity-75'
               }`}
               key={category.id}
             >

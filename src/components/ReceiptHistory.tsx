@@ -63,45 +63,51 @@ export function ReceiptHistory({
     : null;
 
   return (
-    <section className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_410px]">
-      <div className="flex min-h-0 flex-col rounded-lg bg-santara-foam/80 p-3 shadow-soft ring-1 ring-santara-latte/70">
-        <div className="border-b border-santara-latte/70 pb-3">
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+    <section className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
+      {/* Premium Left Panel */}
+      <div className="flex min-h-0 flex-col rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+        <div className="border-b border-santara-latte/50 pb-4">
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
             Operasional
           </p>
-          <h2 className="text-2xl font-black text-santara-roast">Riwayat Struk</h2>
-          <p className="text-sm text-santara-roast/65">
+          <h2 className="text-2xl font-black text-santara-roast tracking-tight mt-1">Riwayat Struk</h2>
+          <p className="text-sm text-santara-roast/60 mt-1">
             Struk dari sesi aplikasi saat ini untuk cek ulang dan reprint.
           </p>
         </div>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <HistoryCard label="Total struk hari ini" value={String(todayTransactions.length)} />
-          <HistoryCard
-            label="Total penjualan hari ini"
-            value={formatRupiah(totalSalesToday)}
-          />
-          <HistoryCard
-            label="Total struk tersimpan di sesi ini"
-            value={String(transactions.length)}
-          />
+        {/* Premium Summary Cards */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="status-tile">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-santara-sage/80">Struk Hari Ini</p>
+            <p className="mt-1 text-xl font-black text-santara-roast">{todayTransactions.length}</p>
+          </div>
+          <div className="status-tile">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-santara-sage/80">Penjualan Hari Ini</p>
+            <p className="mt-1 text-lg font-black text-santara-bean">{formatRupiah(totalSalesToday)}</p>
+          </div>
+          <div className="status-tile">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-santara-sage/80">Total Struk</p>
+            <p className="mt-1 text-xl font-black text-santara-roast">{transactions.length}</p>
+          </div>
         </div>
 
-        <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_280px]">
+        {/* Premium Search and Filter */}
+        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
           <input
-            className="rounded-lg bg-white px-4 py-3 text-sm font-bold text-santara-roast outline-none ring-1 ring-santara-latte transition placeholder:text-santara-roast/35 focus:ring-2 focus:ring-santara-clay"
+            className="input-premium"
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari nomor struk"
+            placeholder="Cari nomor struk..."
             type="search"
             value={search}
           />
           <div className="grid grid-cols-4 gap-2">
             {paymentFilters.map((filter) => (
               <button
-                className={`rounded-lg px-3 py-3 text-xs font-black transition ${
+                className={`rounded-xl px-2 py-2 text-xs font-bold transition-all duration-200 ${
                   paymentFilter === filter
-                    ? 'bg-santara-bean text-white'
-                    : 'bg-white text-santara-roast ring-1 ring-santara-latte'
+                    ? 'btn-primary'
+                    : 'btn-secondary'
                 }`}
                 key={filter}
                 onClick={() => setPaymentFilter(filter)}
@@ -113,12 +119,13 @@ export function ReceiptHistory({
           </div>
         </div>
 
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+        {/* Premium Transaction List */}
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-2">
           {filteredTransactions.length === 0 ? (
-            <div className="grid min-h-56 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-5 text-center">
+            <div className="grid min-h-56 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
               <div>
-                <p className="font-black">Belum ada struk</p>
-                <p className="mt-1 text-sm text-santara-roast/65">
+                <p className="font-black text-santara-roast">Belum ada struk</p>
+                <p className="mt-1 text-sm text-santara-roast/60">
                   Selesaikan transaksi di tab Kasir untuk melihat riwayat struk.
                 </p>
               </div>
@@ -127,10 +134,10 @@ export function ReceiptHistory({
             <div className="space-y-2">
               {filteredTransactions.map((transaction) => (
                 <button
-                  className={`w-full rounded-lg p-3 text-left ring-1 transition ${
+                  className={`w-full rounded-xl p-4 text-left transition-all duration-200 ${
                     selectedTransaction?.receiptNumber === transaction.receiptNumber
-                      ? 'bg-santara-bean text-white ring-santara-bean'
-                      : 'bg-white text-santara-roast ring-santara-latte hover:bg-santara-cream'
+                      ? 'bg-gradient-premium text-white shadow-glow'
+                      : 'bg-santara-foam/80 border border-santara-latte/30 hover:shadow-soft hover:border-santara-gold/40'
                   }`}
                   key={transaction.receiptNumber}
                   onClick={() => setSelectedReceiptNumber(transaction.receiptNumber)}
@@ -140,20 +147,20 @@ export function ReceiptHistory({
                     <div>
                       <p className="font-black">{transaction.receiptNumber}</p>
                       {transaction.status === 'voided' && (
-                        <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black text-red-700 ring-1 ring-red-100">
+                        <span className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
                           Dibatalkan
                         </span>
                       )}
-                      <p className="mt-1 text-xs font-bold opacity-75">
+                      <p className="mt-1 text-xs font-semibold opacity-75">
                         {formatReceiptDate(transaction.dateTime)} -{' '}
                         {transaction.cashierName}
                       </p>
                     </div>
-                    <p className="text-right text-sm font-black">
+                    <p className={`text-right text-sm font-black ${selectedTransaction?.receiptNumber === transaction.receiptNumber ? 'text-white' : 'text-santara-bean'}`}>
                       {formatRupiah(transaction.totalAfterDiscount)}
                     </p>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold opacity-80">
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold opacity-75">
                     <span>{transaction.paymentMethod}</span>
                     <span>{getTransactionQuantity(transaction)} item</span>
                     {transaction.discountAmount > 0 && (

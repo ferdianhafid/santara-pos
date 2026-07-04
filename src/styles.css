@@ -6,8 +6,8 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  color: #3f281c;
-  background: #fff8ef;
+  color: #2C1810;
+  background: #FDF8F3;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -20,7 +20,7 @@
 
 html {
   min-width: 320px;
-  background: #fff8ef;
+  background: #FDF8F3;
 }
 
 body {
@@ -34,6 +34,170 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Premium Glass Effect */
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(232, 221, 212, 0.6);
+  }
+
+  .glass-dark {
+    background: rgba(44, 24, 16, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .btn-premium {
+    @apply relative overflow-hidden transition-all duration-300 ease-out;
+  }
+
+  .btn-premium::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 50%);
+  }
+
+  .btn-premium:hover::before {
+    @apply opacity-100;
+  }
+
+  .btn-premium:active {
+    transform: scale(0.97);
+  }
+
+  .btn-primary {
+    @apply bg-gradient-premium text-white shadow-soft hover:shadow-glow active:scale-[0.98] transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-santara-roast border border-santara-latte hover:bg-santara-foam hover:border-santara-caramel active:scale-[0.98] transition-all duration-200;
+  }
+
+  .btn-gold {
+    @apply bg-gradient-gold text-white shadow-soft hover:shadow-glow active:scale-[0.98] transition-all duration-200;
+  }
+
+  .card-premium {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-elegant;
+  }
+
+  .menu-card {
+    @apply relative bg-white rounded-2xl p-4 border border-santara-latte/50 transition-all duration-300 ease-out cursor-pointer hover:shadow-elegant hover:border-santara-gold/50 hover:-translate-y-1 active:scale-[0.98];
+  }
+
+  .menu-card::before {
+    content: '';
+    @apply absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 pointer-events-none;
+    background: linear-gradient(135deg, rgba(201,169,98,0.1) 0%, transparent 100%);
+  }
+
+  .menu-card:hover::before {
+    @apply opacity-100;
+  }
+
+  .qty-btn {
+    @apply w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ease-out hover:scale-110 active:scale-95;
+  }
+
+  .qty-btn-minus {
+    @apply bg-santara-latte/60 text-santara-roast hover:bg-santara-latte;
+  }
+
+  .qty-btn-plus {
+    @apply bg-gradient-premium text-white hover:shadow-glow-sm;
+  }
+
+  .tab-btn {
+    @apply px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 ease-out hover:scale-[1.02];
+  }
+
+  .tab-btn-active {
+    @apply bg-gradient-premium text-white shadow-elegant;
+  }
+
+  .tab-btn-inactive {
+    @apply bg-white text-santara-roast border border-santara-latte/60 hover:bg-santara-foam hover:border-santara-gold/40;
+  }
+
+  .input-premium {
+    @apply w-full rounded-xl bg-white px-4 py-3 border border-santara-latte/60 text-santara-roast font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-santara-gold/50 focus:border-santara-gold placeholder:text-santara-roast/40;
+  }
+
+  .status-tile {
+    @apply bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-santara-latte/50 shadow-soft;
+  }
+
+  .category-pill {
+    @apply px-5 py-2.5 rounded-full font-bold text-sm transition-all duration-300 ease-out whitespace-nowrap;
+  }
+
+  .category-pill-active {
+    @apply bg-gradient-premium text-white shadow-glow-sm;
+  }
+
+  .category-pill-inactive {
+    @apply bg-white text-santara-roast/80 border border-santara-latte/60 hover:bg-santara-foam hover:border-santara-gold/40;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 z-50 bg-santara-espresso/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-fade-in;
+  }
+
+  .modal-content {
+    @apply bg-santara-foam rounded-2xl shadow-elegant max-h-[90vh] w-full max-w-4xl overflow-hidden animate-slide-up;
+  }
+
+  .cart-sidebar {
+    @apply bg-white/95 backdrop-blur-md rounded-2xl border border-santara-latte/50 shadow-elegant;
+  }
+
+  .section-header {
+    @apply border-b border-santara-latte/60 pb-3 mb-4;
+  }
+
+  .section-title {
+    @apply text-xl font-black text-santara-roast tracking-tight;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-santara-roast/60 font-medium mt-0.5;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold;
+  }
+
+  .badge-gold {
+    @apply bg-gradient-gold text-white;
+  }
+
+  .badge-sage {
+    @apply bg-santara-sage/20 text-santara-sage;
+  }
+
+  .badge-clay {
+    @apply bg-santara-clay/20 text-santara-clay;
+  }
+
+  .divider {
+    @apply border-t border-santara-latte/40;
+  }
+
+  .skeleton {
+    @apply bg-santara-latte/40 rounded-lg;
+    background: linear-gradient(90deg, #E8DDD4 25%, #FDF8F3 50%, #E8DDD4 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+  }
+
+  @keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+/* Receipt styles - DO NOT MODIFY */
 .receipt-paper {
   width: 58mm;
   max-width: 100%;

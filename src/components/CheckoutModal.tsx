@@ -85,60 +85,62 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-end bg-santara-roast/50 p-3 backdrop-blur-sm sm:place-items-center sm:p-6">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-santara-foam shadow-soft ring-1 ring-santara-latte">
-        <div className="flex items-start justify-between gap-4 border-b border-santara-latte px-4 py-3 sm:px-5 sm:py-4">
+    <div className="modal-overlay">
+      <div className="modal-content">
+        {/* Premium Header */}
+        <div className="flex items-start justify-between gap-4 border-b border-santara-latte/50 px-5 py-4 bg-gradient-to-r from-santara-foam to-white">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.12em] text-santara-clay">
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
               Checkout
             </p>
-            <h2 className="text-xl font-black text-santara-roast sm:text-2xl">
-              Payment & Discount
+            <h2 className="text-2xl font-black text-santara-roast tracking-tight mt-1">
+              Pembayaran & Diskon
             </h2>
           </div>
           <button
-            className="rounded-full px-4 py-2 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-white"
+            className="btn-secondary px-4 py-2 text-sm font-bold rounded-xl"
             onClick={onClose}
             type="button"
           >
-            Close
+            Tutup
           </button>
         </div>
 
-        <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-5">
+            {/* Discount Section */}
             <section>
-              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-santara-sage">
-                Discount
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.12em] text-santara-sage">
+                Diskon
               </h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {(['none', 'fixed', 'percentage'] as DiscountType[]).map((type) => (
                   <button
-                    className={`rounded-lg px-3 py-3 text-sm font-black capitalize transition ${
+                    className={`rounded-xl px-4 py-3 text-sm font-bold capitalize transition-all duration-200 ${
                       discountType === type
-                        ? 'bg-santara-bean text-white'
-                        : 'bg-white text-santara-roast ring-1 ring-santara-latte'
+                        ? 'btn-primary'
+                        : 'btn-secondary'
                     }`}
                     key={type}
                     onClick={() => setDiscountType(type)}
                     type="button"
                   >
-                    {type === 'none' ? 'No Discount' : type}
+                    {type === 'none' ? 'Tanpa Diskon' : type === 'fixed' ? 'Nominal' : 'Persen'}
                   </button>
                 ))}
               </div>
 
               {discountType !== 'none' && (
-                <label className="mt-3 block">
+                <label className="mt-4 block animate-fade-in">
                   <span className="text-sm font-bold text-santara-roast/70">
-                    {discountType === 'fixed' ? 'Discount amount' : 'Discount percentage'}
+                    {discountType === 'fixed' ? 'Jumlah diskon (Rp)' : 'Persentase diskon (%)'}
                   </span>
-                  <div className="mt-2 flex items-center rounded-lg bg-white px-3 py-2 ring-1 ring-santara-latte focus-within:ring-2 focus-within:ring-santara-clay">
-                    <span className="mr-2 font-black text-santara-bean">
+                  <div className="mt-2 flex items-center rounded-xl bg-white px-4 py-3 border border-santara-latte/50 shadow-inner-soft focus-within:ring-2 focus-within:ring-santara-gold/50 focus-within:border-santara-gold transition-all">
+                    <span className="mr-3 font-bold text-santara-bean text-lg">
                       {discountType === 'fixed' ? 'Rp' : '%'}
                     </span>
                     <input
-                      className="min-w-0 flex-1 bg-transparent py-2 text-lg font-black outline-none sm:text-xl"
+                      className="min-w-0 flex-1 bg-transparent py-1 text-xl font-black outline-none"
                       inputMode="numeric"
                       min="0"
                       onChange={(event) => setDiscountValueInput(event.target.value)}
@@ -151,17 +153,18 @@ export function CheckoutModal({
               )}
             </section>
 
+            {/* Payment Method Section */}
             <section>
-              <h3 className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-santara-sage">
-                Payment Method
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.12em] text-santara-sage">
+                Metode Pembayaran
               </h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {paymentMethods.map((method) => (
                   <button
-                    className={`rounded-lg px-3 py-4 text-base font-black transition ${
+                    className={`rounded-xl px-4 py-4 text-base font-bold transition-all duration-200 ${
                       paymentMethod === method
-                        ? 'bg-santara-bean text-white'
-                        : 'bg-white text-santara-roast ring-1 ring-santara-latte'
+                        ? 'btn-primary'
+                        : 'btn-secondary'
                     }`}
                     key={method}
                     onClick={() => setPaymentMethod(method)}
@@ -173,14 +176,14 @@ export function CheckoutModal({
               </div>
 
               {paymentMethod === 'Cash' && (
-                <label className="mt-3 block">
+                <label className="mt-4 block animate-fade-in">
                   <span className="text-sm font-bold text-santara-roast/70">
-                    Customer paid amount
+                    Jumlah uang yang diterima
                   </span>
-                  <div className="mt-2 flex items-center rounded-lg bg-white px-3 py-2 ring-1 ring-santara-latte focus-within:ring-2 focus-within:ring-santara-clay">
-                    <span className="mr-2 font-black text-santara-bean">Rp</span>
+                  <div className="mt-2 flex items-center rounded-xl bg-white px-4 py-3 border border-santara-latte/50 shadow-inner-soft focus-within:ring-2 focus-within:ring-santara-gold/50 focus-within:border-santara-gold transition-all">
+                    <span className="mr-3 font-bold text-santara-bean text-lg">Rp</span>
                     <input
-                      className="min-w-0 flex-1 bg-transparent py-2 text-lg font-black outline-none sm:text-xl"
+                      className="min-w-0 flex-1 bg-transparent py-1 text-xl font-black outline-none"
                       inputMode="numeric"
                       min="0"
                       onChange={(event) => setPaidAmountInput(event.target.value)}
@@ -190,8 +193,8 @@ export function CheckoutModal({
                     />
                   </div>
                   {isCashUnderpaid && (
-                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
-                      Paid amount is less than total.
+                    <p className="mt-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600 border border-red-200 animate-fade-in">
+                      Jumlah uang kurang dari total pembayaran.
                     </p>
                   )}
                 </label>
@@ -199,10 +202,11 @@ export function CheckoutModal({
             </section>
           </div>
 
-          <section className="rounded-lg bg-white p-4 ring-1 ring-santara-latte">
-            <h3 className="text-lg font-black">Summary</h3>
-            <div className="mt-4 space-y-3 text-sm font-bold">
-              <SummaryRow label="Subtotal / Penjualan kotor" value={formatRupiah(subtotal)} />
+          {/* Premium Summary Card */}
+          <section className="rounded-2xl bg-white p-5 border border-santara-latte/40 shadow-elegant">
+            <h3 className="text-lg font-black text-santara-roast">Ringkasan</h3>
+            <div className="mt-4 space-y-3 text-sm font-semibold">
+              <SummaryRow label="Subtotal" value={formatRupiah(subtotal)} />
               <SummaryRow
                 label="Diskon item"
                 value={
@@ -219,35 +223,39 @@ export function CheckoutModal({
                     : formatRupiah(0)
                 }
               />
-              <SummaryRow
-                label="Total diskon"
-                value={
-                  totalDiscountAmount > 0
-                    ? `-${formatRupiah(totalDiscountAmount)}`
-                    : formatRupiah(0)
-                }
-              />
-              <SummaryRow
-                emphasis
-                label="Total"
-                value={formatRupiah(totalAfterDiscount)}
-              />
-              <SummaryRow label="Method" value={paymentMethod} />
+              {totalDiscountAmount > 0 && (
+                <SummaryRow
+                  label="Total diskon"
+                  value={`-${formatRupiah(totalDiscountAmount)}`}
+                />
+              )}
+              <div className="border-t-2 border-santara-latte/30 pt-3 mt-2">
+                <SummaryRow
+                  emphasis
+                  label="Total Bayar"
+                  value={formatRupiah(totalAfterDiscount)}
+                />
+              </div>
+              <SummaryRow label="Metode" value={paymentMethod} />
               {paymentMethod === 'Cash' && (
                 <>
-                  <SummaryRow label="Paid" value={formatRupiah(paidAmount)} />
-                  <SummaryRow label="Change" value={formatRupiah(changeAmount ?? 0)} />
+                  <SummaryRow label="Dibayar" value={formatRupiah(paidAmount)} />
+                  <SummaryRow
+                    label="Kembalian"
+                    value={formatRupiah(changeAmount ?? 0)}
+                    highlight={Boolean(changeAmount && changeAmount > 0)}
+                  />
                 </>
               )}
             </div>
 
             <button
-              className="mt-5 w-full rounded-lg bg-santara-bean px-5 py-4 text-lg font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+              className="mt-5 w-full btn-primary px-6 py-4 text-lg font-black rounded-xl shadow-glow"
               disabled={!canComplete}
               onClick={completePayment}
               type="button"
             >
-              Complete Payment
+              Selesaikan Pembayaran
             </button>
           </section>
         </div>
@@ -260,17 +268,18 @@ type SummaryRowProps = {
   label: string;
   value: string;
   emphasis?: boolean;
+  highlight?: boolean;
 };
 
-function SummaryRow({ label, value, emphasis = false }: SummaryRowProps) {
+function SummaryRow({ label, value, emphasis = false, highlight = false }: SummaryRowProps) {
   return (
     <div
       className={`flex items-center justify-between gap-3 ${
-        emphasis ? 'border-t border-santara-latte pt-3 text-lg' : ''
+        emphasis ? 'pt-3 text-lg' : ''
       }`}
     >
-      <span className="text-santara-roast/65">{label}</span>
-      <span className="text-right text-santara-roast">{value}</span>
+      <span className={`${emphasis ? 'font-black text-santara-roast' : 'text-santara-roast/65'} ${emphasis ? 'text-base' : 'text-sm'}`}>{label}</span>
+      <span className={`text-right ${highlight ? 'text-emerald-600 font-black' : emphasis ? 'font-black text-santara-bean' : 'text-santara-roast'} ${emphasis ? 'text-xl' : 'text-sm'}`}>{value}</span>
     </div>
   );
 }
