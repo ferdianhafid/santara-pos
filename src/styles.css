@@ -312,3 +312,30 @@ html {
     width: 100%;
   }
 }
+
+@media (max-width: 1023px) and (orientation: portrait) {
+  .mobile-bottom-nav {
+    padding-top: 0.45rem;
+    padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-bottom-nav button {
+    min-height: 3.25rem;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .mobile-tab-icon {
+    height: 2.25rem;
+    width: 2.25rem;
+  }
+
+  .mobile-tab-label {
+    position: absolute;
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}

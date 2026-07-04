@@ -106,6 +106,71 @@ function createReceiptNumber(date: Date, sequence: number) {
   return `SAN-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
 }
 
+function TabIcon({ id }: { id: AppTab }) {
+  const commonProps = {
+    className: 'h-5 w-5',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    strokeWidth: 2,
+    viewBox: '0 0 24 24',
+  };
+
+  if (id === 'cashier') {
+    return (
+      <svg aria-hidden="true" {...commonProps}>
+        <path d="M6 6h15l-1.5 8.5H8L6 3H3" />
+        <path d="M9 19.5h.01" />
+        <path d="M18 19.5h.01" />
+      </svg>
+    );
+  }
+
+  if (id === 'menu') {
+    return (
+      <svg aria-hidden="true" {...commonProps}>
+        <path d="M8 6h13" />
+        <path d="M8 12h13" />
+        <path d="M8 18h13" />
+        <path d="M3 6h.01" />
+        <path d="M3 12h.01" />
+        <path d="M3 18h.01" />
+      </svg>
+    );
+  }
+
+  if (id === 'receipts') {
+    return (
+      <svg aria-hidden="true" {...commonProps}>
+        <path d="M7 3h10a2 2 0 0 1 2 2v16l-3-2-2 2-2-2-2 2-2-2-3 2V5a2 2 0 0 1 2-2Z" />
+        <path d="M9 8h6" />
+        <path d="M9 12h6" />
+        <path d="M9 16h4" />
+      </svg>
+    );
+  }
+
+  if (id === 'reports') {
+    return (
+      <svg aria-hidden="true" {...commonProps}>
+        <path d="M4 19V5" />
+        <path d="M4 19h16" />
+        <path d="M8 16v-5" />
+        <path d="M12 16V8" />
+        <path d="M16 16v-3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" {...commonProps}>
+      <path d="M12 3v18" />
+      <path d="M17 7H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('cashier');
   const [initialAppData] = useState(() => loadAppState(defaultMenuItems));
@@ -940,8 +1005,8 @@ function App() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`nav-item w-full ${activeTab === tab.id ? 'nav-item-active' : ''}`}
               >
-                <span className="grid size-8 place-items-center rounded-xl bg-coffee/10 text-sm font-black text-coffee">
-                  {tab.label.slice(0, 1)}
+                <span className="grid size-8 place-items-center rounded-xl bg-coffee/10 text-coffee">
+                  <TabIcon id={tab.id} />
                 </span>
                 <span>{tab.label}</span>
               </button>
@@ -1016,7 +1081,7 @@ function App() {
           </div>
 
           {/* Mobile Bottom Navigation */}
-          <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+          <nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
             <div className="grid grid-flow-col auto-cols-fr gap-1">
               {visibleTabs.map((tab) => (
                 <button
@@ -1028,10 +1093,10 @@ function App() {
                       : 'text-gray-400'
                   }`}
                 >
-                  <span className="grid size-6 place-items-center rounded-full bg-current/10 text-xs font-black">
-                    {tab.label.slice(0, 1)}
+                  <span className="mobile-tab-icon grid size-8 place-items-center rounded-full bg-current/10">
+                    <TabIcon id={tab.id} />
                   </span>
-                  <span className="max-w-full truncate text-[10px] font-semibold leading-tight">
+                  <span className="mobile-tab-label max-w-full truncate text-[10px] font-semibold leading-tight">
                     {tab.label}
                   </span>
                 </button>
