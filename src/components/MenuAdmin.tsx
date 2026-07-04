@@ -89,7 +89,7 @@ export function MenuAdmin({
   };
 
   return (
-    <section className="my-3 min-h-0 flex-1 overflow-y-auto rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+    <section className="min-h-full rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:my-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
       {/* Premium Header */}
       <div className="flex flex-col gap-2 border-b border-santara-latte/50 pb-4">
         <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">

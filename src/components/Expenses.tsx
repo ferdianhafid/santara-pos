@@ -94,7 +94,7 @@ export function Expenses({
   };
 
   return (
-    <section className="flex min-h-0 flex-col rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+    <section className="min-h-full rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:flex lg:min-h-0 lg:flex-col">
       {/* Premium Header */}
       <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -116,7 +116,7 @@ export function Expenses({
       </div>
 
       {/* Premium Add Expense Form */}
-      <div className="min-h-0 flex-1 overflow-y-auto pt-4">
+      <div className="pt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <form
           className="grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 lg:grid-cols-[140px_1.2fr_170px_140px_150px_1fr_auto]"
           onSubmit={handleSubmit}

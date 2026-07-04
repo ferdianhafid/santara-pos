@@ -63,9 +63,9 @@ export function ReceiptHistory({
     : null;
 
   return (
-    <section className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
+    <section className="grid min-h-full gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
       {/* Premium Left Panel */}
-      <div className="flex min-h-0 flex-col rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40">
+      <div className="rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:flex lg:min-h-0 lg:flex-col">
         <div className="border-b border-santara-latte/50 pb-4">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
             Operasional
@@ -120,7 +120,7 @@ export function ReceiptHistory({
         </div>
 
         {/* Premium Transaction List */}
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 space-y-2">
+        <div className="mt-4 space-y-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
           {filteredTransactions.length === 0 ? (
             <div className="grid min-h-56 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
               <div>
@@ -174,7 +174,7 @@ export function ReceiptHistory({
         </div>
       </div>
 
-      <aside className="flex min-h-[420px] flex-col overflow-hidden rounded-lg bg-white shadow-soft ring-1 ring-santara-latte lg:min-h-0">
+      <aside className="flex min-h-[420px] flex-col overflow-visible rounded-lg bg-white shadow-soft ring-1 ring-santara-latte lg:min-h-0 lg:overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-santara-latte px-3 py-3">
           <div>
             <h3 className="font-black">Detail Struk</h3>
@@ -204,7 +204,7 @@ export function ReceiptHistory({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {selectedTransaction ? (
             <div className="space-y-3">
               <section className="rounded-lg bg-santara-cream p-3 ring-1 ring-santara-latte">

@@ -940,7 +940,9 @@ function App() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`nav-item w-full ${activeTab === tab.id ? 'nav-item-active' : ''}`}
               >
-                <span className="text-xl">{tab.icon}</span>
+                <span className="grid size-8 place-items-center rounded-xl bg-coffee/10 text-sm font-black text-coffee">
+                  {tab.label.slice(0, 1)}
+                </span>
                 <span>{tab.label}</span>
               </button>
             ))}
@@ -987,8 +989,8 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
-        <div className="h-screen overflow-hidden flex flex-col">
+      <main className="min-w-0 flex-1 pt-16 lg:ml-64 lg:pt-0">
+        <div className="flex min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
           {/* Quick Stats Bar */}
           <div className="bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
             <div className="flex items-center gap-4 overflow-x-auto">
@@ -1014,27 +1016,31 @@ function App() {
           </div>
 
           {/* Mobile Bottom Navigation */}
-          <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-2 py-2">
-            <div className="flex justify-around">
+          <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+            <div className="grid grid-flow-col auto-cols-fr gap-1">
               {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
+                  className={`min-w-0 flex flex-col items-center gap-1 rounded-xl px-1 py-2 transition-all ${
                     activeTab === tab.id
                       ? 'bg-coffee/10 text-coffee-dark'
                       : 'text-gray-400'
                   }`}
                 >
-                  <span className="text-2xl">{tab.icon}</span>
-                  <span className="text-xs font-semibold">{tab.label}</span>
+                  <span className="grid size-6 place-items-center rounded-full bg-current/10 text-xs font-black">
+                    {tab.label.slice(0, 1)}
+                  </span>
+                  <span className="max-w-full truncate text-[10px] font-semibold leading-tight">
+                    {tab.label}
+                  </span>
                 </button>
               ))}
             </div>
           </nav>
 
           {/* Page Content */}
-          <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 lg:px-6 lg:py-6 lg:pb-6">
             {activeTab === 'cashier' && (
               <CashierView
                 activeCategoryName={activeCategoryNameSafe}
@@ -1270,9 +1276,9 @@ function CashierView({
   totalQuantity,
 }: CashierViewProps) {
   return (
-    <div className="flex flex-1 h-full lg:gap-6">
+    <div className="flex min-h-full flex-col gap-4 lg:h-full lg:flex-row lg:gap-6">
       {/* Left Panel - Menu */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-h-[55dvh] flex-col min-w-0 lg:min-h-0 lg:flex-1">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-extrabold text-coffee-dark tracking-tight">Menu</h2>
@@ -1295,7 +1301,7 @@ function CashierView({
         </div>
 
         {/* Menu Grid */}
-        <div className="flex-1 overflow-y-auto pr-2">
+        <div className="min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {activeMenuItems.length === 0 ? (
               <div className="col-span-full empty-state">
@@ -1324,8 +1330,8 @@ function CashierView({
       </div>
 
       {/* Right Panel - Cart */}
-      <div className="hidden lg:flex lg:w-[400px] xl:w-[440px] flex-col">
-        <div className="card flex-1 flex flex-col overflow-hidden">
+      <div className="flex flex-col lg:w-[400px] xl:w-[440px]">
+        <div className="card flex flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
           {/* Cart Header */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-100">
             <div>
@@ -1340,9 +1346,9 @@ function CashierView({
           </div>
 
           {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto py-4 space-y-3">
+          <div className="max-h-[55dvh] overflow-y-auto py-4 space-y-3 lg:max-h-none lg:flex-1">
             {cart.length === 0 ? (
-              <div className="empty-state h-full">
+              <div className="empty-state min-h-40 lg:h-full">
                 <div className="text-5xl mb-4">🛒</div>
                 <p className="font-semibold text-gray-500">Keranjang kosong</p>
                 <p className="text-sm text-gray-400 mt-1">Tap menu untuk menambahkan</p>
@@ -1381,9 +1387,21 @@ function CashierView({
                     </div>
                     <p className="font-bold text-coffee-dark">{formatRupiah(getCartLineNet(item))}</p>
                   </div>
+                  <button
+                    className="mt-3 rounded-full bg-white px-3 py-2 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream"
+                    onClick={() => onDiscountItem(item.id)}
+                    type="button"
+                  >
+                    Diskon Item
+                  </button>
                 </div>
               ))
             )}
+            <PendingOrdersSection
+              onDelete={onDeletePending}
+              onResume={onResumePending}
+              orders={pendingOrders}
+            />
           </div>
 
           {/* Cart Summary */}
@@ -1420,6 +1438,27 @@ function CashierView({
               </button>
             )}
           </div>
+
+          {latestTransaction && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-extrabold text-coffee-dark">Struk Terakhir</h3>
+                  <p className="text-xs text-gray-500">{latestTransaction.receiptNumber}</p>
+                </div>
+                <button
+                  className="btn btn-secondary px-3 py-2 text-xs"
+                  onClick={() => window.print()}
+                  type="button"
+                >
+                  Print
+                </button>
+              </div>
+              <div className="max-h-[48dvh] overflow-y-auto lg:max-h-72">
+                <ReceiptPreview transaction={latestTransaction} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1427,7 +1466,7 @@ function CashierView({
       {cart.length > 0 && (
         <button
           onClick={onOpenCheckout}
-          className="lg:hidden fixed bottom-24 right-4 btn btn-primary shadow-xl rounded-2xl px-6 py-4"
+          className="lg:hidden fixed bottom-[92px] left-4 right-4 z-30 btn btn-primary justify-between shadow-xl rounded-2xl px-5 py-4 sm:left-auto sm:right-6"
         >
           <span>Bayar</span>
           <span className="ml-2 font-extrabold">{formatRupiah(cartNetSubtotal)}</span>
