@@ -38,6 +38,15 @@ export async function pushSyncOperation(operation: SyncOperation) {
     return;
   }
 
+  if (
+    operation.type === 'menu-category-delete' &&
+    'categoryId' in payload &&
+    'categoryName' in payload
+  ) {
+    await deleteMenuCategory(payload.categoryId, payload.categoryName);
+    return;
+  }
+
   if (operation.type === 'transaction-upsert' && 'transaction' in payload) {
     await upsertTransaction(payload.transaction);
     return;
@@ -240,6 +249,40 @@ async function upsertMenuItems(
     .upsert(rows, { onConflict: 'id' });
 
   throwIfError(error, 'Gagal menyinkronkan menu.');
+}
+
+async function deleteMenuCategory(categoryId: string, categoryName: string) {
+  if (!supabase) {
+    return;
+  }
+
+  if (categoryName) {
+    const { error: itemsByNameError } = await supabase
+      .from('menu_items')
+      .delete()
+      .eq('category_name', categoryName);
+    throwIfError(itemsByNameError, 'Gagal menghapus menu kategori cloud.');
+  }
+
+  const categoryIds = Array.from(
+    new Set([categoryId, stableUuid('category', categoryId), stableUuid('category', categoryName)]),
+  ).filter(Boolean);
+
+  if (categoryIds.length > 0) {
+    const { error: categoryIdError } = await supabase
+      .from('menu_categories')
+      .delete()
+      .in('id', categoryIds);
+    throwIfError(categoryIdError, 'Gagal menghapus kategori menu cloud.');
+  }
+
+  if (categoryName) {
+    const { error: categoryNameError } = await supabase
+      .from('menu_categories')
+      .delete()
+      .eq('name', categoryName);
+    throwIfError(categoryNameError, 'Gagal menghapus kategori menu cloud.');
+  }
 }
 
 async function upsertTransaction(transaction: CompletedTransaction) {

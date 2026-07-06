@@ -175,7 +175,7 @@ function normalizeAppState(
   return {
     menuCategories:
       menuCategories.length > 0
-        ? mergeMissingCategories(menuCategories, normalizedMenuItems)
+        ? menuCategories
         : deriveMenuCategories(normalizedMenuItems),
     menuItems: normalizedMenuItems,
     pendingOrders,

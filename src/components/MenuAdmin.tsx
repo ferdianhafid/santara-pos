@@ -173,12 +173,11 @@ export function MenuAdmin({
                 </button>
                 <button
                   aria-label={`Hapus kategori ${category.name}`}
-                  className="grid size-10 place-items-center rounded-lg bg-white text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-35"
-                  disabled={categoryItems.length > 0}
+                  className="grid size-10 place-items-center rounded-lg bg-white text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
                   onClick={() => onDeleteCategory(category.id)}
                   title={
                     categoryItems.length > 0
-                      ? 'Kategori masih memiliki menu'
+                      ? 'Hapus kategori dan menu di dalamnya'
                       : 'Hapus kategori'
                   }
                   type="button"

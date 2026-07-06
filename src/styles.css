@@ -532,7 +532,7 @@ html {
   }
 
   .quick-stats-bar {
-    padding: 0.55rem 1rem 0.55rem 4.25rem;
+    padding: 0.55rem 1rem 0.55rem 5.75rem !important;
   }
 
   .quick-stats-row {
@@ -605,7 +605,7 @@ html {
   }
 
   .quick-stats-bar {
-    padding-left: 4.75rem;
+    padding-left: 5.75rem !important;
   }
 }
 

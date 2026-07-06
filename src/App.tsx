@@ -33,6 +33,7 @@ import {
   createGoogleSheetSettingsSyncOperation,
   createGoogleSheetSyncLogOperation,
   createLegacyImportSyncOperation,
+  createMenuCategoryDeleteOperation,
   createMenuSyncOperation,
   createPendingOrderDeleteOperation,
   createPendingOrderUpsertOperation,
@@ -639,7 +640,10 @@ function App() {
 
     setMenuCategories(nextCategories);
     setMenuItems(nextItems);
-    enqueueSyncOperations([createMenuSyncOperation(nextItems, nextCategories)]);
+    enqueueSyncOperations([
+      createMenuSyncOperation(nextItems, nextCategories),
+      createMenuCategoryDeleteOperation(category.id, category.name),
+    ]);
     setActiveCategoryName((currentCategory) =>
       currentCategory === category.name ? cleanName : currentCategory,
     );

@@ -118,7 +118,7 @@ export function Expenses({
       {/* Premium Add Expense Form */}
       <div className="pt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <form
-          className="grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 lg:grid-cols-[140px_1.2fr_170px_140px_150px_1fr_auto]"
+          className="grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 md:grid-cols-2 lg:grid-cols-[150px_minmax(180px,1.2fr)_170px_150px]"
           onSubmit={handleSubmit}
         >
           <Input
@@ -152,13 +152,15 @@ export function Expenses({
             name="paymentMethod"
             options={paymentMethods}
           />
-          <Input
-            defaultValue={editingExpense?.notes}
-            label="Catatan"
-            name="notes"
-            placeholder="Opsional"
-          />
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 content-start">
+          <div className="md:col-span-2 lg:col-span-2">
+            <Input
+              defaultValue={editingExpense?.notes}
+              label="Catatan"
+              name="notes"
+              placeholder="Opsional"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2 self-end md:col-span-2 lg:col-span-1 lg:grid-cols-1">
             <button
               className="btn-primary px-4 py-3 text-sm font-bold rounded-xl"
               type="submit"

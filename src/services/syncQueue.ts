@@ -13,6 +13,7 @@ import type {
 
 export type SyncOperationType =
   | 'menu-snapshot-upsert'
+  | 'menu-category-delete'
   | 'transaction-upsert'
   | 'pending-order-upsert'
   | 'pending-order-delete'
@@ -31,6 +32,7 @@ export type SyncOperation = {
   createdAt: string;
   payload:
     | { menuItems: MenuItem[]; menuCategories?: MenuCategory[] }
+    | { categoryId: string; categoryName: string }
     | { transaction: CompletedTransaction }
     | { pendingOrder: PendingOrder }
     | { pendingOrderId: string }
@@ -164,6 +166,20 @@ export function createMenuSyncOperation(
     payload: {
       menuCategories,
       menuItems,
+    },
+  };
+}
+
+export function createMenuCategoryDeleteOperation(
+  categoryId: string,
+  categoryName: string,
+): Omit<SyncOperation, 'id' | 'createdAt'> {
+  return {
+    type: 'menu-category-delete',
+    dedupeKey: `menu-category-delete:${categoryId}:${categoryName}`,
+    payload: {
+      categoryId,
+      categoryName,
     },
   };
 }
