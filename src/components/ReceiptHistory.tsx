@@ -290,22 +290,6 @@ export function ReceiptHistory({
                     label="Jumlah Item"
                     value={`${selectedSummary?.itemCount ?? 0} item`}
                   />
-                  <DetailRow
-                    label="Total HPP"
-                    value={formatRupiah(selectedSummary?.totalHpp ?? 0)}
-                  />
-                  <DetailRow
-                    label="Estimasi Profit"
-                    value={formatRupiah(selectedSummary?.estimatedProfit ?? 0)}
-                  />
-                  <DetailRow
-                    label="Margin"
-                    value={
-                      selectedSummary && Number.isFinite(selectedSummary.margin)
-                        ? `${selectedSummary.margin.toFixed(1)}%`
-                        : '-'
-                    }
-                  />
                 </div>
               </section>
 
@@ -317,9 +301,6 @@ export function ReceiptHistory({
                       <div>
                         <p>
                           {item.quantity}x {item.nameSnapshot}
-                        </p>
-                        <p className="text-xs text-santara-roast/55">
-                          HPP {formatRupiah((item.hppSnapshot ?? 0) * item.quantity)}
                         </p>
                       </div>
                       <span className="text-right">{formatRupiah(item.subtotal)}</span>

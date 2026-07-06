@@ -1057,22 +1057,22 @@ function App() {
       <main className="min-w-0 flex-1 pt-16 lg:ml-64 lg:pt-0">
         <div className="flex min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
           {/* Quick Stats Bar */}
-          <div className="bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
-            <div className="flex items-center gap-4 overflow-x-auto">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+          <div className="quick-stats-bar bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
+            <div className="quick-stats-row flex items-center gap-4 overflow-x-auto">
+              <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
                 <span className="text-sm font-semibold text-gray-500">Mode:</span>
                 <span className="badge badge-primary">{getActiveTabLabel(activeTab)}</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+              <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
                 <span className="text-sm font-semibold text-gray-500">Cart:</span>
                 <span className="font-bold text-coffee-dark">{totalQuantity} item</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+              <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
                 <span className="text-sm font-semibold text-gray-500">Subtotal:</span>
                 <span className="font-bold text-coffee-dark">{formatRupiah(subtotal)}</span>
               </div>
               {pendingOrders.length > 0 && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50">
+                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50">
                   <span className="text-sm font-semibold text-amber-700">Pending:</span>
                   <span className="font-bold text-amber-700">{pendingOrders.length} order</span>
                 </div>
@@ -1353,7 +1353,7 @@ function CashierView({
         </div>
 
         {/* Category Filter */}
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1">
+        <div className="category-filter flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1">
           {categoryNames.map((category) => (
             <button
               key={category}
@@ -1367,7 +1367,7 @@ function CashierView({
 
         {/* Menu Grid */}
         <div className="min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="menu-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {activeMenuItems.length === 0 ? (
               <div className="col-span-full empty-state">
                 <div className="text-4xl mb-3">☕</div>
@@ -1396,7 +1396,7 @@ function CashierView({
 
       {/* Right Panel - Cart */}
       <div className="flex flex-col lg:w-[400px] xl:w-[440px]">
-        <div className="card flex flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
+        <div className="card cart-panel flex flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
           {/* Cart Header */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-100">
             <div>
@@ -1420,11 +1420,11 @@ function CashierView({
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.id} className="bg-gray-50 rounded-2xl p-4">
+                <div key={item.id} className="cart-line-item bg-gray-50 rounded-2xl p-5">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h4 className="font-bold text-coffee-dark">{item.nameSnapshot}</h4>
-                      <p className="text-xs text-gray-400">{item.categorySnapshot}</p>
+                      <h4 className="text-base font-extrabold text-coffee-dark">{item.nameSnapshot}</h4>
+                      <p className="text-sm font-semibold text-gray-400">{item.categorySnapshot}</p>
                     </div>
                     <button
                       onClick={() => removeItem(item.id)}
@@ -1442,7 +1442,7 @@ function CashierView({
                       >
                         −
                       </button>
-                      <span className="w-8 text-center font-bold">{item.quantity}</span>
+                      <span className="w-10 text-center text-lg font-extrabold">{item.quantity}</span>
                       <button
                         onClick={() => increaseQuantity(item.id)}
                         className="qty-btn qty-btn-plus"
@@ -1450,10 +1450,10 @@ function CashierView({
                         +
                       </button>
                     </div>
-                    <p className="font-bold text-coffee-dark">{formatRupiah(getCartLineNet(item))}</p>
+                    <p className="text-lg font-extrabold text-coffee-dark">{formatRupiah(getCartLineNet(item))}</p>
                   </div>
                   <button
-                    className="mt-3 rounded-full bg-white px-3 py-2 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream"
+                    className="mt-4 rounded-full bg-white px-4 py-3 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream"
                     onClick={() => onDiscountItem(item.id)}
                     type="button"
                   >
@@ -1470,18 +1470,18 @@ function CashierView({
           </div>
 
           {/* Cart Summary */}
-          <div className="pt-4 border-t border-gray-100 space-y-2">
-            <div className="flex justify-between text-sm">
+          <div className="cart-summary pt-4 border-t border-gray-100 space-y-2">
+            <div className="flex justify-between text-base">
               <span className="text-gray-500">Subtotal</span>
               <span className="font-semibold">{formatRupiah(subtotal)}</span>
             </div>
             {itemDiscountTotal > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
+              <div className="flex justify-between text-base text-green-600">
                 <span>Diskon</span>
                 <span className="font-semibold">-{formatRupiah(itemDiscountTotal)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg pt-2 border-t border-gray-100">
+            <div className="flex justify-between text-xl pt-2 border-t border-gray-100">
               <span className="font-bold">Total</span>
               <span className="font-extrabold text-coffee">{formatRupiah(cartNetSubtotal)}</span>
             </div>
@@ -1506,7 +1506,7 @@ function CashierView({
 
           {latestTransaction && (
             <div className="mt-4 border-t border-gray-100 pt-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="font-extrabold text-coffee-dark">Struk Terakhir</h3>
                   <p className="text-xs text-gray-500">{latestTransaction.receiptNumber}</p>
@@ -1516,10 +1516,10 @@ function CashierView({
                   onClick={() => window.print()}
                   type="button"
                 >
-                  Print
+                  Print Struk
                 </button>
               </div>
-              <div className="max-h-[48dvh] overflow-y-auto lg:max-h-72">
+              <div className="print-only-receipt">
                 <ReceiptPreview transaction={latestTransaction} />
               </div>
             </div>
