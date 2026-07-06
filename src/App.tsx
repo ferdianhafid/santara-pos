@@ -173,6 +173,7 @@ function TabIcon({ id }: { id: AppTab }) {
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('cashier');
+  const [isTabletSidebarOpen, setIsTabletSidebarOpen] = useState(false);
   const [initialAppData] = useState(() => loadAppState(defaultMenuItems));
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>(
     initialAppData.menuCategories,
@@ -983,8 +984,26 @@ function App() {
 
   return (
     <div className="min-h-screen bg-cream flex">
+      <button
+        aria-label="Buka sidebar"
+        className="tablet-sidebar-toggle"
+        onClick={() => setIsTabletSidebarOpen(true)}
+        type="button"
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+
+      <button
+        aria-label="Tutup sidebar"
+        className={`tablet-sidebar-backdrop ${isTabletSidebarOpen ? 'is-open' : ''}`}
+        onClick={() => setIsTabletSidebarOpen(false)}
+        type="button"
+      />
+
       {/* Sidebar */}
-      <aside className="tablet-landscape-sidebar hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
+      <aside className={`tablet-landscape-sidebar hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 ${isTabletSidebarOpen ? 'is-open' : ''}`}>
         <div className="flex flex-col flex-1 bg-white border-r border-gray-100">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-100">
@@ -995,6 +1014,14 @@ function App() {
               <h1 className="font-extrabold text-lg text-coffee-dark tracking-tight">Santara</h1>
               <p className="text-xs text-gray-500 font-medium">Coffee POS</p>
             </div>
+            <button
+              aria-label="Tutup sidebar"
+              className="tablet-sidebar-close ml-auto rounded-full bg-santara-cream px-3 py-2 text-sm font-black text-coffee-dark"
+              onClick={() => setIsTabletSidebarOpen(false)}
+              type="button"
+            >
+              X
+            </button>
           </div>
 
           {/* Navigation */}
@@ -1002,7 +1029,10 @@ function App() {
             {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsTabletSidebarOpen(false);
+                }}
                 className={`nav-item w-full ${activeTab === tab.id ? 'nav-item-active' : ''}`}
               >
                 <span className="grid size-8 place-items-center rounded-xl bg-coffee/10 text-coffee">
