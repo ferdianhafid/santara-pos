@@ -3,6 +3,7 @@
 ## Current Deployment
 
 * App has been deployed to Vercel and is working.
+* Current GitHub repository owner/name is `ferdianhafid/santara-pos`.
 * GitHub default branch should be `main`.
 * Future work must use `main` only.
 * Do not push to `master`.
@@ -45,7 +46,15 @@ The app currently has:
 * Reports include expenses, net profit, and net margin
 * Simple daily closing inside Laporan
 * Google Sheets sync via Apps Script Web App URL
+* Premium Settings/report structure with Data Lokal, Google Sheet settings, legacy import tools, and operational reset kept out of the main cashier flow
+* Category deletion uses a custom Santara confirmation modal before deleting a category
+* Category deletion queues an explicit Supabase delete operation plus the updated menu/category snapshot so deleted categories do not return after refresh
+* Category deletion modal and category controls should remain responsive across mobile, tablet/iPad, laptop, landscape, and portrait layouts
 * Branch mismatch was fixed, latest work is on `main`
+
+## Latest Safe Checkpoint
+
+* Safe checkpoint before the category deletion confirmation and persistence fix: `cfeeeb89e60362563fdb625e7ed799abef932521`.
 
 ## Important Current Limitation
 

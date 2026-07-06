@@ -1,4 +1,11 @@
-import { useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
+import { createPortal } from 'react-dom';
 import type { MenuCategory, MenuItem } from '../types';
 import { formatRupiah } from '../utils/format';
 
@@ -41,13 +48,20 @@ export function MenuAdmin({
     activeCategoryNames[0] ?? allCategoryNames[0] ?? '',
   );
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryToDelete, setCategoryToDelete] = useState<{
+    category: MenuCategory;
+    itemCount: number;
+  } | null>(null);
+  const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
+  const lastDeleteButtonRef = useRef<HTMLButtonElement | null>(null);
+  const deleteSubmittedRef = useRef(false);
   const groupedItems = categories.map((category) => ({
     category: category.name,
     categoryRecord: category,
     items: items.filter((item) => item.category === category.name),
   }));
 
-  const handleAddItem = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleAddItem = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get('name') ?? '').trim();
@@ -70,7 +84,7 @@ export function MenuAdmin({
     setNewItemCategory(activeCategoryNames[0] ?? allCategoryNames[0] ?? '');
   };
 
-  const handleAddCategory = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleAddCategory = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!newCategoryName.trim()) {
@@ -79,6 +93,25 @@ export function MenuAdmin({
 
     onAddCategory(newCategoryName);
     setNewCategoryName('');
+  };
+
+  const closeDeleteModal = () => {
+    setCategoryToDelete(null);
+    setIsDeleteSubmitting(false);
+    deleteSubmittedRef.current = false;
+    window.setTimeout(() => lastDeleteButtonRef.current?.focus(), 0);
+  };
+
+  const confirmDeleteCategory = () => {
+    if (!categoryToDelete || deleteSubmittedRef.current) {
+      return;
+    }
+
+    deleteSubmittedRef.current = true;
+    setIsDeleteSubmitting(true);
+    onDeleteCategory(categoryToDelete.category.id);
+    setCategoryToDelete(null);
+    setIsDeleteSubmitting(false);
   };
 
   return (
@@ -174,7 +207,14 @@ export function MenuAdmin({
                 <button
                   aria-label={`Hapus kategori ${category.name}`}
                   className="grid size-10 place-items-center rounded-lg bg-white text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
-                  onClick={() => onDeleteCategory(category.id)}
+                  onClick={(event) => {
+                    lastDeleteButtonRef.current = event.currentTarget;
+                    deleteSubmittedRef.current = false;
+                    setCategoryToDelete({
+                      category,
+                      itemCount: categoryItems.length,
+                    });
+                  }}
                   title={
                     categoryItems.length > 0
                       ? 'Hapus kategori dan menu di dalamnya'
@@ -264,6 +304,16 @@ export function MenuAdmin({
           ))}
         </div>
       </div>
+
+      {categoryToDelete && (
+        <DeleteCategoryModal
+          category={categoryToDelete.category}
+          isSubmitting={isDeleteSubmitting}
+          itemCount={categoryToDelete.itemCount}
+          onCancel={closeDeleteModal}
+          onConfirm={confirmDeleteCategory}
+        />
+      )}
     </section>
   );
 }
@@ -359,6 +409,124 @@ function InputField({
       type={type}
       value={value}
     />
+  );
+}
+
+type DeleteCategoryModalProps = {
+  category: MenuCategory;
+  isSubmitting: boolean;
+  itemCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+function DeleteCategoryModal({
+  category,
+  isSubmitting,
+  itemCount,
+  onCancel,
+  onConfirm,
+}: DeleteCategoryModalProps) {
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    cancelButtonRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+
+    if (event.key !== 'Tab' || !dialogRef.current) {
+      return;
+    }
+
+    const focusableElements = Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+
+    if (focusableElements.length === 0) {
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+      return;
+    }
+
+    if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  };
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      aria-labelledby="delete-category-title"
+      aria-modal="true"
+      className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-santara-roast/55 p-3 backdrop-blur-sm sm:p-4"
+      role="dialog"
+    >
+      <div
+        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-santara-foam p-4 shadow-elegant ring-1 ring-santara-latte sm:max-h-[calc(100dvh-2rem)] sm:p-5"
+        onKeyDown={handleKeyDown}
+        ref={dialogRef}
+      >
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-santara-clay">
+          Hapus Kategori
+        </p>
+        <h2
+          className="mt-1 text-xl font-black leading-tight text-santara-roast sm:text-2xl"
+          id="delete-category-title"
+        >
+          Hapus kategori "{category.name}"?
+        </h2>
+        <div className="mt-3 space-y-2 text-sm font-semibold leading-relaxed text-santara-roast/70">
+          <p>
+            {itemCount > 0
+              ? `Kategori ini berisi ${itemCount} menu. Semua menu di dalam kategori ini juga akan dihapus.`
+              : 'Kategori ini akan dihapus dari daftar kategori.'}
+          </p>
+          <p>
+            Tindakan ini akan disinkronkan ke Supabase dan tidak dapat
+            dibatalkan setelah sinkronisasi selesai.
+          </p>
+        </div>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <button
+            className="min-h-11 rounded-xl bg-white px-4 py-3 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
+            onClick={onCancel}
+            ref={cancelButtonRef}
+            type="button"
+          >
+            Batal
+          </button>
+          <button
+            className="min-h-11 rounded-xl bg-santara-bean px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isSubmitting}
+            onClick={onConfirm}
+            type="button"
+          >
+            Hapus Kategori
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

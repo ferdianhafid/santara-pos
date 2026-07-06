@@ -641,8 +641,8 @@ function App() {
     setMenuCategories(nextCategories);
     setMenuItems(nextItems);
     enqueueSyncOperations([
-      createMenuSyncOperation(nextItems, nextCategories),
       createMenuCategoryDeleteOperation(category.id, category.name),
+      createMenuSyncOperation(nextItems, nextCategories),
     ]);
     setActiveCategoryName((currentCategory) =>
       currentCategory === category.name ? cleanName : currentCategory,
@@ -677,7 +677,10 @@ function App() {
 
     setMenuCategories(nextCategories);
     setMenuItems(nextItems);
-    enqueueSyncOperations([createMenuSyncOperation(nextItems, nextCategories)]);
+    enqueueSyncOperations([
+      createMenuCategoryDeleteOperation(category.id, category.name),
+      createMenuSyncOperation(nextItems, nextCategories),
+    ]);
     setActiveCategoryName((currentCategory) =>
       currentCategory === category.name ? nextActiveCategory : currentCategory,
     );
