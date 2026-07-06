@@ -1,17 +1,13 @@
 import { useState } from 'react';
-import { LocalDataPanel } from './LocalDataPanel';
-import type { AppStateData, MenuCategory, MenuItem } from '../types';
+import type { MenuCategory, MenuItem } from '../types';
 import { formatRupiah } from '../utils/format';
 
 type MenuAdminProps = {
   items: MenuItem[];
   categories: MenuCategory[];
-  appData: AppStateData;
-  defaultMenuItems: MenuItem[];
   onAddCategory: (name: string) => void;
   onAddItem: (item: Omit<MenuItem, 'id'>) => void;
-  onImportData: (data: AppStateData) => void;
-  onResetData: () => void;
+  onDeleteCategory: (id: string) => void;
   onRenameCategory: (id: string, name: string) => void;
   onUpdateItem: (id: string, updates: Partial<Omit<MenuItem, 'id'>>) => void;
   onToggleCategory: (id: string) => void;
@@ -29,12 +25,9 @@ const emptyItem = {
 export function MenuAdmin({
   items,
   categories,
-  appData,
-  defaultMenuItems,
   onAddCategory,
   onAddItem,
-  onImportData,
-  onResetData,
+  onDeleteCategory,
   onRenameCategory,
   onToggleCategory,
   onUpdateItem,
@@ -151,41 +144,52 @@ export function MenuAdmin({
             Tambah Kategori
           </button>
         </form>
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {categories.map((category) => (
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {groupedItems.map(({ categoryRecord: category, items: categoryItems }) => (
             <article
-              className={`grid gap-2 rounded-xl p-3 transition-all ${
+              className={`grid gap-2 rounded-xl p-2 transition-all ${
                 category.isActive ? 'bg-white border border-santara-latte/40' : 'bg-santara-foam/50 border border-dashed border-santara-latte/30 opacity-75'
               }`}
               key={category.id}
             >
-              <InputField
-                ariaLabel={`Nama kategori ${category.name}`}
-                value={category.name}
-                onChange={(value) => onRenameCategory(category.id, value)}
-              />
-              <button
-                className={`rounded-lg px-3 py-2 text-sm font-black transition ${
-                  category.isActive
-                    ? 'bg-santara-bean text-white hover:bg-santara-roast'
-                    : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
-                }`}
-                onClick={() => onToggleCategory(category.id)}
-                type="button"
-              >
-                {category.isActive ? 'Aktif' : 'Nonaktif'}
-              </button>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+                <InputField
+                  ariaLabel={`Nama kategori ${category.name}`}
+                  value={category.name}
+                  onChange={(value) => onRenameCategory(category.id, value)}
+                />
+                <button
+                  aria-label={category.isActive ? 'Nonaktifkan kategori' : 'Aktifkan kategori'}
+                  className={`grid size-10 place-items-center rounded-lg text-sm font-black transition ${
+                    category.isActive
+                      ? 'bg-santara-bean text-white hover:bg-santara-roast'
+                      : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
+                  }`}
+                  onClick={() => onToggleCategory(category.id)}
+                  title={category.isActive ? 'Aktif' : 'Nonaktif'}
+                  type="button"
+                >
+                  <StatusIcon active={category.isActive} />
+                </button>
+                <button
+                  aria-label={`Hapus kategori ${category.name}`}
+                  className="grid size-10 place-items-center rounded-lg bg-white text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream disabled:cursor-not-allowed disabled:opacity-35"
+                  disabled={categoryItems.length > 0}
+                  onClick={() => onDeleteCategory(category.id)}
+                  title={
+                    categoryItems.length > 0
+                      ? 'Kategori masih memiliki menu'
+                      : 'Hapus kategori'
+                  }
+                  type="button"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
             </article>
           ))}
         </div>
       </section>
-
-      <LocalDataPanel
-        appData={appData}
-        defaultMenuItems={defaultMenuItems}
-        onImportData={onImportData}
-        onResetData={onResetData}
-      />
 
       <div className="mt-3">
         <div className="space-y-3">
@@ -205,7 +209,7 @@ export function MenuAdmin({
               <div className="space-y-2">
                 {group.items.map((item) => (
                   <article
-                    className={`grid gap-2 rounded-lg p-2 ring-1 ring-santara-latte lg:grid-cols-[1.4fr_1fr_110px_110px_92px_96px] ${
+                    className={`grid gap-2 rounded-lg p-2 ring-1 ring-santara-latte md:grid-cols-[1.4fr_1fr_110px_110px_92px_96px] ${
                       item.isActive ? 'bg-santara-foam' : 'bg-santara-cream/60 opacity-75'
                     }`}
                     key={item.id}
@@ -296,7 +300,9 @@ function CategoryDropdown({
         type="button"
       >
         <span className="truncate">{selectedCategory}</span>
-        <span className="text-xs text-santara-clay">{isOpen ? 'Up' : 'Down'}</span>
+        <span className={`text-santara-clay transition ${isOpen ? 'rotate-180' : ''}`}>
+          <ChevronIcon />
+        </span>
       </button>
 
       {isOpen && (
@@ -354,6 +360,74 @@ function InputField({
       type={type}
       value={value}
     />
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function StatusIcon({ active }: { active: boolean }) {
+  return active ? (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.5"
+      viewBox="0 0 24 24"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  ) : (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.5"
+      viewBox="0 0 24 24"
+    >
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
   );
 }
 

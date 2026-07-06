@@ -9,6 +9,7 @@ import { MenuAdmin } from './components/MenuAdmin';
 import { ReceiptHistory } from './components/ReceiptHistory';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { Reports } from './components/Reports';
+import { Settings } from './components/Settings';
 import { menuCategories as initialMenuCategories } from './data/menu';
 import {
   fetchUserProfile,
@@ -78,7 +79,8 @@ type AppTab =
   | 'menu'
   | 'receipts'
   | 'reports'
-  | 'expenses';
+  | 'expenses'
+  | 'settings';
 type AuthStatus = 'loading' | 'local' | 'authenticated' | 'unauthenticated';
 
 type PendingOrderAction = {
@@ -100,6 +102,7 @@ const appTabs: Array<{ id: AppTab; label: string; icon: string }> = [
   { id: 'receipts', label: 'Struk', icon: '🧾' },
   { id: 'reports', label: 'Laporan', icon: '📊' },
   { id: 'expenses', label: 'Pengeluaran', icon: '💰' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
 function createReceiptNumber(date: Date, sequence: number) {
@@ -163,10 +166,19 @@ function TabIcon({ id }: { id: AppTab }) {
     );
   }
 
+  if (id === 'expenses') {
+    return (
+      <svg aria-hidden="true" {...commonProps}>
+        <path d="M12 3v18" />
+        <path d="M17 7H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    );
+  }
+
   return (
     <svg aria-hidden="true" {...commonProps}>
-      <path d="M12 3v18" />
-      <path d="M17 7H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" />
+      <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+      <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6V20a2 2 0 0 1-4 0v-.09a1.8 1.8 0 0 0-1-.51 1.8 1.8 0 0 0-1.98.36l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1H4a2 2 0 0 1 0-4h.09a1.8 1.8 0 0 0 .51-1 1.8 1.8 0 0 0-.36-1.98l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6V4a2 2 0 0 1 4 0v.09a1.8 1.8 0 0 0 1 .51 1.8 1.8 0 0 0 1.98-.36l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.8 1.8 0 0 0 19.4 9c.23.36.42.72.6 1H20a2 2 0 0 1 0 4h-.09a1.8 1.8 0 0 0-.51 1Z" />
     </svg>
   );
 }
@@ -643,6 +655,28 @@ function App() {
 
     setMenuCategories(nextCategories);
     enqueueSyncOperations([createMenuSyncOperation(menuItems, nextCategories)]);
+  };
+
+  const deleteMenuCategory = (id: string) => {
+    const category = menuCategories.find((item) => item.id === id);
+
+    if (!category) {
+      return;
+    }
+
+    const nextCategories = menuCategories.filter((item) => item.id !== id);
+    const nextItems = menuItems.filter((item) => item.category !== category.name);
+    const nextActiveCategory =
+      nextCategories.find((item) => item.isActive)?.name ??
+      nextCategories[0]?.name ??
+      '';
+
+    setMenuCategories(nextCategories);
+    setMenuItems(nextItems);
+    enqueueSyncOperations([createMenuSyncOperation(nextItems, nextCategories)]);
+    setActiveCategoryName((currentCategory) =>
+      currentCategory === category.name ? nextActiveCategory : currentCategory,
+    );
   };
 
   const addItem = (item: MenuItem) => {
@@ -1167,14 +1201,11 @@ function App() {
 
             {activeTab === 'menu' && canAccessTab('menu', effectiveRole) && (
               <MenuAdmin
-                appData={appData}
                 categories={menuCategories}
-                defaultMenuItems={defaultMenuItems}
                 items={menuItems}
                 onAddCategory={addMenuCategory}
                 onAddItem={addMenuItem}
-                onImportData={importAppData}
-                onResetData={resetLocalData}
+                onDeleteCategory={deleteMenuCategory}
                 onRenameCategory={renameMenuCategory}
                 onToggleItem={toggleMenuItem}
                 onToggleCategory={toggleMenuCategory}
@@ -1198,13 +1229,10 @@ function App() {
                 expenses={expenses}
                 googleSheetSyncLogs={googleSheetSyncLogs}
                 googleSheetSyncSettings={googleSheetSyncSettings}
-                legacyImportBatches={legacyImportBatches}
                 legacySales={legacySales}
                 onAddGoogleSheetSyncLog={addGoogleSheetSyncLog}
-                onSaveLegacyImport={importLegacySales}
                 onSaveClosing={saveDailyClosing}
                 onSaveGoogleSheetSettings={saveGoogleSheetSettings}
-                onResetOperationalData={resetOperationalTestingData}
                 transactions={completedTransactions}
               />
             )}
@@ -1216,6 +1244,27 @@ function App() {
                 onAddExpense={addExpense}
                 onDeleteExpense={deleteExpense}
                 onUpdateExpense={updateExpense}
+              />
+            )}
+
+            {activeTab === 'settings' && canAccessTab('settings', effectiveRole) && (
+              <Settings
+                appData={appData}
+                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                dailyClosings={dailyClosings}
+                defaultMenuItems={defaultMenuItems}
+                expenses={expenses}
+                googleSheetSyncLogs={googleSheetSyncLogs}
+                googleSheetSyncSettings={googleSheetSyncSettings}
+                legacyImportBatches={legacyImportBatches}
+                legacySales={legacySales}
+                onAddGoogleSheetSyncLog={addGoogleSheetSyncLog}
+                onImportData={importAppData}
+                onResetData={resetLocalData}
+                onResetOperationalData={resetOperationalTestingData}
+                onSaveGoogleSheetSettings={saveGoogleSheetSettings}
+                onSaveLegacyImport={importLegacySales}
+                transactions={completedTransactions}
               />
             )}
           </div>
@@ -1761,6 +1810,7 @@ function getActiveTabLabel(tab: AppTab) {
     receipts: 'Riwayat Struk',
     reports: 'Laporan',
     expenses: 'Pengeluaran',
+    settings: 'Settings',
   };
 
   return labels[tab];

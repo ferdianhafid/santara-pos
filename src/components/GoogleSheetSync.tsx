@@ -7,6 +7,7 @@ import type { ReportMode, SalesReport } from '../utils/reports';
 type GoogleSheetSyncProps = {
   currentUserName: string;
   logs: GoogleSheetSyncLog[];
+  mode?: 'settings' | 'report';
   onAddLog: (log: GoogleSheetSyncLog) => void;
   onSaveSettings: (settings: GoogleSheetSyncSettings) => void;
   report: SalesReport;
@@ -20,6 +21,7 @@ export function GoogleSheetSync({
   currentUserName,
   hasReportData,
   logs,
+  mode = 'settings',
   onAddLog,
   onSaveSettings,
   report,
@@ -73,6 +75,40 @@ export function GoogleSheetSync({
     setIsSyncing(false);
   };
 
+  if (mode === 'report') {
+    return (
+      <section className="rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+              Google Sheet
+            </p>
+            <h3 className="text-lg font-black text-santara-roast">
+              Export Laporan
+            </h3>
+          </div>
+          <button
+            className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isSyncing || !hasReportData}
+            onClick={syncNow}
+            type="button"
+          >
+            {isSyncing ? 'Mengexport...' : 'Export Laporan'}
+          </button>
+        </div>
+        <p
+          className={`mt-3 rounded-lg px-3 py-2 text-xs font-bold ring-1 ${
+            statusMessage.includes('gagal') || statusMessage.includes('belum')
+              ? 'bg-red-50 text-red-700 ring-red-100'
+              : 'bg-santara-cream/75 text-santara-roast/70 ring-santara-latte'
+          }`}
+        >
+          {statusMessage || latestLog?.message || 'Gunakan tombol ini untuk export laporan aktif ke Google Sheet.'}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-lg bg-white p-3 ring-1 ring-santara-latte">
       <div>
@@ -81,19 +117,11 @@ export function GoogleSheetSync({
         </p>
         <h3 className="text-lg font-black text-santara-roast">Google Sheet</h3>
         <p className="mt-1 text-sm text-santara-roast/65">
-          Sync laporan aktif ke Apps Script Web App URL.
+          Simpan URL Apps Script untuk export laporan dari tab Laporan.
         </p>
-        <p className="mt-1 text-xs font-bold text-santara-roast/55">
-          Sync akan memperbarui blok laporan, rekap bulanan/produk, dan Rekap Keseluruhan tanpa duplikat.
-        </p>
-        {!hasReportData && (
-          <p className="mt-2 rounded-lg bg-santara-cream px-3 py-2 text-xs font-black text-santara-clay ring-1 ring-santara-latte">
-            Belum ada data laporan untuk disinkronkan.
-          </p>
-        )}
       </div>
 
-      <form className="mt-3 grid gap-2 lg:grid-cols-[1fr_120px_150px]" onSubmit={saveUrl}>
+      <form className="mt-3 grid gap-2 lg:grid-cols-[1fr_130px]" onSubmit={saveUrl}>
         <label className="block">
           <span className="text-[10px] font-black uppercase tracking-[0.1em] text-santara-sage">
             URL Apps Script
@@ -110,14 +138,6 @@ export function GoogleSheetSync({
           type="submit"
         >
           Simpan URL
-        </button>
-        <button
-          className="rounded-lg bg-santara-bean px-3 py-3 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45 lg:self-end"
-          disabled={isSyncing || !hasReportData}
-          onClick={syncNow}
-          type="button"
-        >
-          {isSyncing ? 'Sync...' : 'Sync Google Sheet'}
         </button>
       </form>
 

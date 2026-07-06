@@ -1,18 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { DailyClosing } from './DailyClosing';
 import { GoogleSheetSync } from './GoogleSheetSync';
-import { LegacyImport } from './LegacyImport';
 import type {
   CompletedTransaction,
   DailyClosing as DailyClosingData,
   Expense,
   GoogleSheetSyncLog,
   GoogleSheetSyncSettings,
-  LegacyImportBatch,
   LegacySale,
 } from '../types';
 import { formatRupiah } from '../utils/format';
-import { exportReportCsv, exportReportJson } from '../utils/reportExport';
 import {
   buildSalesReport,
   getTodayInputValue,
@@ -27,13 +24,10 @@ type ReportsProps = {
   dailyClosings: DailyClosingData[];
   googleSheetSyncSettings: GoogleSheetSyncSettings;
   googleSheetSyncLogs: GoogleSheetSyncLog[];
-  legacyImportBatches: LegacyImportBatch[];
   currentUserName: string;
-  onSaveLegacyImport: (batch: LegacyImportBatch, sales: LegacySale[]) => void;
   onSaveClosing: (closing: DailyClosingData) => void;
   onSaveGoogleSheetSettings: (settings: GoogleSheetSyncSettings) => void;
   onAddGoogleSheetSyncLog: (log: GoogleSheetSyncLog) => void;
-  onResetOperationalData: () => void;
 };
 
 const reportModes: { label: string; value: ReportMode }[] = [
@@ -49,22 +43,14 @@ export function Reports({
   expenses,
   googleSheetSyncLogs,
   googleSheetSyncSettings,
-  legacyImportBatches,
   legacySales,
   onAddGoogleSheetSyncLog,
-  onResetOperationalData,
   onSaveClosing,
   onSaveGoogleSheetSettings,
-  onSaveLegacyImport,
   transactions,
 }: ReportsProps) {
   const [reportMode, setReportMode] = useState<ReportMode>('today');
   const [selectedDate, setSelectedDate] = useState(getTodayInputValue);
-  const [isAdminToolsOpen, setIsAdminToolsOpen] = useState(false);
-  const [isLegacyImportOpen, setIsLegacyImportOpen] = useState(false);
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState('');
-  const [adminToolMessage, setAdminToolMessage] = useState('');
   const report = useMemo(
     () =>
       buildSalesReport(
@@ -78,17 +64,9 @@ export function Reports({
     [dailyClosings, expenses, legacySales, reportMode, selectedDate, transactions],
   );
   const hasReportData = report.totalTransactions > 0 || report.expenses.length > 0;
-  const voidedReceiptCount = transactions.filter(
-    (transaction) => transaction.status === 'voided',
-  ).length;
   const closingDate =
     reportMode === 'today' ? getTodayInputValue() : reportMode === 'date' ? selectedDate : '';
   const canUseDailyClosing = reportMode === 'today' || reportMode === 'date';
-  const exportContext = {
-    report,
-    reportMode,
-    selectedDate,
-  };
 
   return (
     <section className="min-h-full rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:flex lg:min-h-0 lg:flex-col">
@@ -101,18 +79,6 @@ export function Reports({
           <h2 className="text-2xl font-black text-santara-roast tracking-tight mt-1">
             Laporan Penjualan
           </h2>
-          <p className="mt-1 text-sm text-santara-roast/60">
-            Ringkasan gabungan dari transaksi POS dan data import lama.
-          </p>
-          <div className="flex items-center gap-2 mt-3">
-            <span className="badge badge-gold">
-              Termasuk data import lama
-            </span>
-          </div>
-          <p className="mt-2 text-xs font-medium text-santara-roast/50">
-            Struk dibatalkan tidak dihitung dalam laporan.
-            {voidedReceiptCount > 0 ? ` ${voidedReceiptCount} struk dibatalkan tersimpan.` : ''}
-          </p>
         </div>
 
         {/* Premium Report Mode Buttons */}
@@ -132,17 +98,6 @@ export function Reports({
                 {mode.label}
               </button>
             ))}
-            <button
-              className={`min-w-[130px] flex-1 rounded-xl px-4 py-3 text-xs font-bold transition-all duration-200 sm:flex-none ${
-                isAdminToolsOpen
-                  ? 'btn-gold'
-                  : 'btn-secondary'
-              }`}
-              onClick={() => setIsAdminToolsOpen((open) => !open)}
-              type="button"
-            >
-              {isAdminToolsOpen ? 'Tutup Tools' : 'Admin Tools'}
-            </button>
           </div>
 
           {reportMode === 'date' && (
@@ -157,69 +112,6 @@ export function Reports({
       </div>
 
       <div className="pt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-        {isAdminToolsOpen && (
-          <section className="mb-4 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-santara-clay">
-                Admin Tools
-              </p>
-              <h3 className="mt-1 text-lg font-black text-santara-roast">
-                Alat Admin Laporan
-              </h3>
-              <p className="mt-1 text-sm text-santara-roast/60">
-                Export, import data lama, dan reset data testing disimpan di sini
-                agar alur laporan harian tetap bersih.
-              </p>
-            </div>
-
-            {adminToolMessage && (
-              <p className="mt-3 rounded-xl bg-white px-4 py-3 text-sm font-bold text-santara-bean border border-santara-latte/40 animate-fade-in">
-                {adminToolMessage}
-              </p>
-            )}
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <button
-                className="btn-primary px-4 py-3 text-sm font-bold rounded-xl"
-                disabled={!hasReportData}
-                onClick={() => exportReportCsv(exportContext)}
-                type="button"
-              >
-                Export CSV
-              </button>
-              <button
-                className="btn-secondary px-4 py-3 text-sm font-bold rounded-xl"
-                disabled={!hasReportData}
-                onClick={() => exportReportJson(exportContext)}
-                type="button"
-              >
-                Export JSON
-              </button>
-              <button
-                className="rounded-lg bg-santara-cream px-3 py-3 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-foam"
-                onClick={() => setIsLegacyImportOpen(true)}
-                type="button"
-              >
-                Import Data Lama POS
-              </button>
-              <button
-                className="rounded-lg bg-white px-3 py-3 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
-                onClick={() => {
-                  setResetConfirmText('');
-                  setIsResetModalOpen(true);
-                }}
-                type="button"
-              >
-                Reset Data Operasional Testing
-              </button>
-            </div>
-            {!hasReportData && (
-              <p className="mt-2 text-xs font-bold text-santara-roast/55">
-                Tidak ada data laporan untuk diexport.
-              </p>
-            )}
-          </section>
-        )}
         {!hasReportData ? (
           <div className="space-y-3">
             <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -228,6 +120,7 @@ export function Reports({
                 currentUserName={currentUserName}
                 hasReportData={hasReportData}
                 logs={googleSheetSyncLogs}
+                mode="report"
                 onAddLog={onAddGoogleSheetSyncLog}
                 onSaveSettings={onSaveGoogleSheetSettings}
                 report={report}
@@ -401,6 +294,7 @@ export function Reports({
                 currentUserName={currentUserName}
                 hasReportData={hasReportData}
                 logs={googleSheetSyncLogs}
+                mode="report"
                 onAddLog={onAddGoogleSheetSyncLog}
                 onSaveSettings={onSaveGoogleSheetSettings}
                 report={report}
@@ -422,130 +316,7 @@ export function Reports({
           </div>
         )}
       </div>
-
-      {isLegacyImportOpen && (
-        <LegacyImportModal onClose={() => setIsLegacyImportOpen(false)}>
-          <LegacyImport
-            batches={legacyImportBatches}
-            importedBy={currentUserName}
-            onSaveImport={(batch, sales) => {
-              onSaveLegacyImport(batch, sales);
-              setAdminToolMessage('Data import lama berhasil disimpan.');
-              setIsLegacyImportOpen(false);
-            }}
-          />
-        </LegacyImportModal>
-      )}
-
-      {isResetModalOpen && (
-        <OperationalResetModal
-          confirmText={resetConfirmText}
-          onCancel={() => {
-            setIsResetModalOpen(false);
-            setResetConfirmText('');
-          }}
-          onConfirm={() => {
-            onResetOperationalData();
-            setIsResetModalOpen(false);
-            setResetConfirmText('');
-            setAdminToolMessage('Data operasional testing berhasil direset.');
-          }}
-          onConfirmTextChange={setResetConfirmText}
-        />
-      )}
     </section>
-  );
-}
-
-type LegacyImportModalProps = {
-  children: ReactNode;
-  onClose: () => void;
-};
-
-function LegacyImportModal({ children, onClose }: LegacyImportModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-santara-roast/55 p-3 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-santara-foam p-3 shadow-soft ring-1 ring-santara-latte">
-        <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
-              Admin Tools
-            </p>
-            <h2 className="mt-1 text-xl font-black text-santara-roast">
-              Import Data Lama POS
-            </h2>
-          </div>
-          <button
-            className="rounded-lg bg-white px-3 py-2 text-xs font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
-            onClick={onClose}
-            type="button"
-          >
-            Tutup
-          </button>
-        </div>
-        <div className="min-h-0 overflow-y-auto">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-type OperationalResetModalProps = {
-  confirmText: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-  onConfirmTextChange: (value: string) => void;
-};
-
-function OperationalResetModal({
-  confirmText,
-  onCancel,
-  onConfirm,
-  onConfirmTextChange,
-}: OperationalResetModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-santara-roast/55 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-lg bg-santara-foam p-5 shadow-soft ring-1 ring-santara-latte">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
-          Admin Tools
-        </p>
-        <h2 className="mt-1 text-2xl font-black text-santara-roast">
-          Reset Data Operasional Testing
-        </h2>
-        <p className="mt-3 text-sm font-medium leading-relaxed text-santara-roast/70">
-          Ini hanya menghapus data operasional lokal/testing di browser ini. Menu
-          dan kategori tidak akan dihapus. Reset ini tidak otomatis menghapus data
-          di Supabase atau Google Sheet.
-        </p>
-        <label className="mt-4 block">
-          <span className="text-sm font-bold text-santara-roast/70">
-            Ketik RESET untuk lanjut
-          </span>
-          <input
-            className="mt-2 w-full rounded-lg bg-white px-3 py-3 text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte transition focus:ring-2 focus:ring-santara-clay"
-            onChange={(event) => onConfirmTextChange(event.target.value)}
-            value={confirmText}
-          />
-        </label>
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button
-            className="rounded-lg bg-white px-4 py-3 text-sm font-black text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
-            onClick={onCancel}
-            type="button"
-          >
-            Batal
-          </button>
-          <button
-            className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={confirmText !== 'RESET'}
-            onClick={onConfirm}
-            type="button"
-          >
-            Lanjutkan
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
