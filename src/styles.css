@@ -436,7 +436,8 @@ html {
   display: none;
 }
 
-@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape),
+  (min-width: 1024px) and (max-width: 1400px) and (orientation: landscape) and (pointer: coarse) {
   .tablet-sidebar-toggle {
     position: fixed;
     top: 0.7rem;
@@ -589,6 +590,20 @@ html {
     flex: 0 0 auto;
     padding: 0.65rem 0.85rem;
     font-size: 0.78rem;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1400px) and (orientation: landscape) and (pointer: coarse) {
+  .menu-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .cart-column {
+    width: clamp(20rem, 30vw, 24rem);
+  }
+
+  .quick-stats-bar {
+    padding-left: 4.75rem;
   }
 }
 
