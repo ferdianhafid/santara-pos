@@ -11,8 +11,14 @@ type ReceiptHistoryProps = {
 };
 
 type PaymentFilter = 'Semua' | PaymentMethod;
+type ReceiptDateFilter = 'today' | 'yesterday' | 'date';
 
 const paymentFilters: PaymentFilter[] = ['Semua', 'Cash', 'QRIS', 'Debit'];
+const dateFilters: Array<{ label: string; value: ReceiptDateFilter }> = [
+  { label: 'Hari Ini', value: 'today' },
+  { label: 'Kemarin', value: 'yesterday' },
+  { label: 'Pilih Tanggal', value: 'date' },
+];
 
 export function ReceiptHistory({
   canVoid,
@@ -21,17 +27,19 @@ export function ReceiptHistory({
   transactions,
 }: ReceiptHistoryProps) {
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState<ReceiptDateFilter>('today');
+  const [selectedDate, setSelectedDate] = useState(getInputDate(new Date()));
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('Semua');
   const [voidTarget, setVoidTarget] = useState<CompletedTransaction | null>(null);
   const [selectedReceiptNumber, setSelectedReceiptNumber] = useState<string | null>(
     transactions[transactions.length - 1]?.receiptNumber ?? null,
   );
 
-  const todayKey = new Date().toDateString();
+  const todayKey = getInputDate(new Date());
   const todayTransactions = transactions.filter(
     (transaction) =>
       transaction.status !== 'voided' &&
-      new Date(transaction.dateTime).toDateString() === todayKey,
+      getInputDate(new Date(transaction.dateTime)) === todayKey,
   );
   const totalSalesToday = todayTransactions.reduce(
     (total, transaction) => total + transaction.totalAfterDiscount,
@@ -41,19 +49,24 @@ export function ReceiptHistory({
   const filteredTransactions = useMemo(
     () =>
       transactions.filter((transaction) => {
+        const matchesDate = matchesReceiptDate(
+          transaction,
+          dateFilter,
+          selectedDate,
+        );
         const matchesSearch = transaction.receiptNumber
           .toLowerCase()
           .includes(search.toLowerCase().trim());
         const matchesPayment =
           paymentFilter === 'Semua' || transaction.paymentMethod === paymentFilter;
 
-        return matchesSearch && matchesPayment;
+        return matchesDate && matchesSearch && matchesPayment;
       }),
-    [paymentFilter, search, transactions],
+    [dateFilter, paymentFilter, search, selectedDate, transactions],
   );
 
   const selectedTransaction =
-    transactions.find(
+    filteredTransactions.find(
       (transaction) => transaction.receiptNumber === selectedReceiptNumber,
     ) ??
     filteredTransactions[0] ??
@@ -63,9 +76,9 @@ export function ReceiptHistory({
     : null;
 
   return (
-    <section className="grid min-h-full gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
+    <section className="grid min-h-full gap-4 md:min-h-0 md:grid-cols-[minmax(0,1fr)_340px] lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px]">
       {/* Premium Left Panel */}
-      <div className="rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:flex lg:min-h-0 lg:flex-col">
+      <div className="rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 md:flex md:min-h-0 md:flex-col">
         <div className="border-b border-santara-latte/50 pb-4">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
             Operasional
@@ -93,34 +106,64 @@ export function ReceiptHistory({
         </div>
 
         {/* Premium Search and Filter */}
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
-          <input
-            className="input-premium"
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari nomor struk..."
-            type="search"
-            value={search}
-          />
-          <div className="grid grid-cols-4 gap-2">
-            {paymentFilters.map((filter) => (
-              <button
-                className={`rounded-xl px-2 py-2 text-xs font-bold transition-all duration-200 ${
-                  paymentFilter === filter
-                    ? 'btn-primary'
-                    : 'btn-secondary'
-                }`}
-                key={filter}
-                onClick={() => setPaymentFilter(filter)}
-                type="button"
-              >
-                {filter}
-              </button>
-            ))}
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_300px]">
+            <input
+              className="input-premium"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Cari nomor struk..."
+              type="search"
+              value={search}
+            />
+            <div className="grid grid-cols-3 gap-2">
+              {dateFilters.map((filter) => (
+                <button
+                  className={`rounded-xl px-2 py-2 text-xs font-bold transition-all duration-200 ${
+                    dateFilter === filter.value
+                      ? 'btn-primary'
+                      : 'btn-secondary'
+                  }`}
+                  key={filter.value}
+                  onClick={() => setDateFilter(filter.value)}
+                  type="button"
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+            {dateFilter === 'date' ? (
+              <input
+                className="input-premium"
+                onChange={(event) => setSelectedDate(event.target.value)}
+                type="date"
+                value={selectedDate}
+              />
+            ) : (
+              <div className="hidden md:block" />
+            )}
+            <div className="grid grid-cols-4 gap-2">
+              {paymentFilters.map((filter) => (
+                <button
+                  className={`rounded-xl px-2 py-2 text-xs font-bold transition-all duration-200 ${
+                    paymentFilter === filter
+                      ? 'btn-primary'
+                      : 'btn-secondary'
+                  }`}
+                  key={filter}
+                  onClick={() => setPaymentFilter(filter)}
+                  type="button"
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Premium Transaction List */}
-        <div className="mt-4 space-y-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+        <div className="mt-4 space-y-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
           {filteredTransactions.length === 0 ? (
             <div className="grid min-h-56 place-items-center rounded-2xl border-2 border-dashed border-santara-latte/60 bg-santara-foam/50 p-5 text-center">
               <div>
@@ -174,7 +217,7 @@ export function ReceiptHistory({
         </div>
       </div>
 
-      <aside className="flex min-h-[420px] flex-col overflow-visible rounded-lg bg-white shadow-soft ring-1 ring-santara-latte lg:min-h-0 lg:overflow-hidden">
+      <aside className="flex min-h-[420px] flex-col overflow-visible rounded-lg bg-white shadow-soft ring-1 ring-santara-latte md:min-h-0 md:overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-santara-latte px-3 py-3">
           <div>
             <h3 className="font-black">Detail Struk</h3>
@@ -204,7 +247,7 @@ export function ReceiptHistory({
           </div>
         </div>
 
-        <div className="p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        <div className="p-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
           {selectedTransaction ? (
             <div className="space-y-3">
               <section className="rounded-lg bg-santara-cream p-3 ring-1 ring-santara-latte">
@@ -405,6 +448,41 @@ function formatDiscountLabel(transaction: CompletedTransaction) {
   }
 
   return 'Tidak ada diskon';
+}
+
+function matchesReceiptDate(
+  transaction: CompletedTransaction,
+  dateFilter: ReceiptDateFilter,
+  selectedDate: string,
+) {
+  const transactionDate = new Date(transaction.dateTime);
+
+  if (Number.isNaN(transactionDate.getTime())) {
+    return false;
+  }
+
+  const transactionKey = getInputDate(transactionDate);
+
+  if (dateFilter === 'today') {
+    return transactionKey === getInputDate(new Date());
+  }
+
+  if (dateFilter === 'yesterday') {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    return transactionKey === getInputDate(yesterday);
+  }
+
+  return transactionKey === selectedDate;
+}
+
+function getInputDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 type VoidReceiptModalProps = {
