@@ -132,7 +132,7 @@ export function ReceiptHistory({
               ))}
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_300px]">
             {dateFilter === 'date' ? (
               <input
                 className="input-premium"

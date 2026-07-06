@@ -265,8 +265,12 @@ async function deleteMenuCategory(categoryId: string, categoryName: string) {
   }
 
   const categoryIds = Array.from(
-    new Set([categoryId, stableUuid('category', categoryId), stableUuid('category', categoryName)]),
-  ).filter(Boolean);
+    new Set([
+      categoryId,
+      stableUuid('category', categoryId),
+      stableUuid('category', categoryName),
+    ]),
+  ).filter(isUuid);
 
   if (categoryIds.length > 0) {
     const { error: categoryIdError } = await supabase
