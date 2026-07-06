@@ -984,7 +984,7 @@ function App() {
   return (
     <div className="min-h-screen bg-cream flex">
       {/* Sidebar */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
+      <aside className="tablet-landscape-sidebar hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
         <div className="flex flex-col flex-1 bg-white border-r border-gray-100">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-100">
@@ -1033,7 +1033,7 @@ function App() {
       </aside>
 
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
+      <header className="mobile-header lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-md">
@@ -1054,8 +1054,8 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="min-w-0 flex-1 pt-16 lg:ml-64 lg:pt-0">
-        <div className="flex min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
+      <main className="app-main min-w-0 flex-1 pt-16 lg:ml-64 lg:pt-0">
+        <div className="app-content-shell flex min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
           {/* Quick Stats Bar */}
           <div className="quick-stats-bar bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
             <div className="quick-stats-row flex items-center gap-4 overflow-x-auto">
@@ -1105,7 +1105,7 @@ function App() {
           </nav>
 
           {/* Page Content */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 lg:px-6 lg:py-6 lg:pb-6">
+          <div className="page-content min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 lg:px-6 lg:py-6 lg:pb-6">
             {activeTab === 'cashier' && (
               <CashierView
                 activeCategoryName={activeCategoryNameSafe}
@@ -1341,9 +1341,9 @@ function CashierView({
   totalQuantity,
 }: CashierViewProps) {
   return (
-    <div className="flex min-h-full flex-col gap-4 lg:h-full lg:flex-row lg:gap-6">
+    <div className="cashier-layout flex min-h-full flex-col gap-4 lg:h-full lg:flex-row lg:gap-6">
       {/* Left Panel - Menu */}
-      <div className="flex min-h-[55dvh] flex-col min-w-0 lg:min-h-0 lg:flex-1">
+      <div className="menu-panel flex min-h-[55dvh] flex-col min-w-0 lg:min-h-0 lg:flex-1">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-extrabold text-coffee-dark tracking-tight">Menu</h2>
@@ -1395,7 +1395,7 @@ function CashierView({
       </div>
 
       {/* Right Panel - Cart */}
-      <div className="flex flex-col lg:w-[400px] xl:w-[440px]">
+      <div className="cart-column flex flex-col lg:w-[400px] xl:w-[440px]">
         <div className="card cart-panel flex flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
           {/* Cart Header */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-100">
@@ -1531,7 +1531,7 @@ function CashierView({
       {cart.length > 0 && (
         <button
           onClick={onOpenCheckout}
-          className="lg:hidden fixed bottom-[92px] left-4 right-4 z-30 btn btn-primary justify-between shadow-xl rounded-2xl px-5 py-4 sm:left-auto sm:right-6"
+          className="checkout-fab lg:hidden fixed bottom-[92px] left-4 right-4 z-30 btn btn-primary justify-between shadow-xl rounded-2xl px-5 py-4 sm:left-auto sm:right-6"
         >
           <span>Bayar</span>
           <span className="ml-2 font-extrabold">{formatRupiah(cartNetSubtotal)}</span>
