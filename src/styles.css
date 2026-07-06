@@ -436,8 +436,7 @@ html {
   display: none;
 }
 
-@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape),
-  (min-width: 1024px) and (max-width: 1400px) and (orientation: landscape) and (pointer: coarse) {
+@media (min-width: 768px) and (max-width: 1400px) and (orientation: landscape) {
   .tablet-sidebar-toggle {
     position: fixed;
     top: 0.7rem;
@@ -492,13 +491,16 @@ html {
     z-index: 60;
     width: 14.5rem;
     flex-direction: column;
-    transform: translateX(-105%);
-    transition: transform 180ms ease;
-    box-shadow: 18px 0 44px rgba(46, 29, 20, 0.16);
+    transform: translateX(calc(-100% - 2rem));
+    transition: box-shadow 180ms ease, transform 180ms ease;
+    box-shadow: none;
+    pointer-events: none;
   }
 
   .tablet-landscape-sidebar.is-open {
     transform: translateX(0);
+    box-shadow: 18px 0 44px rgba(46, 29, 20, 0.16);
+    pointer-events: auto;
   }
 
   .tablet-landscape-sidebar > div {
@@ -520,8 +522,8 @@ html {
   }
 
   .app-main {
-    margin-left: 0;
-    padding-top: 0;
+    margin-left: 0 !important;
+    padding-top: 0 !important;
   }
 
   .app-content-shell {
@@ -593,7 +595,7 @@ html {
   }
 }
 
-@media (min-width: 1024px) and (max-width: 1400px) and (orientation: landscape) and (pointer: coarse) {
+@media (min-width: 1024px) and (max-width: 1400px) and (orientation: landscape) {
   .menu-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
