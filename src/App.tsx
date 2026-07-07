@@ -1129,25 +1129,22 @@ function App() {
         <div className="app-content-shell flex min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
           {/* Quick Stats Bar */}
           <div className="quick-stats-bar bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
-            <div className="quick-stats-row flex items-center gap-4 overflow-x-auto">
-              <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
-                <span className="text-sm font-semibold text-gray-500">Mode:</span>
-                <span className="badge badge-primary">{getActiveTabLabel(activeTab)}</span>
-              </div>
-              <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
-                <span className="text-sm font-semibold text-gray-500">Cart:</span>
-                <span className="font-bold text-coffee-dark">{totalQuantity} item</span>
-              </div>
-              <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
-                <span className="text-sm font-semibold text-gray-500">Subtotal:</span>
-                <span className="font-bold text-coffee-dark">{formatRupiah(subtotal)}</span>
-              </div>
-              {pendingOrders.length > 0 && (
-                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-50">
-                  <span className="text-sm font-semibold text-amber-700">Pending:</span>
-                  <span className="font-bold text-amber-700">{pendingOrders.length} order</span>
+            <div className="quick-stats-row">
+              <div className="quick-stats-left">
+                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                  <span className="text-sm font-semibold text-gray-500">Mode:</span>
+                  <span className="badge badge-primary">{getActiveTabLabel(activeTab)}</span>
                 </div>
-              )}
+                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                  <span className="text-sm font-semibold text-gray-500">Cart:</span>
+                  <span className="font-bold text-coffee-dark">{totalQuantity} item</span>
+                </div>
+                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                  <span className="text-sm font-semibold text-gray-500">Subtotal:</span>
+                  <span className="font-bold text-coffee-dark">{formatRupiah(subtotal)}</span>
+                </div>
+              </div>
+              <LatestReceiptStatus transaction={latestTransaction} />
             </div>
           </div>
 
@@ -1186,7 +1183,6 @@ function App() {
                 clearCart={clearCart}
                 decreaseQuantity={decreaseQuantity}
                 increaseQuantity={increaseQuantity}
-                latestTransaction={latestTransaction}
                 onAddItem={addItem}
                 onDiscountItem={setDiscountItemId}
                 onDeletePending={(order) =>
@@ -1377,6 +1373,45 @@ function AuthSummary({
   );
 }
 
+function LatestReceiptStatus({
+  transaction,
+}: {
+  transaction: CompletedTransaction | undefined;
+}) {
+  const receiptNumber = transaction?.receiptNumber ?? 'Belum ada';
+
+  return (
+    <div className="latest-receipt-status">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-santara-sage/80">
+          Struk Terakhir
+        </p>
+        <p className="mt-0.5 truncate text-sm font-black text-santara-roast tabular-nums">
+          {receiptNumber}
+        </p>
+      </div>
+      <button
+        aria-label={
+          transaction
+            ? `Print struk terakhir ${transaction.receiptNumber}`
+            : 'Print struk terakhir belum tersedia'
+        }
+        className="latest-receipt-print"
+        disabled={!transaction}
+        onClick={() => window.print()}
+        type="button"
+      >
+        Print
+      </button>
+      {transaction && (
+        <div className="print-only-receipt">
+          <ReceiptPreview transaction={transaction} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 type CashierViewProps = {
   activeCategoryName: string;
   activeMenuItems: MenuItem[];
@@ -1387,7 +1422,6 @@ type CashierViewProps = {
   decreaseQuantity: (id: string) => void;
   increaseQuantity: (id: string) => void;
   itemDiscountTotal: number;
-  latestTransaction: CompletedTransaction | undefined;
   onAddItem: (item: MenuItem) => void;
   onDeletePending: (order: PendingOrder) => void;
   onDiscountItem: (id: string) => void;
@@ -1412,7 +1446,6 @@ function CashierView({
   decreaseQuantity,
   increaseQuantity,
   itemDiscountTotal,
-  latestTransaction,
   onAddItem,
   onDeletePending,
   onDiscountItem,
@@ -1481,8 +1514,8 @@ function CashierView({
       </div>
 
       {/* Right Panel - Cart */}
-      <div className="cart-column flex flex-col lg:w-[400px] xl:w-[440px]">
-        <div className="card cart-panel flex flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
+      <div className="cart-column flex min-w-0 flex-col lg:w-[410px] xl:w-[420px]">
+        <div className="card cart-panel flex min-h-0 flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
           {/* Cart Header */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-100">
             <div>
@@ -1497,7 +1530,7 @@ function CashierView({
           </div>
 
           {/* Cart Items */}
-          <div className="max-h-[55dvh] overflow-y-auto py-4 space-y-3 lg:max-h-none lg:flex-1">
+          <div className="cart-items-list min-h-0 overflow-y-auto py-4 space-y-3 lg:max-h-none lg:flex-1">
             {cart.length === 0 ? (
               <div className="empty-state min-h-40 lg:h-full">
                 <div className="text-5xl mb-4">🛒</div>
@@ -1506,40 +1539,52 @@ function CashierView({
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.id} className="cart-line-item bg-gray-50 rounded-2xl p-5">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="text-base font-extrabold text-coffee-dark">{item.nameSnapshot}</h4>
-                      <p className="text-sm font-semibold text-gray-400">{item.categorySnapshot}</p>
+                <div key={item.id} className="cart-line-item bg-gray-50 rounded-2xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="cart-item-name text-base font-extrabold text-coffee-dark">
+                        {item.nameSnapshot}
+                      </h4>
+                      <p className="mt-0.5 truncate text-sm font-semibold text-gray-400">
+                        {item.categorySnapshot}
+                      </p>
                     </div>
                     <button
+                      aria-label={`Hapus ${item.nameSnapshot} dari keranjang`}
                       onClick={() => removeItem(item.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-gray-400 ring-1 ring-gray-100 transition-colors hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-100"
+                      type="button"
                     >
                       ✕
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="qty-control">
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div className="qty-control shrink-0">
                       <button
+                        aria-label={`Kurangi jumlah ${item.nameSnapshot}`}
                         onClick={() => decreaseQuantity(item.id)}
-                        className="qty-btn qty-btn-minus"
+                        className="qty-btn qty-btn-minus focus:outline-none focus:ring-4 focus:ring-coffee/10"
+                        type="button"
                       >
                         −
                       </button>
-                      <span className="w-10 text-center text-lg font-extrabold">{item.quantity}</span>
+                      <span className="w-10 text-center text-lg font-extrabold tabular-nums">{item.quantity}</span>
                       <button
+                        aria-label={`Tambah jumlah ${item.nameSnapshot}`}
                         onClick={() => increaseQuantity(item.id)}
-                        className="qty-btn qty-btn-plus"
+                        className="qty-btn qty-btn-plus focus:outline-none focus:ring-4 focus:ring-coffee/20"
+                        type="button"
                       >
                         +
                       </button>
                     </div>
-                    <p className="text-lg font-extrabold text-coffee-dark">{formatRupiah(getCartLineNet(item))}</p>
+                    <p className="min-w-0 shrink-0 whitespace-nowrap text-right text-base font-extrabold text-coffee-dark tabular-nums">
+                      {formatRupiah(getCartLineNet(item))}
+                    </p>
                   </div>
                   <button
-                    className="mt-4 rounded-full bg-white px-4 py-3 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream"
+                    className="mt-3 min-h-10 rounded-full bg-white px-4 py-2 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
                     onClick={() => onDiscountItem(item.id)}
                     type="button"
                   >
@@ -1572,44 +1617,25 @@ function CashierView({
               <span className="font-extrabold text-coffee">{formatRupiah(cartNetSubtotal)}</span>
             </div>
 
-            <button
-              onClick={onOpenCheckout}
-              disabled={cart.length === 0}
-              className="btn btn-primary w-full mt-4"
-            >
-              Bayar Sekarang
-            </button>
-
-            {cart.length > 0 && (
+            <div className="cart-actions mt-4 grid gap-2">
               <button
-                onClick={onOpenSaveOrder}
-                className="btn btn-secondary w-full"
+                onClick={onOpenCheckout}
+                disabled={cart.length === 0}
+                className="btn btn-primary w-full"
               >
-                Simpan Order
+                Bayar Sekarang
               </button>
-            )}
-          </div>
 
-          {latestTransaction && (
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-extrabold text-coffee-dark">Struk Terakhir</h3>
-                  <p className="text-xs text-gray-500">{latestTransaction.receiptNumber}</p>
-                </div>
+              {cart.length > 0 && (
                 <button
-                  className="btn btn-secondary px-3 py-2 text-xs"
-                  onClick={() => window.print()}
-                  type="button"
+                  onClick={onOpenSaveOrder}
+                  className="btn btn-secondary w-full"
                 >
-                  Print Struk
+                  Simpan Order
                 </button>
-              </div>
-              <div className="print-only-receipt">
-                <ReceiptPreview transaction={latestTransaction} />
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
