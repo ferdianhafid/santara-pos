@@ -175,43 +175,49 @@ export function ReceiptHistory({
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredTransactions.map((transaction) => (
-                <button
-                  className={`w-full rounded-xl p-4 text-left transition-all duration-200 ${
-                    selectedTransaction?.receiptNumber === transaction.receiptNumber
-                      ? 'bg-gradient-premium text-white shadow-glow'
-                      : 'bg-santara-foam/80 border border-santara-latte/30 hover:shadow-soft hover:border-santara-gold/40'
-                  }`}
-                  key={transaction.receiptNumber}
-                  onClick={() => setSelectedReceiptNumber(transaction.receiptNumber)}
-                  type="button"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black">{transaction.receiptNumber}</p>
-                      {transaction.status === 'voided' && (
-                        <span className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
-                          Dibatalkan
-                        </span>
-                      )}
-                      <p className="mt-1 text-xs font-semibold opacity-75">
-                        {formatReceiptDate(transaction.dateTime)} -{' '}
-                        {transaction.cashierName}
+              {filteredTransactions.map((transaction) => {
+                const isSelected =
+                  selectedTransaction?.receiptNumber === transaction.receiptNumber;
+
+                return (
+                  <button
+                    aria-current={isSelected ? 'true' : undefined}
+                    className={`w-full rounded-xl border p-4 text-left transition-[border-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-coffee/20 ${
+                      isSelected
+                        ? 'border-coffee/20 bg-gradient-to-r from-coffee-dark to-coffee text-white shadow-glow ring-2 ring-coffee/20'
+                        : 'border-santara-latte/30 bg-santara-foam/80 hover:border-santara-gold/40 hover:shadow-soft'
+                    }`}
+                    key={transaction.receiptNumber}
+                    onClick={() => setSelectedReceiptNumber(transaction.receiptNumber)}
+                    type="button"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black">{transaction.receiptNumber}</p>
+                        {transaction.status === 'voided' && (
+                          <span className="mt-1 inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                            Dibatalkan
+                          </span>
+                        )}
+                        <p className="mt-1 text-xs font-semibold opacity-75">
+                          {formatReceiptDate(transaction.dateTime)} -{' '}
+                          {transaction.cashierName}
+                        </p>
+                      </div>
+                      <p className={`text-right text-sm font-black ${isSelected ? 'text-white' : 'text-santara-bean'}`}>
+                        {formatRupiah(transaction.totalAfterDiscount)}
                       </p>
                     </div>
-                    <p className={`text-right text-sm font-black ${selectedTransaction?.receiptNumber === transaction.receiptNumber ? 'text-white' : 'text-santara-bean'}`}>
-                      {formatRupiah(transaction.totalAfterDiscount)}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold opacity-75">
-                    <span>{transaction.paymentMethod}</span>
-                    <span>{getTransactionQuantity(transaction)} item</span>
-                    {transaction.discountAmount > 0 && (
-                      <span>Diskon {formatRupiah(transaction.discountAmount)}</span>
-                    )}
-                  </div>
-                </button>
-              ))}
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold opacity-75">
+                      <span>{transaction.paymentMethod}</span>
+                      <span>{getTransactionQuantity(transaction)} item</span>
+                      {transaction.discountAmount > 0 && (
+                        <span>Diskon {formatRupiah(transaction.discountAmount)}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
