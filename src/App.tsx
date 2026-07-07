@@ -1540,7 +1540,7 @@ function CashierView({
             ) : (
               cart.map((item) => (
                 <div key={item.id} className="cart-line-item bg-gray-50 rounded-2xl p-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h4 className="cart-item-name text-base font-extrabold text-coffee-dark">
                         {item.nameSnapshot}
@@ -1549,6 +1549,15 @@ function CashierView({
                         {item.categorySnapshot}
                       </p>
                     </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        aria-label={`Atur diskon ${item.nameSnapshot}`}
+                        className="min-h-11 rounded-full bg-white px-3 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
+                        onClick={() => onDiscountItem(item.id)}
+                        type="button"
+                      >
+                        Diskon
+                      </button>
                     <button
                       aria-label={`Hapus ${item.nameSnapshot} dari keranjang`}
                       onClick={() => removeItem(item.id)}
@@ -1557,6 +1566,7 @@ function CashierView({
                     >
                       ✕
                     </button>
+                    </div>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-3">
@@ -1583,13 +1593,6 @@ function CashierView({
                       {formatRupiah(getCartLineNet(item))}
                     </p>
                   </div>
-                  <button
-                    className="mt-3 min-h-10 rounded-full bg-white px-4 py-2 text-sm font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
-                    onClick={() => onDiscountItem(item.id)}
-                    type="button"
-                  >
-                    Diskon Item
-                  </button>
                 </div>
               ))
             )}

@@ -85,23 +85,30 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-scale">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm animate-fade-in sm:p-4">
+      <div
+        aria-labelledby="checkout-modal-title"
+        aria-modal="true"
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale sm:max-h-[calc(100dvh-2rem)]"
+        role="dialog"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6 sm:py-5">
           <div>
             <p className="text-xs font-semibold text-coffee-light uppercase tracking-wider">Checkout</p>
-            <h2 className="text-2xl font-extrabold text-coffee-dark mt-1">Pembayaran</h2>
+            <h2 className="text-2xl font-extrabold text-coffee-dark mt-1" id="checkout-modal-title">Pembayaran</h2>
           </div>
           <button
+            aria-label="Tutup checkout"
             onClick={onClose}
             className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+            type="button"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-6 grid lg:grid-cols-[1fr,380px] gap-6">
+        <div className="grid min-h-0 gap-5 overflow-y-auto overscroll-contain p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr),380px] lg:gap-6">
           {/* Left - Payment Options */}
           <div className="space-y-6">
             {/* Payment Method */}
