@@ -96,3 +96,27 @@ reports, expenses, closing, legacy import, and Google Sheets sync.
 Branding work may begin only when every check above passes. Android work may
 begin only after branding passes its own web regression. Thermal printing may
 begin only after the Android shell passes device testing.
+
+## Production run log — 2026-08-01
+
+Completed:
+
+- Created and verified the RLS-protected
+  `backup_pre_dual_cafe_20260801` backup schema.
+- Applied both `20260801` migrations to production in one transaction.
+- Passed structural, backfill, Parama-empty, row-preservation, constraint, and
+  policy checks.
+- Created separate Santara and Parama owner profiles.
+- Confirmed Parama can write to its own business and is denied a Santara write.
+- Confirmed the production app switches from populated Santara data to an empty
+  Parama workspace without crossing menu or receipt data.
+- Created, synced, and deleted a Parama-only category; confirmed no test row
+  remained.
+
+Still required before the branding gate passes:
+
+- Offline queue and reconnect test for each business.
+- Cross-account checks for pending orders, expenses, counters, sync metadata,
+  and backup import rejection.
+- Full Santara cashier, receipt, report, expense, closing, legacy import, and
+  Google Sheets regression.

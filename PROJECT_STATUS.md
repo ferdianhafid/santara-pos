@@ -1,6 +1,6 @@
 # Santara POS - Project Status
 
-## Dual-Cafe Isolation Checkpoint (Pending Production Rollout)
+## Dual-Cafe Production Rollout (Validation In Progress)
 
 Code checkpoint: `f3c800e` (`feat: scope app data by business`).
 
@@ -19,10 +19,29 @@ Santara Coffee and Parama Cafe:
 * Accounts without a valid business profile are blocked instead of receiving a
   fallback business.
 
-This checkpoint has passed TypeScript/Vite build plus local storage, queue, and
-backup-boundary smoke tests. The migration has not yet been applied to or tested
-against the production Supabase project. Do not deploy the matching frontend
-until the migrations are applied and the two-account RLS test matrix passes.
+The production Supabase project received both `20260801` dual-cafe migrations on
+2026-08-01. Before rollout, the affected production tables were copied to the
+RLS-protected `backup_pre_dual_cafe_20260801` schema and their row counts were
+verified against the source tables.
+
+Production checks completed:
+
+* Exactly Santara Coffee and Parama Cafe exist and are active.
+* All 14 business-owned tables have a required `business_id`.
+* Every pre-existing row was preserved and assigned to Santara.
+* Parama started empty and received a dedicated owner test account.
+* All 15 protected public tables have RLS enabled.
+* All 18 business-scoped policies exist and the old broad policies are gone.
+* A Parama owner can write to Parama; an attempted Santara write is rejected by
+  RLS.
+* Switching the same browser from Santara to Parama shows no Santara menu,
+  receipt, or other operational data.
+* A Parama category created through the production app synced only to Parama,
+  then was deleted and verified absent from the database.
+
+The remaining gate is the full browser/offline and Santara operational
+regression matrix in `DUAL_CAFE_VALIDATION.md`. Branding must not start until
+that gate passes.
 
 Branding, Capacitor Android, and thermal printing have deliberately not started
 because the production dual-cafe gate has not yet passed.
@@ -194,17 +213,14 @@ What is still not implemented:
 
 ## Next Recommended Phase
 
-The next phase should be:
+Complete Dual-Cafe Production Validation:
 
-Phase 7B - Production Sync Testing
-
-Goal:
-
-* Run the new Supabase migration in production.
-* Test owner/admin expense create, edit, delete, and sync.
-* Test daily closing with real daily totals.
-* Deploy Apps Script and test Google Sheets sync from Vercel.
-* Confirm reports and exports include expenses and closing data.
+* Run the offline queue test separately for Santara and Parama.
+* Verify switching accounts never crosses menu, receipt, pending order,
+  expense, counter, sync status, or backup data.
+* Run the full Santara cashier, receipt, report, expense, closing, legacy
+  import, and Google Sheets regression checklist.
+* Record the gate result before starting business-owned branding.
 
 ## Future Roadmap
 
