@@ -112,11 +112,38 @@ Completed:
   Parama workspace without crossing menu or receipt data.
 - Created, synced, and deleted a Parama-only category; confirmed no test row
   remained.
+- Completed the online account-switch regression in one Chrome profile:
+  Santara retained its populated workspace, while Parama returned with an empty
+  cart, receipt history, report, menu, pending-order state, and transaction
+  counter.
+- Completed Parama expense create/edit/delete sync and Santara hold/resume/delete
+  sync. A database audit confirmed that no validation expense, category, or
+  pending-order row remained.
+- Exercised the Santara cart, quantity, item discount, transaction discount,
+  hold/resume, and Cash/QRIS/Debit checkout controls without creating a fake
+  production sale.
+- Confirmed the Santara all-time report renders the production totals and menu
+  breakdown, and confirmed backup export succeeds for both businesses.
+
+Open validation items:
+
+- The receipt date-picker check could not be completed reliably through Chrome
+  automation because the filled native date value did not persist after a React
+  re-render. A manual date-picker check is still required; this run does not
+  classify it as an application bug.
+- Santara loads 18 merged/local receipts, while Supabase contains 14 Santara
+  transactions (`SAN-...-005` through `SAN-...-018`). This is a pre-existing
+  local-first/cloud coverage gap, not row loss from the dual-cafe migration: the
+  protected pre-migration backup and post-migration public table both contain the
+  same 14 transaction rows.
+- Chrome file upload is not permitted for the extension yet, so the
+  cross-business backup-import rejection could not be exercised.
 
 Still required before the branding gate passes:
 
 - Offline queue and reconnect test for each business.
-- Cross-account checks for pending orders, expenses, counters, sync metadata,
-  and backup import rejection.
-- Full Santara cashier, receipt, report, expense, closing, legacy import, and
-  Google Sheets regression.
+- Cross-business backup import rejection after Chrome file access is enabled.
+- Receipt detail/reprint/void regression after the receipt date-filter finding is
+  resolved or bypassed safely.
+- Santara closing, legacy import, and Google Sheets end-to-end regression using
+  a safe non-production path or an explicitly approved production mutation.

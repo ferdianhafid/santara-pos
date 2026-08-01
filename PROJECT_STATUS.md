@@ -38,10 +38,25 @@ Production checks completed:
   receipt, or other operational data.
 * A Parama category created through the production app synced only to Parama,
   then was deleted and verified absent from the database.
+* The online account-switch regression passed for menu, cart, receipts, reports,
+  pending orders, expenses, transaction counters, and visible sync state.
+* Parama expense create/edit/delete and Santara hold/resume/delete operations
+  synced successfully; a database audit found no remaining validation rows.
+* Santara cart quantity, item discount, transaction discount, hold/resume, and
+  Cash/QRIS/Debit checkout controls passed without saving a fake production
+  transaction.
+* Santara all-time reports render production totals and menu breakdowns, and
+  backup export succeeds for both businesses.
 
-The remaining gate is the full browser/offline and Santara operational
-regression matrix in `DUAL_CAFE_VALIDATION.md`. Branding must not start until
-that gate passes.
+The remaining gate includes the offline/reconnect test, cross-business backup
+import rejection, and the remaining Santara receipt/closing/legacy-import/Google
+Sheets checks in `DUAL_CAFE_VALIDATION.md`. The receipt date-picker check still
+needs a manual pass because Chrome automation did not persist its native date
+input after a React re-render; this run does not classify that as an application
+bug. Santara loads 18 merged/local receipts while Supabase and its protected
+pre-migration backup both contain 14 transaction rows; this is a pre-existing
+local-first/cloud coverage gap, not migration row loss. Branding must not start
+until the gate passes.
 
 Branding, Capacitor Android, and thermal printing have deliberately not started
 because the production dual-cafe gate has not yet passed.
@@ -216,10 +231,11 @@ What is still not implemented:
 Complete Dual-Cafe Production Validation:
 
 * Run the offline queue test separately for Santara and Parama.
-* Verify switching accounts never crosses menu, receipt, pending order,
-  expense, counter, sync status, or backup data.
-* Run the full Santara cashier, receipt, report, expense, closing, legacy
-  import, and Google Sheets regression checklist.
+* Enable Chrome file access and verify a backup from one business is rejected by
+  the other business.
+* Manually verify the receipt date picker, then finish receipt detail/reprint/void
+  checks.
+* Finish Santara closing, legacy import, and Google Sheets end-to-end checks.
 * Record the gate result before starting business-owned branding.
 
 ## Future Roadmap
