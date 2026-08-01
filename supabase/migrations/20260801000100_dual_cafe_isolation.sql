@@ -195,9 +195,6 @@ alter table public.app_settings drop constraint if exists app_settings_pkey;
 alter table public.app_settings
   add constraint app_settings_pkey primary key (business_id, key);
 
-alter table public.google_sheet_sync_settings
-  add constraint google_sheet_sync_settings_business_key unique (business_id);
-
 -- Required parent relationships carry the same business ID, preventing a row
 -- from referencing another cafe even if an ID is guessed.
 alter table public.transactions
