@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import type { BusinessSlug } from '../config/businesses';
+import { getBusinessBySlug, type BusinessSlug } from '../config/businesses';
 import { GoogleSheetSync } from './GoogleSheetSync';
 import { LegacyImport } from './LegacyImport';
 import { LocalDataPanel } from './LocalDataPanel';
+import { PrinterSettingsPanel } from './PrinterSettings';
 import type {
   AppStateData,
   CompletedTransaction,
@@ -67,6 +68,11 @@ export function Settings({
     expenses,
     dailyClosings,
   );
+  const business = getBusinessBySlug(businessSlug);
+
+  if (!business) {
+    return null;
+  }
 
   return (
     <section className="min-h-full rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
@@ -91,6 +97,8 @@ export function Settings({
             onImportData={onImportData}
             onResetData={onResetData}
           />
+
+          <PrinterSettingsPanel business={business} />
 
           <section className="rounded-lg bg-white p-3 ring-1 ring-santara-latte">
             <div>

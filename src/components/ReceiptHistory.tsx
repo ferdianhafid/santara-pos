@@ -6,6 +6,10 @@ import { formatReceiptDate, formatRupiah } from '../utils/format';
 type ReceiptHistoryProps = {
   canVoid: boolean;
   currentUserName: string;
+  onPrintReceipt: (
+    transaction: CompletedTransaction,
+    isReprint?: boolean,
+  ) => void;
   onVoidReceipt: (receiptNumber: string, reason: string) => void;
   transactions: CompletedTransaction[];
 };
@@ -23,6 +27,7 @@ const dateFilters: Array<{ label: string; value: ReceiptDateFilter }> = [
 export function ReceiptHistory({
   canVoid,
   currentUserName,
+  onPrintReceipt,
   onVoidReceipt,
   transactions,
 }: ReceiptHistoryProps) {
@@ -245,7 +250,11 @@ export function ReceiptHistory({
             <button
               className="rounded-full bg-santara-bean px-3 py-1.5 text-xs font-black text-white shadow-sm transition hover:bg-santara-roast disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!selectedTransaction}
-              onClick={() => window.print()}
+              onClick={() => {
+                if (selectedTransaction) {
+                  onPrintReceipt(selectedTransaction, true);
+                }
+              }}
               type="button"
             >
               Reprint

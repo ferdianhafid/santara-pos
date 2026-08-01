@@ -1,0 +1,247 @@
+import type { CompletedTransaction } from '../../types';
+
+export type ThermalPaperWidth = '58mm' | '80mm';
+
+export type ReceiptEncodingOptions = {
+  businessName: string;
+  paperWidth: ThermalPaperWidth;
+  isReprint?: boolean;
+  slogan?: string;
+  wifiName?: string;
+  wifiPassword?: string;
+  cutPaper?: boolean;
+};
+
+const paperColumns: Record<ThermalPaperWidth, number> = {
+  '58mm': 32,
+  '80mm': 48,
+};
+
+const ESC = 0x1b;
+const GS = 0x1d;
+
+export function buildReceiptText(
+  transaction: CompletedTransaction,
+  options: ReceiptEncodingOptions,
+) {
+  const width = paperColumns[options.paperWidth];
+  const divider = '-'.repeat(width);
+  const strongDivider = '='.repeat(width);
+  const date = new Date(transaction.dateTime);
+  const itemDiscount = transaction.itemDiscountAmount ?? 0;
+  const transactionDiscount =
+    transaction.transactionDiscountAmount ??
+    Math.max(transaction.discountAmount - itemDiscount, 0);
+  const lines: string[] = [];
+
+  lines.push(center(options.businessName.toUpperCase(), width));
+  if (options.slogan) {
+    lines.push(...wrapText(options.slogan, width).map((line) => center(line, width)));
+  }
+  if (options.isReprint) {
+    lines.push(center('*** CETAK ULANG ***', width));
+  }
+  if (transaction.status === 'voided') {
+    lines.push(center('*** STRUK DIBATALKAN ***', width));
+  }
+  lines.push(divider);
+  lines.push(labelValue('No. Struk', transaction.receiptNumber, width));
+  lines.push(labelValue('Tanggal', formatReceiptDate(date), width));
+  lines.push(labelValue('Waktu', formatReceiptTime(date), width));
+  lines.push(labelValue('Kasir', transaction.cashierName, width));
+  lines.push(labelValue('Pembayaran', transaction.paymentMethod, width));
+
+  if (transaction.status === 'voided') {
+    lines.push(divider);
+    lines.push(...wrapText(`Alasan: ${transaction.voidReason ?? '-'}`, width));
+    lines.push(...wrapText(`Oleh: ${transaction.voidedBy ?? '-'}`, width));
+  }
+
+  lines.push(divider);
+  for (const item of transaction.items) {
+    lines.push(...wrapText(item.nameSnapshot, width));
+    lines.push(
+      columns(
+        `${item.quantity} x ${formatMoney(item.unitPriceSnapshot)}`,
+        formatMoney(item.grossLineTotal ?? item.subtotal),
+        width,
+      ),
+    );
+    if ((item.itemDiscountAmount ?? 0) > 0) {
+      lines.push(
+        columns(
+          'Diskon item',
+          `-${formatMoney(item.itemDiscountAmount ?? 0)}`,
+          width,
+        ),
+      );
+    }
+  }
+
+  lines.push(divider);
+  lines.push(
+    columns('Subtotal', formatMoney(transaction.subtotalBeforeDiscount), width),
+  );
+  if (itemDiscount > 0) {
+    lines.push(columns('Diskon item', `-${formatMoney(itemDiscount)}`, width));
+  }
+  if (transactionDiscount > 0) {
+    lines.push(
+      columns(
+        'Diskon transaksi',
+        `-${formatMoney(transactionDiscount)}`,
+        width,
+      ),
+    );
+  }
+  lines.push(strongDivider);
+  lines.push(columns('TOTAL', formatMoney(transaction.totalAfterDiscount), width));
+
+  if (transaction.paymentMethod === 'Cash') {
+    lines.push(columns('Bayar', formatMoney(transaction.paidAmount ?? 0), width));
+    lines.push(
+      columns('Kembalian', formatMoney(transaction.changeAmount ?? 0), width),
+    );
+  }
+
+  if (options.wifiName || options.wifiPassword) {
+    lines.push(divider);
+    if (options.wifiName) {
+      lines.push(center(`WiFi: ${options.wifiName}`, width));
+    }
+    if (options.wifiPassword) {
+      lines.push(center(`Password: ${options.wifiPassword}`, width));
+    }
+  }
+
+  lines.push(divider);
+  lines.push(center('Terima kasih', width));
+  lines.push(center('Sampai jumpa lagi', width));
+
+  return `${lines.map(toPrinterAscii).join('\n')}\n`;
+}
+
+export function buildReceiptPrintBytes(
+  transaction: CompletedTransaction,
+  options: ReceiptEncodingOptions,
+) {
+  const textBytes = new TextEncoder().encode(buildReceiptText(transaction, options));
+  const prefix = new Uint8Array([
+    ESC,
+    0x40, // Initialize printer.
+    ESC,
+    0x74,
+    0x00, // Select the common CP437-compatible code page.
+  ]);
+  const suffix = options.cutPaper === false
+    ? new Uint8Array([0x0a, 0x0a, 0x0a])
+    : new Uint8Array([
+        0x0a,
+        0x0a,
+        0x0a,
+        GS,
+        0x56,
+        0x42,
+        0x00, // Feed and partial cut; ignored by printers without a cutter.
+      ]);
+  const result = new Uint8Array(prefix.length + textBytes.length + suffix.length);
+  result.set(prefix, 0);
+  result.set(textBytes, prefix.length);
+  result.set(suffix, prefix.length + textBytes.length);
+  return result;
+}
+
+export function getPaperColumns(paperWidth: ThermalPaperWidth) {
+  return paperColumns[paperWidth];
+}
+
+function columns(left: string, right: string, width: number) {
+  const safeLeft = toPrinterAscii(left);
+  const safeRight = toPrinterAscii(right);
+  const availableLeft = Math.max(width - safeRight.length - 1, 1);
+  const trimmedLeft = safeLeft.slice(0, availableLeft);
+  const gap = Math.max(width - trimmedLeft.length - safeRight.length, 1);
+  return `${trimmedLeft}${' '.repeat(gap)}${safeRight}`;
+}
+
+function labelValue(label: string, value: string, width: number) {
+  const prefix = `${label}: `;
+  const available = Math.max(width - prefix.length, 1);
+  const wrappedValue = wrapText(value, available);
+  return wrappedValue
+    .map((line, index) => `${index === 0 ? prefix : ' '.repeat(prefix.length)}${line}`)
+    .join('\n');
+}
+
+function center(value: string, width: number) {
+  const safeValue = toPrinterAscii(value).slice(0, width);
+  return `${' '.repeat(Math.max(Math.floor((width - safeValue.length) / 2), 0))}${safeValue}`;
+}
+
+function wrapText(value: string, width: number) {
+  const words = toPrinterAscii(value).trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return [''];
+  }
+
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    if (word.length > width) {
+      if (current) {
+        lines.push(current);
+        current = '';
+      }
+      for (let index = 0; index < word.length; index += width) {
+        lines.push(word.slice(index, index + width));
+      }
+      continue;
+    }
+
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= width) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+  return lines;
+}
+
+function toPrinterAscii(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[–—]/g, '-')
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[^\x20-\x7e]/g, '?');
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: 0,
+  }).format(Math.max(Math.round(value), 0));
+}
+
+function formatReceiptDate(date: Date) {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatReceiptTime(date: Date) {
+  return new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}

@@ -30,6 +30,11 @@ import {
   pullCloudAppState,
   pushSyncOperation,
 } from './services/supabaseData';
+import { loadPrinterSettings } from './services/printing/printerSettings';
+import {
+  canUseNativeThermalPrinter,
+  printTransactionReceipt,
+} from './services/printing/thermalPrinter';
 import {
   addSyncOperation,
   createDailyClosingSyncOperation,
@@ -262,6 +267,7 @@ function App() {
   const [authProfile, setAuthProfile] = useState<UserProfile | null>(null);
   const [authError, setAuthError] = useState('');
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+  const [printerNotice, setPrinterNotice] = useState('');
   const isSyncingRef = useRef(false);
   const activeBusinessRef = useRef<BusinessIdentity>(SANTARA_BUSINESS);
 
@@ -302,6 +308,42 @@ function App() {
   const pendingOrderCount = useMemo(
     () => pendingOrders.reduce((total, order) => total + getCartQuantity(order.items), 0),
     [pendingOrders],
+  );
+
+  useEffect(() => {
+    if (!printerNotice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setPrinterNotice(''), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [printerNotice]);
+
+  const printReceipt = useCallback(
+    async (transaction: CompletedTransaction, isReprint = false) => {
+      if (!canUseNativeThermalPrinter()) {
+        window.print();
+        return;
+      }
+
+      try {
+        const settings = loadPrinterSettings(activeBusiness.slug);
+        await printTransactionReceipt(
+          transaction,
+          activeBusiness,
+          settings,
+          isReprint,
+        );
+        setPrinterNotice('Struk berhasil dikirim ke printer thermal.');
+      } catch (error) {
+        setPrinterNotice(
+          error instanceof Error
+            ? error.message
+            : 'Struk gagal dikirim ke printer thermal.',
+        );
+      }
+    },
+    [activeBusiness],
   );
   const appData = useMemo<AppStateData>(
     () => ({
@@ -1251,7 +1293,10 @@ function App() {
                   <span className="font-bold text-coffee-dark">{formatRupiah(subtotal)}</span>
                 </div>
               </div>
-              <LatestReceiptStatus transaction={latestTransaction} />
+              <LatestReceiptStatus
+                onPrint={printReceipt}
+                transaction={latestTransaction}
+              />
             </div>
           </div>
 
@@ -1327,6 +1372,7 @@ function App() {
               <ReceiptHistory
                 canVoid={effectiveRole === 'owner' || effectiveRole === 'admin'}
                 currentUserName={cashierName}
+                onPrintReceipt={printReceipt}
                 onVoidReceipt={voidReceipt}
                 transactions={completedTransactions}
               />
@@ -1418,6 +1464,15 @@ function App() {
           }}
           order={pendingOrderAction.order}
         />
+      )}
+      {printerNotice && (
+        <div
+          aria-live="polite"
+          className="fixed bottom-24 left-1/2 z-[70] w-[min(92vw,30rem)] -translate-x-1/2 rounded-xl bg-santara-roast px-4 py-3 text-center text-sm font-black text-white shadow-soft lg:bottom-6"
+          role="status"
+        >
+          {printerNotice}
+        </div>
       )}
     </div>
   );
@@ -1517,8 +1572,10 @@ function AuthSummary({
 }
 
 function LatestReceiptStatus({
+  onPrint,
   transaction,
 }: {
+  onPrint: (transaction: CompletedTransaction, isReprint?: boolean) => void;
   transaction: CompletedTransaction | undefined;
 }) {
   const receiptNumber = transaction?.receiptNumber ?? 'Belum ada';
@@ -1541,7 +1598,11 @@ function LatestReceiptStatus({
         }
         className="latest-receipt-print"
         disabled={!transaction}
-        onClick={() => window.print()}
+        onClick={() => {
+          if (transaction) {
+            onPrint(transaction);
+          }
+        }}
         type="button"
       >
         Print

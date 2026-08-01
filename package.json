@@ -10,7 +10,8 @@
     "android:add": "cap add android",
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
-    "android:build:debug": "powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1"
+    "android:build:debug": "powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1",
+    "test:thermal": "node --test src/services/printing/receiptEncoder.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

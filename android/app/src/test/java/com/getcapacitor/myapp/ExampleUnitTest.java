@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package com.ferdian.cafepos;
 
 import static org.junit.Assert.*;
 

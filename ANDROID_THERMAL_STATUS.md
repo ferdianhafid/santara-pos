@@ -36,14 +36,37 @@ Initial production target:
 4. Browser fallback through the existing `window.print()` flow.
 5. Pure receipt encoding tests plus Android debug build and web regression.
 
+## Printer implementation checkpoint
+
+Implemented after the Android shell checkpoint:
+
+- Native Capacitor `ThermalPrinter` bridge registered in the Android activity.
+- Runtime Nearby Devices permission handling through `BLUETOOTH_CONNECT` on
+  Android 12+ plus legacy Bluetooth manifest permissions through Android 11.
+- Paired Bluetooth Classic/dual-mode device listing without background scanning
+  or location access.
+- RFCOMM Serial Port Profile connection and chunked ESC/POS byte transmission.
+- Business-scoped, device-local printer settings for device address, 58/80 mm
+  paper profile, and optional cutter command.
+- Android-only Settings panel for permission, paired-printer selection, saved
+  width, connection feedback, and test print. The web renders an informational
+  `Web Print` fallback and does not show Bluetooth controls.
+- Direct Android print from the latest-receipt and receipt-history reprint
+  buttons; browser builds keep using `window.print()`.
+- Receipt text encoder with 32-column (58 mm) and 48-column (80 mm) profiles,
+  long-name wrapping, item/transaction discounts, cash received/change,
+  reprint/void labels, feed, and optional partial cut.
+- Three automated encoder tests pass for width constraints and ESC/POS framing.
+- Android debug compilation succeeds with the native bridge, and the updated APK
+  is copied to `artifacts/android/cafe-pos-debug.apk`.
+- Local browser regression passed for the cashier flow, completed receipt,
+  enabled web print button, Settings printer panel, and hidden Bluetooth controls.
+
 ## Remaining validation
 
-- Implement and compile the native Bluetooth ESC/POS bridge.
-- Add runtime `BLUETOOTH_CONNECT` permission handling for Android 12+ and legacy
-  Bluetooth permissions for older supported devices.
-- Test paired-device listing, connect, print, reconnect, and error handling.
-- Verify long menu names, discounts, cash change, void/reprint labels, and both
-  58 mm and 80 mm output profiles.
-- Install the APK on a physical Android device and approve Nearby Devices.
+- Install the APK on a physical Android device and test permission, paired-device
+  listing, connect, print, reconnect, Bluetooth-off, and printer-off handling.
+- Verify physical output for long menu names, discounts, cash change,
+  void/reprint labels, and both 58 mm and 80 mm paper profiles.
 - Validate the final paper output on physical printers before declaring thermal
   printing production-ready.
