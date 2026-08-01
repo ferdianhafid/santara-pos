@@ -1,5 +1,32 @@
 # Santara POS - Project Status
 
+## Dual-Cafe Isolation Checkpoint (Pending Production Rollout)
+
+Code checkpoint: `f3c800e` (`feat: scope app data by business`).
+
+The codebase now contains the first dual-cafe isolation checkpoint for exactly
+Santara Coffee and Parama Cafe:
+
+* One profile belongs to one `business_id` and one existing role.
+* No membership table or business switcher was added.
+* Existing database rows are assigned to Santara by migration.
+* Parama starts with empty menu and operational data.
+* Database unique constraints and RLS policies are business-scoped.
+* Supabase reads and writes include an explicit business boundary.
+* Browser app state, sync queue, sync metadata, and backups are business-scoped.
+* Legacy single-business browser keys migrate to Santara only.
+* Receipt counters and prefixes are independent (`SAN` and `PAR`).
+* Accounts without a valid business profile are blocked instead of receiving a
+  fallback business.
+
+This checkpoint has passed TypeScript/Vite build plus local storage, queue, and
+backup-boundary smoke tests. The migration has not yet been applied to or tested
+against the production Supabase project. Do not deploy the matching frontend
+until the migrations are applied and the two-account RLS test matrix passes.
+
+Branding, Capacitor Android, and thermal printing have deliberately not started
+because the production dual-cafe gate has not yet passed.
+
 ## Current Deployment
 
 * App has been deployed to Vercel and is working.

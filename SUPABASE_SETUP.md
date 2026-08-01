@@ -1,7 +1,8 @@
-# Supabase Setup - Santara POS
+# Supabase Setup - Santara / Parama POS
 
-Santara POS is still localStorage-first, but it can now sync to Supabase when
-Supabase Auth is configured and a staff user is logged in.
+The POS is still localStorage-first, but it can sync to Supabase when Supabase
+Auth is configured and a staff user is logged in. Each account belongs to
+exactly one business and one role.
 
 ## 1. Create a Supabase Project
 
@@ -51,6 +52,8 @@ Open Supabase SQL Editor and run these files in order:
 4. `supabase/migrations/20260614000400_santara_pos_legacy_sales.sql`
 5. `supabase/migrations/20260614000500_santara_pos_expenses_closing.sql`
 6. `supabase/migrations/20260614000600_santara_pos_phase8_controls.sql`
+7. `supabase/migrations/20260801000100_dual_cafe_isolation.sql`
+8. `supabase/migrations/20260801000110_dual_cafe_settings_constraint_fix.sql`
 
 The Phase 5C migration removes the temporary anon sync policies and replaces
 them with authenticated owner/admin/cashier policies.
@@ -67,6 +70,15 @@ The Phase 8 migration adds item-level discount snapshots, pending-order item
 discount fields, and void receipt audit fields. Old transactions default to
 `completed`, so existing data remains readable.
 
+The dual-cafe migration creates exactly two business records, backfills every
+existing row to Santara Coffee, adds business-scoped unique constraints, and
+replaces broad authenticated policies with business-scoped RLS. Parama Cafe is
+created without menu or operational data.
+
+Apply and verify the dual-cafe migration before deploying the matching frontend
+commit. The frontend intentionally fails closed when a signed-in account does
+not have a valid business profile.
+
 ## 6. Create a Supabase Auth User
 
 1. In Supabase, open Authentication.
@@ -77,18 +89,46 @@ discount fields, and void receipt audit fields. Old transactions default to
 
 ## 7. Create the First Owner Profile
 
-After creating the Auth user, run this in Supabase SQL Editor. Replace the email
-with the owner email you created:
+After creating an Auth user, run one of the following statements in Supabase SQL
+Editor. Replace the example email and name first.
+
+Santara owner:
 
 ```sql
-insert into public.profiles (id, email, full_name, role)
-select id, email, 'Owner Santara', 'owner'
+insert into public.profiles (id, email, full_name, role, business_id)
+select
+  id,
+  email,
+  'Owner Santara',
+  'owner',
+  '11111111-1111-4111-8111-111111111111'::uuid
 from auth.users
 where email = 'owner@santara.coffee'
 on conflict (id) do update
 set email = excluded.email,
     full_name = excluded.full_name,
     role = excluded.role,
+    business_id = excluded.business_id,
+    updated_at = now();
+```
+
+Parama owner:
+
+```sql
+insert into public.profiles (id, email, full_name, role, business_id)
+select
+  id,
+  email,
+  'Owner Parama',
+  'owner',
+  '22222222-2222-4222-8222-222222222222'::uuid
+from auth.users
+where email = 'owner@parama.cafe'
+on conflict (id) do update
+set email = excluded.email,
+    full_name = excluded.full_name,
+    role = excluded.role,
+    business_id = excluded.business_id,
     updated_at = now();
 ```
 
@@ -98,14 +138,22 @@ Roles supported now:
 - `admin`: full access
 - `cashier`: cashier and receipt history only
 
-If a logged-in user has no profile row yet, the app safely treats them as
-`cashier` and shows a role setup note.
+There is no membership table. To add another staff account, create one Auth user
+and one profile row with exactly one of the two business IDs above and exactly
+one supported role.
+
+If a logged-in user has no profile row or has no valid business, the app blocks
+access and asks the user to contact an administrator. It never falls back to
+Santara data for an authenticated Parama account.
 
 ## 8. Current Phase 5C Behavior
 
 - If Supabase env variables are missing, the app stays in local/demo mode.
 - If Supabase is configured, users must login before cloud sync.
-- localStorage remains the first safety layer.
+- localStorage remains the first safety layer and is namespaced by business.
+- The sync queue and sync status metadata are also namespaced by business.
+- Legacy single-business browser data is migrated once into Santara's local
+  namespace.
 - The compact sync status shows `Login diperlukan` when cloud sync is waiting
   for login.
 - The small `Sync Sekarang` button retries pending sync after login.
