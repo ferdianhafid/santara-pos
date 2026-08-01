@@ -1,4 +1,8 @@
 import type { Session, User } from '@supabase/supabase-js';
+import {
+  getBusinessById,
+  type BusinessIdentity,
+} from '../config/businesses';
 import { supabase } from '../lib/supabase';
 
 export type UserRole = 'owner' | 'admin' | 'cashier';
@@ -8,6 +12,7 @@ export type UserProfile = {
   email: string;
   fullName: string;
   role: UserRole;
+  business: BusinessIdentity | null;
   isMissing: boolean;
 };
 
@@ -16,6 +21,7 @@ type ProfileRow = {
   email?: unknown;
   full_name?: unknown;
   role?: unknown;
+  business_id?: unknown;
 };
 
 export async function getCurrentSession() {
@@ -82,7 +88,7 @@ export async function fetchUserProfile(user: User): Promise<UserProfile> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role')
+    .select('id, email, full_name, role, business_id')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -90,15 +96,19 @@ export async function fetchUserProfile(user: User): Promise<UserProfile> {
     return createFallbackProfile(user, true);
   }
 
+  const businessId = toStringValue((data as ProfileRow).business_id);
+  const business = getBusinessById(businessId);
+
   return {
     id: toStringValue((data as ProfileRow).id) || user.id,
     email: toStringValue((data as ProfileRow).email) || user.email || '',
     fullName:
       toStringValue((data as ProfileRow).full_name) ||
       user.email ||
-      'Santara Cashier',
+      'Cafe Cashier',
     role: toUserRole((data as ProfileRow).role),
-    isMissing: false,
+    business,
+    isMissing: !business,
   };
 }
 
@@ -106,8 +116,9 @@ function createFallbackProfile(user: User, isMissing: boolean): UserProfile {
   return {
     id: user.id,
     email: user.email ?? '',
-    fullName: user.email ?? 'Santara Cashier',
+    fullName: user.email ?? 'Cafe Cashier',
     role: 'cashier',
+    business: null,
     isMissing,
   };
 }

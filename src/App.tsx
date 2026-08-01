@@ -10,6 +10,11 @@ import { ReceiptHistory } from './components/ReceiptHistory';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { Reports } from './components/Reports';
 import { Settings } from './components/Settings';
+import {
+  SANTARA_BUSINESS,
+  getDefaultCashierName,
+  type BusinessIdentity,
+} from './config/businesses';
 import { menuCategories as initialMenuCategories } from './data/menu';
 import {
   fetchUserProfile,
@@ -44,6 +49,7 @@ import {
   saveSyncMeta,
   saveSyncQueue,
   type SyncMeta,
+  type NewSyncOperation,
   type SyncOperation,
 } from './services/syncQueue';
 import type {
@@ -72,8 +78,9 @@ import {
   saveAppState,
 } from './utils/storage';
 
-const CASHIER_NAME = 'Santara Cashier';
-const defaultMenuItems = initialMenuCategories.flatMap((category) => category.items);
+const santaraDefaultMenuItems = initialMenuCategories.flatMap(
+  (category) => category.items,
+);
 
 type AppTab =
   | 'cashier'
@@ -82,7 +89,12 @@ type AppTab =
   | 'reports'
   | 'expenses'
   | 'settings';
-type AuthStatus = 'loading' | 'local' | 'authenticated' | 'unauthenticated';
+type AuthStatus =
+  | 'loading'
+  | 'local'
+  | 'authenticated'
+  | 'unauthenticated'
+  | 'profile-error';
 
 type PendingOrderAction = {
   type: 'resume' | 'delete';
@@ -106,8 +118,16 @@ const appTabs: Array<{ id: AppTab; label: string; icon: string }> = [
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
-function createReceiptNumber(date: Date, sequence: number) {
-  return `SAN-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
+function createReceiptNumber(
+  date: Date,
+  sequence: number,
+  prefix: BusinessIdentity['receiptPrefix'],
+) {
+  return `${prefix}-${formatCompactDate(date)}-${String(sequence).padStart(3, '0')}`;
+}
+
+function getDefaultMenuItems(business: BusinessIdentity) {
+  return business.slug === 'santara' ? santaraDefaultMenuItems : [];
 }
 
 function TabIcon({ id }: { id: AppTab }) {
@@ -187,7 +207,11 @@ function TabIcon({ id }: { id: AppTab }) {
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('cashier');
   const [isTabletSidebarOpen, setIsTabletSidebarOpen] = useState(false);
-  const [initialAppData] = useState(() => loadAppState(defaultMenuItems));
+  const [initialAppData] = useState(() =>
+    loadAppState(santaraDefaultMenuItems, SANTARA_BUSINESS.slug),
+  );
+  const [activeBusiness, setActiveBusiness] =
+    useState<BusinessIdentity>(SANTARA_BUSINESS);
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>(
     initialAppData.menuCategories,
   );
@@ -223,8 +247,12 @@ function App() {
   const [discountItemId, setDiscountItemId] = useState<string | null>(null);
   const [pendingOrderAction, setPendingOrderAction] =
     useState<PendingOrderAction | null>(null);
-  const [syncQueue, setSyncQueue] = useState<SyncOperation[]>(loadSyncQueue);
-  const [syncMeta, setSyncMeta] = useState<SyncMeta>(loadSyncMeta);
+  const [syncQueue, setSyncQueue] = useState<SyncOperation[]>(() =>
+    loadSyncQueue(SANTARA_BUSINESS),
+  );
+  const [syncMeta, setSyncMeta] = useState<SyncMeta>(() =>
+    loadSyncMeta(SANTARA_BUSINESS),
+  );
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(
     canUseSupabase() ? 'login-required' : 'local',
   );
@@ -235,8 +263,12 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const isSyncingRef = useRef(false);
+  const activeBusinessRef = useRef<BusinessIdentity>(SANTARA_BUSINESS);
 
   const latestTransaction = completedTransactions[completedTransactions.length - 1];
+  const activeDefaultMenuItems = getDefaultMenuItems(activeBusiness);
+  const cashierName =
+    authProfile?.fullName ?? getDefaultCashierName(activeBusiness);
   const effectiveRole: UserRole =
     authStatus === 'local' ? 'owner' : authProfile?.role ?? 'cashier';
   const visibleTabs = useMemo(
@@ -304,7 +336,7 @@ function App() {
   const syncMetaRef = useRef(syncMeta);
 
   useEffect(() => {
-    saveAppState(appData);
+    saveAppState(appData, activeBusinessRef.current.slug);
     appDataRef.current = appData;
   }, [appData]);
 
@@ -315,6 +347,50 @@ function App() {
   useEffect(() => {
     syncMetaRef.current = syncMeta;
   }, [syncMeta]);
+
+  const applyBusinessData = useCallback((data: AppStateData) => {
+    setMenuCategories(data.menuCategories);
+    setMenuItems(data.menuItems);
+    setPendingOrders(data.pendingOrders);
+    setCompletedTransactions(data.completedTransactions);
+    setLegacySales(data.legacySales);
+    setLegacyImportBatches(data.legacyImportBatches);
+    setExpenses(data.expenses);
+    setDailyClosings(data.dailyClosings);
+    setGoogleSheetSyncSettings(data.googleSheetSyncSettings);
+    setGoogleSheetSyncLogs(data.googleSheetSyncLogs);
+    setReceiptCounter(data.receiptCounter);
+    setActiveCategoryName(
+      data.menuCategories.find((category) => category.isActive)?.name ??
+        data.menuItems[0]?.category ??
+        '',
+    );
+    appDataRef.current = data;
+  }, []);
+
+  const activateBusiness = useCallback(
+    (business: BusinessIdentity) => {
+      const businessData = loadAppState(
+        getDefaultMenuItems(business),
+        business.slug,
+      );
+      const businessQueue = loadSyncQueue(business);
+      const businessSyncMeta = loadSyncMeta(business);
+
+      activeBusinessRef.current = business;
+      setActiveBusiness(business);
+      applyBusinessData(businessData);
+      syncQueueRef.current = businessQueue;
+      setSyncQueue(businessQueue);
+      syncMetaRef.current = businessSyncMeta;
+      setSyncMeta(businessSyncMeta);
+      setCart([]);
+      setIsCheckoutOpen(false);
+      setIsSaveOrderOpen(false);
+      setPendingOrderAction(null);
+    },
+    [applyBusinessData],
+  );
 
   const applyAuthSession = useCallback(async (session: Session | null) => {
     if (!canUseSupabase()) {
@@ -334,9 +410,20 @@ function App() {
     const profile = await fetchUserProfile(session.user);
 
     setAuthProfile(profile);
+
+    if (profile.isMissing || !profile.business) {
+      setAuthStatus('profile-error');
+      setSyncStatus('login-required');
+      setAuthError(
+        'Akun ini belum memiliki profil bisnis yang valid. Hubungi administrator.',
+      );
+      return;
+    }
+
+    activateBusiness(profile.business);
     setAuthStatus('authenticated');
     setAuthError('');
-  }, []);
+  }, [activateBusiness]);
 
   useEffect(() => {
     let isActive = true;
@@ -390,47 +477,36 @@ function App() {
 
   const replaceSyncQueue = useCallback((nextQueue: SyncOperation[]) => {
     syncQueueRef.current = nextQueue;
-    saveSyncQueue(nextQueue);
+    saveSyncQueue(nextQueue, activeBusinessRef.current);
     setSyncQueue(nextQueue);
   }, []);
 
   const updateSyncMeta = useCallback((nextMeta: SyncMeta) => {
     syncMetaRef.current = nextMeta;
-    saveSyncMeta(nextMeta);
+    saveSyncMeta(nextMeta, activeBusinessRef.current);
     setSyncMeta(nextMeta);
   }, []);
 
   const applyCloudAppData = useCallback((data: AppStateData) => {
-    setMenuCategories(data.menuCategories);
-    setMenuItems(data.menuItems);
-    setPendingOrders(data.pendingOrders);
-    setCompletedTransactions(data.completedTransactions);
-    setLegacySales(data.legacySales);
-    setLegacyImportBatches(data.legacyImportBatches);
-    setExpenses(data.expenses);
-    setDailyClosings(data.dailyClosings);
-    setGoogleSheetSyncSettings(data.googleSheetSyncSettings);
-    setGoogleSheetSyncLogs(data.googleSheetSyncLogs);
-    setReceiptCounter(data.receiptCounter);
-    setActiveCategoryName(
-      data.menuCategories.find((category) => category.isActive)?.name ??
-        data.menuItems[0]?.category ??
-        initialMenuCategories[0].name,
-    );
-    saveAppState(data);
-    appDataRef.current = data;
-  }, []);
+    applyBusinessData(data);
+    saveAppState(data, activeBusinessRef.current.slug);
+  }, [applyBusinessData]);
 
   const enqueueSyncOperations = useCallback(
-    (operations: Array<Omit<SyncOperation, 'id' | 'createdAt'>>) => {
+    (operations: NewSyncOperation[]) => {
       setSyncQueue((currentQueue) => {
         const nextQueue = operations.reduce(
-          (queue, operation) => addSyncOperation(queue, operation),
+          (queue, operation) =>
+            addSyncOperation(
+              queue,
+              operation,
+              activeBusinessRef.current.id,
+            ),
           currentQueue,
         );
 
         syncQueueRef.current = nextQueue;
-        saveSyncQueue(nextQueue);
+        saveSyncQueue(nextQueue, activeBusinessRef.current);
 
         return nextQueue;
       });
@@ -468,6 +544,10 @@ function App() {
 
       try {
         for (const operation of syncQueueRef.current) {
+          if (operation.businessId !== activeBusinessRef.current.id) {
+            throw new Error('Antrean sync tidak sesuai dengan bisnis aktif.');
+          }
+
           await pushSyncOperation(operation);
           remainingQueue = removeSyncOperation(remainingQueue, operation.id);
           replaceSyncQueue(remainingQueue);
@@ -481,7 +561,10 @@ function App() {
         updateSyncMeta(nextMeta);
 
         if (pullAfterSuccess && remainingQueue.length === 0) {
-          const cloudData = await pullCloudAppState(appDataRef.current);
+          const cloudData = await pullCloudAppState(
+            appDataRef.current,
+            activeBusinessRef.current.id,
+          );
 
           if (cloudData) {
             applyCloudAppData(cloudData);
@@ -844,9 +927,13 @@ function App() {
     const completedAt = new Date();
     const nextReceiptCounter = receiptCounter + 1;
     const transaction: CompletedTransaction = {
-      receiptNumber: createReceiptNumber(completedAt, nextReceiptCounter),
+      receiptNumber: createReceiptNumber(
+        completedAt,
+        nextReceiptCounter,
+        activeBusiness.receiptPrefix,
+      ),
       dateTime: completedAt.toISOString(),
-      cashierName: CASHIER_NAME,
+      cashierName,
       items: cart.map((item) => ({
         ...item,
         itemDiscountAmount: getCartLineDiscount(item),
@@ -884,7 +971,7 @@ function App() {
 
   const voidReceipt = (receiptNumber: string, reason: string) => {
     const voidedAt = new Date().toISOString();
-    const voidedBy = authProfile?.fullName ?? CASHIER_NAME;
+    const voidedBy = cashierName;
     let voidedTransaction: CompletedTransaction | null = null;
 
     setCompletedTransactions((transactions) =>
@@ -981,12 +1068,12 @@ function App() {
     setActiveCategoryName(
       data.menuCategories.find((category) => category.isActive)?.name ??
         data.menuItems[0]?.category ??
-        initialMenuCategories[0].name,
+        '',
     );
   };
 
   const resetLocalData = () => {
-    const defaultState = createDefaultAppState(defaultMenuItems);
+    const defaultState = createDefaultAppState(activeDefaultMenuItems);
 
     importAppData(defaultState);
   };
@@ -1001,7 +1088,10 @@ function App() {
     setGoogleSheetSyncLogs([]);
     setReceiptCounter(0);
     replaceSyncQueue([]);
-    saveSyncMeta({ lastSyncedAt: null, lastError: null });
+    saveSyncMeta(
+      { lastSyncedAt: null, lastError: null },
+      activeBusinessRef.current,
+    );
     setSyncMeta({ lastSyncedAt: null, lastError: null });
     setCart([]);
     setIsCheckoutOpen(false);
@@ -1019,6 +1109,15 @@ function App() {
         errorMessage={authError}
         isLoading={isAuthSubmitting}
         onSubmit={loginToSupabase}
+      />
+    );
+  }
+
+  if (authStatus === 'profile-error' && canUseSupabase()) {
+    return (
+      <BusinessAccessErrorScreen
+        message={authError}
+        onLogout={logoutFromSupabase}
       />
     );
   }
@@ -1049,10 +1148,14 @@ function App() {
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-6 border-b border-gray-100">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-lg">
-              <span className="text-white font-extrabold text-lg">SC</span>
+              <span className="text-white font-extrabold text-lg">
+                {activeBusiness.slug === 'santara' ? 'SC' : 'PC'}
+              </span>
             </div>
             <div>
-              <h1 className="font-extrabold text-lg text-coffee-dark tracking-tight">Santara</h1>
+              <h1 className="font-extrabold text-lg text-coffee-dark tracking-tight">
+                {activeBusiness.name}
+              </h1>
               <p className="text-xs text-gray-500 font-medium">Coffee POS</p>
             </div>
             <button
@@ -1108,10 +1211,14 @@ function App() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-md">
-              <span className="text-white font-extrabold">SC</span>
+              <span className="text-white font-extrabold">
+                {activeBusiness.slug === 'santara' ? 'SC' : 'PC'}
+              </span>
             </div>
             <div>
-              <h1 className="font-extrabold text-coffee-dark">Santara Coffee</h1>
+              <h1 className="font-extrabold text-coffee-dark">
+                {activeBusiness.name}
+              </h1>
               <p className="text-xs text-gray-500">Kasir</p>
             </div>
           </div>
@@ -1219,7 +1326,7 @@ function App() {
             {activeTab === 'receipts' && (
               <ReceiptHistory
                 canVoid={effectiveRole === 'owner' || effectiveRole === 'admin'}
-                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                currentUserName={cashierName}
                 onVoidReceipt={voidReceipt}
                 transactions={completedTransactions}
               />
@@ -1227,7 +1334,7 @@ function App() {
 
             {activeTab === 'reports' && canAccessTab('reports', effectiveRole) && (
               <Reports
-                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                currentUserName={cashierName}
                 dailyClosings={dailyClosings}
                 expenses={expenses}
                 googleSheetSyncLogs={googleSheetSyncLogs}
@@ -1242,7 +1349,7 @@ function App() {
 
             {activeTab === 'expenses' && canAccessTab('expenses', effectiveRole) && (
               <Expenses
-                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                currentUserName={cashierName}
                 expenses={expenses}
                 onAddExpense={addExpense}
                 onDeleteExpense={deleteExpense}
@@ -1253,9 +1360,10 @@ function App() {
             {activeTab === 'settings' && canAccessTab('settings', effectiveRole) && (
               <Settings
                 appData={appData}
-                currentUserName={authProfile?.fullName ?? CASHIER_NAME}
+                businessSlug={activeBusiness.slug}
+                currentUserName={cashierName}
                 dailyClosings={dailyClosings}
-                defaultMenuItems={defaultMenuItems}
+                defaultMenuItems={activeDefaultMenuItems}
                 expenses={expenses}
                 googleSheetSyncLogs={googleSheetSyncLogs}
                 googleSheetSyncSettings={googleSheetSyncSettings}
@@ -1320,12 +1428,42 @@ function LoadingScreen() {
     <div className="min-h-screen bg-cream flex items-center justify-center">
       <div className="card text-center max-w-sm">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-lg mb-4">
-          <span className="text-white font-extrabold text-xl">SC</span>
+          <span className="text-white font-extrabold text-xl">POS</span>
         </div>
         <h1 className="text-xl font-extrabold text-coffee-dark">Memeriksa sesi login...</h1>
-        <p className="text-sm text-gray-500 mt-2">Santara POS sedang menyiapkan akses cloud.</p>
+        <p className="text-sm text-gray-500 mt-2">POS sedang menyiapkan akses bisnis.</p>
       </div>
     </div>
+  );
+}
+
+function BusinessAccessErrorScreen({
+  message,
+  onLogout,
+}: {
+  message: string;
+  onLogout: () => void;
+}) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-santara-cream px-4 py-8 text-santara-roast">
+      <section className="w-full max-w-md rounded-xl bg-santara-foam p-6 text-center shadow-soft ring-1 ring-santara-latte">
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
+          Akses bisnis belum siap
+        </p>
+        <h1 className="mt-2 text-2xl font-black">Profil perlu dikonfigurasi</h1>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-santara-roast/70">
+          {message ||
+            'Akun ini belum terhubung ke Santara Coffee atau Parama Cafe.'}
+        </p>
+        <button
+          className="mt-5 w-full rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white transition hover:bg-santara-roast"
+          onClick={onLogout}
+          type="button"
+        >
+          Keluar
+        </button>
+      </section>
+    </main>
   );
 }
 
@@ -1355,8 +1493,13 @@ function AuthSummary({
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-black">
       <span className="rounded-full bg-white px-2 py-1 text-santara-roast ring-1 ring-santara-latte">
-        {authProfile?.fullName ?? 'Santara User'} - {getRoleLabel(effectiveRole)}
+        {authProfile?.fullName ?? 'Cafe User'} - {getRoleLabel(effectiveRole)}
       </span>
+      {authProfile?.business && (
+        <span className="rounded-full bg-santara-cream px-2 py-1 text-santara-bean ring-1 ring-santara-latte">
+          {authProfile.business.name}
+        </span>
+      )}
       {roleMissing && (
         <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700 ring-1 ring-amber-200">
           Role belum dikonfigurasi

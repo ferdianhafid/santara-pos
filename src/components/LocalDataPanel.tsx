@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { BusinessSlug } from '../config/businesses';
 import type { AppStateData, MenuItem } from '../types';
 import {
   exportAppState,
@@ -8,6 +9,7 @@ import {
 
 type LocalDataPanelProps = {
   appData: AppStateData;
+  businessSlug: BusinessSlug;
   defaultMenuItems: MenuItem[];
   onImportData: (data: AppStateData) => void;
   onResetData: () => void;
@@ -18,6 +20,7 @@ type StatusType = 'success' | 'error' | null;
 
 export function LocalDataPanel({
   appData,
+  businessSlug,
   defaultMenuItems,
   onImportData,
   onResetData,
@@ -39,7 +42,11 @@ export function LocalDataPanel({
     }
 
     try {
-      const parsedData = parseImportedAppState(await file.text(), defaultMenuItems);
+      const parsedData = parseImportedAppState(
+        await file.text(),
+        defaultMenuItems,
+        businessSlug,
+      );
 
       if (!parsedData) {
         showStatus('error', 'Data gagal dimuat');
@@ -67,7 +74,7 @@ export function LocalDataPanel({
     }
 
     if (confirmAction === 'reset') {
-      resetAppState();
+      resetAppState(businessSlug);
       onResetData();
       setConfirmAction(null);
       showStatus('success', 'Data berhasil dimuat');
@@ -91,7 +98,7 @@ export function LocalDataPanel({
           </h3>
           <p className="mt-1 max-w-2xl text-sm text-santara-roast/65">
             Simpan backup JSON sebelum uji coba besar, atau pulihkan data lokal
-            dari backup Santara POS.
+            dari backup bisnis yang sedang aktif.
           </p>
         </div>
 
@@ -99,7 +106,7 @@ export function LocalDataPanel({
           <button
             className="rounded-lg bg-santara-bean px-4 py-3 text-sm font-black text-white transition hover:bg-santara-roast"
             onClick={() => {
-              exportAppState(appData);
+              exportAppState(appData, businessSlug);
               showStatus('success', 'Backup berhasil diexport');
             }}
             type="button"

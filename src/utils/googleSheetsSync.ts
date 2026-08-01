@@ -79,7 +79,7 @@ export function buildGoogleSheetPayload(
   report: SalesReport,
   reportMode: ReportMode,
   selectedDate: string,
-  syncedBy = 'Santara User',
+  syncedBy = 'Cafe User',
 ) {
   const generatedAt = new Date().toISOString();
   const reportKey = getReportKey(reportMode, selectedDate);

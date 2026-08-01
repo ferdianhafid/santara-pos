@@ -28,21 +28,21 @@ export function LoginScreen({
       <section className="w-full max-w-md rounded-xl bg-santara-foam p-5 shadow-soft ring-1 ring-santara-latte sm:p-6">
         <div className="flex items-center gap-3">
           <div className="grid size-12 shrink-0 place-items-center rounded-full bg-santara-bean text-base font-black text-white shadow-soft">
-            SC
+            POS
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-santara-clay">
-              Santara POS
+              Cafe POS
             </p>
             <h1 className="font-display text-2xl font-black leading-tight">
-              Login Santara POS
+              Login Cafe POS
             </h1>
           </div>
         </div>
 
         <p className="mt-4 text-sm font-medium leading-relaxed text-santara-roast/70">
-          Masuk dengan akun Supabase yang sudah dibuat untuk Santara Coffee.
-          Setelah login, data lokal tetap aman dan sync cloud berjalan otomatis.
+          Masuk dengan akun Santara Coffee atau Parama Cafe. Data lokal dan
+          sinkronisasi cloud dipisahkan otomatis berdasarkan akun.
         </p>
 
         <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
@@ -54,7 +54,7 @@ export function LoginScreen({
               autoComplete="email"
               className="mt-1 w-full rounded-lg bg-white px-3 py-3 text-sm font-bold outline-none ring-1 ring-santara-latte transition placeholder:text-santara-roast/35 focus:ring-2 focus:ring-santara-clay"
               name="email"
-              placeholder="owner@santara.coffee"
+                placeholder="owner@cafe.com"
               type="email"
             />
           </label>

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import type { BusinessSlug } from '../config/businesses';
 import { GoogleSheetSync } from './GoogleSheetSync';
 import { LegacyImport } from './LegacyImport';
 import { LocalDataPanel } from './LocalDataPanel';
@@ -17,6 +18,7 @@ import { buildSalesReport } from '../utils/reports';
 
 type SettingsProps = {
   appData: AppStateData;
+  businessSlug: BusinessSlug;
   currentUserName: string;
   dailyClosings: DailyClosing[];
   defaultMenuItems: MenuItem[];
@@ -36,6 +38,7 @@ type SettingsProps = {
 
 export function Settings({
   appData,
+  businessSlug,
   currentUserName,
   dailyClosings,
   defaultMenuItems,
@@ -83,6 +86,7 @@ export function Settings({
         <div className="space-y-4">
           <LocalDataPanel
             appData={appData}
+            businessSlug={businessSlug}
             defaultMenuItems={defaultMenuItems}
             onImportData={onImportData}
             onResetData={onResetData}

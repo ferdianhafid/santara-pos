@@ -16,13 +16,15 @@ import type {
   PendingOrder,
   TransactionItem,
 } from '../types';
+import type { BusinessSlug } from '../config/businesses';
 
-export const APP_STORAGE_KEY = 'santara-pos-v1';
-export const APP_DATA_VERSION = 1;
+export const LEGACY_APP_STORAGE_KEY = 'santara-pos-v1';
+export const APP_DATA_VERSION = 2;
 
 type PersistedAppState = AppStateData & {
   version: typeof APP_DATA_VERSION;
   savedAt: string;
+  businessSlug: BusinessSlug;
 };
 
 const paymentMethods: PaymentMethod[] = ['Cash', 'QRIS', 'Debit'];
@@ -51,20 +53,32 @@ export function createDefaultAppState(defaultMenuItems: MenuItem[]): AppStateDat
   };
 }
 
-export function loadAppState(defaultMenuItems: MenuItem[]): AppStateData {
+export function loadAppState(
+  defaultMenuItems: MenuItem[],
+  businessSlug: BusinessSlug,
+): AppStateData {
   if (!canUseLocalStorage()) {
     return createDefaultAppState(defaultMenuItems);
   }
 
   try {
-    const savedValue = window.localStorage.getItem(APP_STORAGE_KEY);
+    const storageKey = getAppStorageKey(businessSlug);
+    let savedValue = window.localStorage.getItem(storageKey);
+
+    if (!savedValue && businessSlug === 'santara') {
+      savedValue = migrateLegacySantaraState(storageKey);
+    }
 
     if (!savedValue) {
       return createDefaultAppState(defaultMenuItems);
     }
 
     return (
-      normalizeAppState(JSON.parse(savedValue), defaultMenuItems) ??
+      normalizeBusinessScopedState(
+        JSON.parse(savedValue),
+        defaultMenuItems,
+        businessSlug,
+      ) ??
       createDefaultAppState(defaultMenuItems)
     );
   } catch {
@@ -72,27 +86,30 @@ export function loadAppState(defaultMenuItems: MenuItem[]): AppStateData {
   }
 }
 
-export function saveAppState(data: AppStateData) {
+export function saveAppState(data: AppStateData, businessSlug: BusinessSlug) {
   if (!canUseLocalStorage()) {
     return;
   }
 
   try {
-    window.localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(toPersistedState(data)));
+    window.localStorage.setItem(
+      getAppStorageKey(businessSlug),
+      JSON.stringify(toPersistedState(data, businessSlug)),
+    );
   } catch {
     // Local storage can fail in private mode or when quota is full. The app should keep running.
   }
 }
 
-export function exportAppState(data: AppStateData) {
-  const payload = JSON.stringify(toPersistedState(data), null, 2);
+export function exportAppState(data: AppStateData, businessSlug: BusinessSlug) {
+  const payload = JSON.stringify(toPersistedState(data, businessSlug), null, 2);
   const blob = new Blob([payload], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   const date = new Date().toISOString().slice(0, 10);
 
   link.href = url;
-  link.download = `santara-pos-backup-${date}.json`;
+  link.download = `${businessSlug}-pos-backup-${date}.json`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -102,28 +119,79 @@ export function exportAppState(data: AppStateData) {
 export function parseImportedAppState(
   backupText: string,
   defaultMenuItems: MenuItem[],
+  businessSlug: BusinessSlug,
 ): AppStateData | null {
   try {
-    return normalizeAppState(JSON.parse(backupText), defaultMenuItems);
+    return normalizeBusinessScopedState(
+      JSON.parse(backupText),
+      defaultMenuItems,
+      businessSlug,
+    );
   } catch {
     return null;
   }
 }
 
-export function resetAppState() {
+export function resetAppState(businessSlug: BusinessSlug) {
   if (!canUseLocalStorage()) {
     return;
   }
 
-  window.localStorage.removeItem(APP_STORAGE_KEY);
+  window.localStorage.removeItem(getAppStorageKey(businessSlug));
 }
 
-function toPersistedState(data: AppStateData): PersistedAppState {
+export function getAppStorageKey(businessSlug: BusinessSlug) {
+  return `cafe-pos:${businessSlug}:app-state-v1`;
+}
+
+function migrateLegacySantaraState(scopedStorageKey: string) {
+  const legacyValue = window.localStorage.getItem(LEGACY_APP_STORAGE_KEY);
+
+  if (!legacyValue) {
+    return null;
+  }
+
+  window.localStorage.setItem(scopedStorageKey, legacyValue);
+  window.localStorage.removeItem(LEGACY_APP_STORAGE_KEY);
+
+  return legacyValue;
+}
+
+function toPersistedState(
+  data: AppStateData,
+  businessSlug: BusinessSlug,
+): PersistedAppState {
   return {
     ...data,
     version: APP_DATA_VERSION,
     savedAt: new Date().toISOString(),
+    businessSlug,
   };
+}
+
+function normalizeBusinessScopedState(
+  value: unknown,
+  defaultMenuItems: MenuItem[],
+  expectedBusinessSlug: BusinessSlug,
+) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const storedBusinessSlug =
+    value.businessSlug === 'santara' || value.businessSlug === 'parama'
+      ? value.businessSlug
+      : null;
+
+  if (storedBusinessSlug && storedBusinessSlug !== expectedBusinessSlug) {
+    return null;
+  }
+
+  if (!storedBusinessSlug && expectedBusinessSlug !== 'santara') {
+    return null;
+  }
+
+  return normalizeAppState(value, defaultMenuItems);
 }
 
 function normalizeAppState(
@@ -401,7 +469,7 @@ function normalizeLegacySale(value: unknown): LegacySale | null {
     notes: isString(value.notes) ? value.notes : '',
     source: 'legacy_import',
     importedAt: isString(value.importedAt) ? value.importedAt : value.saleDate,
-    importedBy: isString(value.importedBy) ? value.importedBy : 'Santara User',
+    importedBy: isString(value.importedBy) ? value.importedBy : 'Cafe User',
   };
 }
 
@@ -436,7 +504,7 @@ function normalizeLegacyImportBatch(value: unknown): LegacyImportBatch | null {
     id: value.id,
     fileName: value.fileName,
     importedAt: value.importedAt,
-    importedBy: isString(value.importedBy) ? value.importedBy : 'Santara User',
+    importedBy: isString(value.importedBy) ? value.importedBy : 'Cafe User',
     totalRows: Math.max(0, Math.floor(toNonNegativeNumber(value.totalRows))),
     dateStart: isString(value.dateStart) ? value.dateStart : '',
     dateEnd: isString(value.dateEnd) ? value.dateEnd : '',
@@ -489,7 +557,7 @@ function normalizeExpense(value: unknown): Expense | null {
     notes: isString(value.notes) ? value.notes : '',
     createdAt,
     updatedAt: isString(value.updatedAt) ? value.updatedAt : createdAt,
-    createdBy: isString(value.createdBy) ? value.createdBy : 'Santara User',
+    createdBy: isString(value.createdBy) ? value.createdBy : 'Cafe User',
   };
 }
 
@@ -542,7 +610,7 @@ function normalizeDailyClosing(value: unknown): DailyClosing | null {
     notes: isString(value.notes) ? value.notes : '',
     createdAt,
     updatedAt: isString(value.updatedAt) ? value.updatedAt : createdAt,
-    createdBy: isString(value.createdBy) ? value.createdBy : 'Santara User',
+    createdBy: isString(value.createdBy) ? value.createdBy : 'Cafe User',
   };
 }
 
@@ -564,7 +632,7 @@ function normalizeGoogleSheetSyncSettings(
         ? value.isEnabled
         : Boolean(isString(value.endpointUrl) && value.endpointUrl),
     updatedAt: isString(value.updatedAt) ? value.updatedAt : null,
-    updatedBy: isString(value.updatedBy) ? value.updatedBy : 'Santara User',
+    updatedBy: isString(value.updatedBy) ? value.updatedBy : 'Cafe User',
   };
 }
 
@@ -604,7 +672,7 @@ function normalizeGoogleSheetSyncLog(value: unknown): GoogleSheetSyncLog | null 
     status: value.status === 'success' ? 'success' : 'error',
     message: value.message,
     syncedAt: value.syncedAt,
-    syncedBy: isString(value.syncedBy) ? value.syncedBy : 'Santara User',
+    syncedBy: isString(value.syncedBy) ? value.syncedBy : 'Cafe User',
   };
 }
 
@@ -756,7 +824,7 @@ function createDefaultGoogleSheetSettings(): GoogleSheetSyncSettings {
     endpointUrl: '',
     isEnabled: false,
     updatedAt: null,
-    updatedBy: 'Santara User',
+    updatedBy: 'Cafe User',
   };
 }
 

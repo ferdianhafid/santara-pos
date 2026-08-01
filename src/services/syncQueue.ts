@@ -10,6 +10,7 @@ import type {
   MenuItem,
   PendingOrder,
 } from '../types';
+import type { BusinessIdentity } from '../config/businesses';
 
 export type SyncOperationType =
   | 'menu-snapshot-upsert'
@@ -27,6 +28,7 @@ export type SyncOperationType =
 
 export type SyncOperation = {
   id: string;
+  businessId: string;
   type: SyncOperationType;
   dedupeKey: string;
   createdAt: string;
@@ -45,21 +47,31 @@ export type SyncOperation = {
     | { googleSheetSyncLog: GoogleSheetSyncLog };
 };
 
+export type NewSyncOperation = Omit<
+  SyncOperation,
+  'id' | 'createdAt' | 'businessId'
+>;
+
 export type SyncMeta = {
   lastSyncedAt: string | null;
   lastError: string | null;
 };
 
-const SYNC_QUEUE_KEY = 'santara-pos-sync-queue-v1';
-const SYNC_META_KEY = 'santara-pos-sync-meta-v1';
+const LEGACY_SYNC_QUEUE_KEY = 'santara-pos-sync-queue-v1';
+const LEGACY_SYNC_META_KEY = 'santara-pos-sync-meta-v1';
 
-export function loadSyncQueue(): SyncOperation[] {
+export function loadSyncQueue(business: BusinessIdentity): SyncOperation[] {
   if (!canUseLocalStorage()) {
     return [];
   }
 
   try {
-    const savedValue = window.localStorage.getItem(SYNC_QUEUE_KEY);
+    const storageKey = getSyncQueueKey(business);
+    let savedValue = window.localStorage.getItem(storageKey);
+
+    if (!savedValue && business.slug === 'santara') {
+      savedValue = migrateLegacyValue(LEGACY_SYNC_QUEUE_KEY, storageKey);
+    }
 
     if (!savedValue) {
       return [];
@@ -68,28 +80,35 @@ export function loadSyncQueue(): SyncOperation[] {
     const parsedValue = JSON.parse(savedValue);
 
     return Array.isArray(parsedValue)
-      ? parsedValue.filter(isSyncOperation)
+      ? parsedValue
+          .map((operation) => normalizeSyncOperation(operation, business.id))
+          .filter((operation): operation is SyncOperation => Boolean(operation))
       : [];
   } catch {
     return [];
   }
 }
 
-export function saveSyncQueue(queue: SyncOperation[]) {
+export function saveSyncQueue(
+  queue: SyncOperation[],
+  business: BusinessIdentity,
+) {
   if (!canUseLocalStorage()) {
     return;
   }
 
-  window.localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+  window.localStorage.setItem(getSyncQueueKey(business), JSON.stringify(queue));
 }
 
 export function addSyncOperation(
   queue: SyncOperation[],
-  operation: Omit<SyncOperation, 'id' | 'createdAt'>,
+  operation: NewSyncOperation,
+  businessId: string,
 ) {
   const nextOperation: SyncOperation = {
     ...operation,
     id: `sync-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    businessId,
     createdAt: new Date().toISOString(),
   };
   const withoutDuplicate = queue.filter(
@@ -103,7 +122,7 @@ export function removeSyncOperation(queue: SyncOperation[], operationId: string)
   return queue.filter((operation) => operation.id !== operationId);
 }
 
-export function loadSyncMeta(): SyncMeta {
+export function loadSyncMeta(business: BusinessIdentity): SyncMeta {
   if (!canUseLocalStorage()) {
     return {
       lastSyncedAt: null,
@@ -112,7 +131,12 @@ export function loadSyncMeta(): SyncMeta {
   }
 
   try {
-    const savedValue = window.localStorage.getItem(SYNC_META_KEY);
+    const storageKey = getSyncMetaKey(business);
+    let savedValue = window.localStorage.getItem(storageKey);
+
+    if (!savedValue && business.slug === 'santara') {
+      savedValue = migrateLegacyValue(LEGACY_SYNC_META_KEY, storageKey);
+    }
 
     if (!savedValue) {
       return {
@@ -148,18 +172,18 @@ export function loadSyncMeta(): SyncMeta {
   }
 }
 
-export function saveSyncMeta(meta: SyncMeta) {
+export function saveSyncMeta(meta: SyncMeta, business: BusinessIdentity) {
   if (!canUseLocalStorage()) {
     return;
   }
 
-  window.localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
+  window.localStorage.setItem(getSyncMetaKey(business), JSON.stringify(meta));
 }
 
 export function createMenuSyncOperation(
   menuItems: MenuItem[],
   menuCategories: MenuCategory[] = [],
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'menu-snapshot-upsert',
     dedupeKey: 'menu:snapshot',
@@ -173,7 +197,7 @@ export function createMenuSyncOperation(
 export function createMenuCategoryDeleteOperation(
   categoryId: string,
   categoryName: string,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'menu-category-delete',
     dedupeKey: `menu-category-delete:${categoryId}:${categoryName}`,
@@ -187,7 +211,7 @@ export function createMenuCategoryDeleteOperation(
 export function createTransactionSyncOperations(
   transaction: CompletedTransaction,
   receiptCounter: number,
-): Array<Omit<SyncOperation, 'id' | 'createdAt'>> {
+): NewSyncOperation[] {
   return [
     {
       type: 'transaction-upsert',
@@ -208,7 +232,7 @@ export function createTransactionSyncOperations(
 
 export function createPendingOrderUpsertOperation(
   pendingOrder: PendingOrder,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'pending-order-upsert',
     dedupeKey: `pending-order:${pendingOrder.id}`,
@@ -220,7 +244,7 @@ export function createPendingOrderUpsertOperation(
 
 export function createPendingOrderDeleteOperation(
   pendingOrderId: string,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'pending-order-delete',
     dedupeKey: `pending-order:${pendingOrderId}`,
@@ -233,7 +257,7 @@ export function createPendingOrderDeleteOperation(
 export function createLegacyImportSyncOperation(
   batch: LegacyImportBatch,
   sales: LegacySale[],
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'legacy-import-upsert',
     dedupeKey: `legacy-import:${batch.id}`,
@@ -246,7 +270,7 @@ export function createLegacyImportSyncOperation(
 
 export function createExpenseUpsertOperation(
   expense: Expense,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'expense-upsert',
     dedupeKey: `expense:${expense.id}`,
@@ -258,7 +282,7 @@ export function createExpenseUpsertOperation(
 
 export function createExpenseDeleteOperation(
   expenseId: string,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'expense-delete',
     dedupeKey: `expense-delete:${expenseId}`,
@@ -270,7 +294,7 @@ export function createExpenseDeleteOperation(
 
 export function createDailyClosingSyncOperation(
   dailyClosing: DailyClosing,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'daily-closing-upsert',
     dedupeKey: `daily-closing:${dailyClosing.closingDate}`,
@@ -282,7 +306,7 @@ export function createDailyClosingSyncOperation(
 
 export function createGoogleSheetSettingsSyncOperation(
   googleSheetSyncSettings: GoogleSheetSyncSettings,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'google-sheet-settings-upsert',
     dedupeKey: 'google-sheet:settings',
@@ -294,7 +318,7 @@ export function createGoogleSheetSettingsSyncOperation(
 
 export function createGoogleSheetSyncLogOperation(
   googleSheetSyncLog: GoogleSheetSyncLog,
-): Omit<SyncOperation, 'id' | 'createdAt'> {
+): NewSyncOperation {
   return {
     type: 'google-sheet-sync-log-upsert',
     dedupeKey: `google-sheet:log:${googleSheetSyncLog.id}`,
@@ -304,15 +328,53 @@ export function createGoogleSheetSyncLogOperation(
   };
 }
 
-function isSyncOperation(value: unknown): value is SyncOperation {
-  return (
+function normalizeSyncOperation(
+  value: unknown,
+  businessId: string,
+): SyncOperation | null {
+  if (!(
     isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.type === 'string' &&
     typeof value.dedupeKey === 'string' &&
     typeof value.createdAt === 'string' &&
     isRecord(value.payload)
-  );
+  )) {
+    return null;
+  }
+
+  const operationBusinessId =
+    typeof value.businessId === 'string' ? value.businessId : businessId;
+
+  if (operationBusinessId !== businessId) {
+    return null;
+  }
+
+  return {
+    ...(value as Omit<SyncOperation, 'businessId'>),
+    businessId,
+  };
+}
+
+function getSyncQueueKey(business: BusinessIdentity) {
+  return `cafe-pos:${business.slug}:sync-queue-v1`;
+}
+
+function getSyncMetaKey(business: BusinessIdentity) {
+  return `cafe-pos:${business.slug}:sync-meta-v1`;
+}
+
+function migrateLegacyValue(legacyKey: string, scopedKey: string) {
+  const legacyValue = window.localStorage.getItem(legacyKey);
+
+  if (!legacyValue) {
+    return null;
+  }
+
+  window.localStorage.setItem(scopedKey, legacyValue);
+  window.localStorage.removeItem(legacyKey);
+
+  return legacyValue;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

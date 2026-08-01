@@ -1,4 +1,9 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import {
+  SANTARA_BUSINESS,
+  getBusinessById,
+  getDefaultCashierName,
+} from '../config/businesses';
 import type {
   AppStateData,
   CompletedTransaction,
@@ -20,8 +25,6 @@ import type { SyncOperation } from './syncQueue';
 
 type DbRow = Record<string, unknown>;
 
-const CASHIER_NAME = 'Santara Cashier';
-
 export function canUseSupabase() {
   return isSupabaseConfigured && Boolean(supabase);
 }
@@ -32,9 +35,10 @@ export async function pushSyncOperation(operation: SyncOperation) {
   }
 
   const payload = operation.payload;
+  const businessId = operation.businessId;
 
   if (operation.type === 'menu-snapshot-upsert' && 'menuItems' in payload) {
-    await upsertMenuItems(payload.menuItems, payload.menuCategories ?? []);
+    await upsertMenuItems(businessId, payload.menuItems, payload.menuCategories ?? []);
     return;
   }
 
@@ -43,47 +47,47 @@ export async function pushSyncOperation(operation: SyncOperation) {
     'categoryId' in payload &&
     'categoryName' in payload
   ) {
-    await deleteMenuCategory(payload.categoryId, payload.categoryName);
+    await deleteMenuCategory(businessId, payload.categoryId, payload.categoryName);
     return;
   }
 
   if (operation.type === 'transaction-upsert' && 'transaction' in payload) {
-    await upsertTransaction(payload.transaction);
+    await upsertTransaction(businessId, payload.transaction);
     return;
   }
 
   if (operation.type === 'pending-order-upsert' && 'pendingOrder' in payload) {
-    await upsertPendingOrder(payload.pendingOrder);
+    await upsertPendingOrder(businessId, payload.pendingOrder);
     return;
   }
 
   if (operation.type === 'pending-order-delete' && 'pendingOrderId' in payload) {
-    await deletePendingOrder(payload.pendingOrderId);
+    await deletePendingOrder(businessId, payload.pendingOrderId);
     return;
   }
 
   if (operation.type === 'app-settings-upsert' && 'receiptCounter' in payload) {
-    await upsertReceiptCounter(payload.receiptCounter);
+    await upsertReceiptCounter(businessId, payload.receiptCounter);
     return;
   }
 
   if (operation.type === 'legacy-import-upsert' && 'batch' in payload) {
-    await upsertLegacyImport(payload.batch, payload.sales);
+    await upsertLegacyImport(businessId, payload.batch, payload.sales);
     return;
   }
 
   if (operation.type === 'expense-upsert' && 'expense' in payload) {
-    await upsertExpense(payload.expense);
+    await upsertExpense(businessId, payload.expense);
     return;
   }
 
   if (operation.type === 'expense-delete' && 'expenseId' in payload) {
-    await deleteExpense(payload.expenseId);
+    await deleteExpense(businessId, payload.expenseId);
     return;
   }
 
   if (operation.type === 'daily-closing-upsert' && 'dailyClosing' in payload) {
-    await upsertDailyClosing(payload.dailyClosing);
+    await upsertDailyClosing(businessId, payload.dailyClosing);
     return;
   }
 
@@ -91,7 +95,7 @@ export async function pushSyncOperation(operation: SyncOperation) {
     operation.type === 'google-sheet-settings-upsert' &&
     'googleSheetSyncSettings' in payload
   ) {
-    await upsertGoogleSheetSettings(payload.googleSheetSyncSettings);
+    await upsertGoogleSheetSettings(businessId, payload.googleSheetSyncSettings);
     return;
   }
 
@@ -99,12 +103,13 @@ export async function pushSyncOperation(operation: SyncOperation) {
     operation.type === 'google-sheet-sync-log-upsert' &&
     'googleSheetSyncLog' in payload
   ) {
-    await upsertGoogleSheetSyncLog(payload.googleSheetSyncLog);
+    await upsertGoogleSheetSyncLog(businessId, payload.googleSheetSyncLog);
   }
 }
 
 export async function pullCloudAppState(
   currentData: AppStateData,
+  businessId: string,
 ): Promise<AppStateData | null> {
   if (!supabase) {
     return null;
@@ -123,16 +128,16 @@ export async function pullCloudAppState(
     googleSheetSyncLogs,
   ] =
     await Promise.all([
-      fetchMenuItems(),
-      fetchMenuCategories(),
-      fetchTransactions(),
-      fetchPendingOrders(),
-      fetchReceiptCounter(),
-      fetchLegacyImports(),
-      fetchExpenses(),
-      fetchDailyClosings(),
-      fetchGoogleSheetSettings(),
-      fetchGoogleSheetSyncLogs(),
+      fetchMenuItems(businessId),
+      fetchMenuCategories(businessId),
+      fetchTransactions(businessId),
+      fetchPendingOrders(businessId),
+      fetchReceiptCounter(businessId),
+      fetchLegacyImports(businessId),
+      fetchExpenses(businessId),
+      fetchDailyClosings(businessId),
+      fetchGoogleSheetSettings(businessId),
+      fetchGoogleSheetSyncLogs(businessId),
     ]);
 
   const hasCloudData =
@@ -198,6 +203,7 @@ export async function pullCloudAppState(
 }
 
 async function upsertMenuItems(
+  businessId: string,
   menuItems: MenuItem[],
   menuCategories: MenuCategory[],
 ) {
@@ -218,7 +224,8 @@ async function upsertMenuItems(
     const category = categoryByName.get(name);
 
     return {
-      id: stableUuid('category', category?.id ?? name),
+      id: stableUuid(businessScope(businessId, 'category'), category?.id ?? name),
+      business_id: businessId,
       name,
       sort_order: index,
       is_active: category?.isActive ?? true,
@@ -233,9 +240,10 @@ async function upsertMenuItems(
   }
 
   const rows = menuItems.map((item) => ({
-    id: stableUuid('menu', item.id),
+    id: stableUuid(businessScope(businessId, 'menu'), item.id),
+    business_id: businessId,
     category_id: stableUuid(
-      'category',
+      businessScope(businessId, 'category'),
       categoryByName.get(item.category)?.id ?? item.category,
     ),
     category_name: item.category,
@@ -251,7 +259,11 @@ async function upsertMenuItems(
   throwIfError(error, 'Gagal menyinkronkan menu.');
 }
 
-async function deleteMenuCategory(categoryId: string, categoryName: string) {
+async function deleteMenuCategory(
+  businessId: string,
+  categoryId: string,
+  categoryName: string,
+) {
   if (!supabase) {
     return;
   }
@@ -260,6 +272,7 @@ async function deleteMenuCategory(categoryId: string, categoryName: string) {
     const { error: itemsByNameError } = await supabase
       .from('menu_items')
       .delete()
+      .eq('business_id', businessId)
       .eq('category_name', categoryName);
     throwIfError(itemsByNameError, 'Gagal menghapus menu kategori cloud.');
   }
@@ -267,8 +280,8 @@ async function deleteMenuCategory(categoryId: string, categoryName: string) {
   const categoryIds = Array.from(
     new Set([
       categoryId,
-      stableUuid('category', categoryId),
-      stableUuid('category', categoryName),
+      stableUuid(businessScope(businessId, 'category'), categoryId),
+      stableUuid(businessScope(businessId, 'category'), categoryName),
     ]),
   ).filter(isUuid);
 
@@ -276,6 +289,7 @@ async function deleteMenuCategory(categoryId: string, categoryName: string) {
     const { error: categoryIdError } = await supabase
       .from('menu_categories')
       .delete()
+      .eq('business_id', businessId)
       .in('id', categoryIds);
     throwIfError(categoryIdError, 'Gagal menghapus kategori menu cloud.');
   }
@@ -284,23 +298,31 @@ async function deleteMenuCategory(categoryId: string, categoryName: string) {
     const { error: categoryNameError } = await supabase
       .from('menu_categories')
       .delete()
+      .eq('business_id', businessId)
       .eq('name', categoryName);
     throwIfError(categoryNameError, 'Gagal menghapus kategori menu cloud.');
   }
 }
 
-async function upsertTransaction(transaction: CompletedTransaction) {
+async function upsertTransaction(
+  businessId: string,
+  transaction: CompletedTransaction,
+) {
   if (!supabase) {
     return;
   }
 
-  const transactionId = stableUuid('transaction', transaction.receiptNumber);
+  const transactionId = stableUuid(
+    businessScope(businessId, 'transaction'),
+    transaction.receiptNumber,
+  );
   const { error: transactionError } = await supabase.from('transactions').upsert(
     {
       id: transactionId,
+      business_id: businessId,
       receipt_number: transaction.receiptNumber,
       transaction_at: transaction.dateTime,
-      cashier_name: transaction.cashierName || CASHIER_NAME,
+      cashier_name: transaction.cashierName || getBusinessCashierName(businessId),
       subtotal_before_discount: transaction.subtotalBeforeDiscount,
       discount_type: transaction.discountType,
       discount_value: transaction.discountValue,
@@ -323,10 +345,11 @@ async function upsertTransaction(transaction: CompletedTransaction) {
 
   const items = transaction.items.map((item, index) => ({
     id: stableUuid(
-      'transaction-item',
+      businessScope(businessId, 'transaction-item'),
       `${transaction.receiptNumber}:${item.id}:${index}`,
     ),
     transaction_id: transactionId,
+    business_id: businessId,
     menu_item_id: null,
     menu_name_snapshot: item.nameSnapshot,
     category_name_snapshot: item.categorySnapshot,
@@ -358,17 +381,21 @@ async function upsertTransaction(transaction: CompletedTransaction) {
   }
 }
 
-async function upsertPendingOrder(order: PendingOrder) {
+async function upsertPendingOrder(businessId: string, order: PendingOrder) {
   if (!supabase) {
     return;
   }
 
-  const pendingOrderId = stableUuid('pending-order', order.id);
+  const pendingOrderId = stableUuid(
+    businessScope(businessId, 'pending-order'),
+    order.id,
+  );
   const { error: orderError } = await supabase.from('pending_orders').upsert(
     {
       id: pendingOrderId,
+      business_id: businessId,
       label: order.label,
-      cashier_name: CASHIER_NAME,
+      cashier_name: getBusinessCashierName(businessId),
       created_at: order.createdAt,
     },
     { onConflict: 'id' },
@@ -377,8 +404,12 @@ async function upsertPendingOrder(order: PendingOrder) {
   throwIfError(orderError, 'Gagal menyinkronkan order tersimpan.');
 
   const items = order.items.map((item, index) => ({
-    id: stableUuid('pending-order-item', `${order.id}:${item.id}:${index}`),
+    id: stableUuid(
+      businessScope(businessId, 'pending-order-item'),
+      `${order.id}:${item.id}:${index}`,
+    ),
     pending_order_id: pendingOrderId,
+    business_id: businessId,
     menu_item_id: null,
     menu_name_snapshot: item.nameSnapshot,
     category_name_snapshot: item.categorySnapshot,
@@ -398,7 +429,7 @@ async function upsertPendingOrder(order: PendingOrder) {
   }
 }
 
-async function deletePendingOrder(pendingOrderId: string) {
+async function deletePendingOrder(businessId: string, pendingOrderId: string) {
   if (!supabase) {
     return;
   }
@@ -406,31 +437,37 @@ async function deletePendingOrder(pendingOrderId: string) {
   const { error } = await supabase
     .from('pending_orders')
     .delete()
-    .eq('id', stableUuid('pending-order', pendingOrderId));
+    .eq('business_id', businessId)
+    .eq(
+      'id',
+      stableUuid(businessScope(businessId, 'pending-order'), pendingOrderId),
+    );
 
   throwIfError(error, 'Gagal menghapus order tersimpan di cloud.');
 }
 
-async function upsertReceiptCounter(receiptCounter: number) {
+async function upsertReceiptCounter(businessId: string, receiptCounter: number) {
   if (!supabase) {
     return;
   }
 
   const { error } = await supabase.from('app_settings').upsert(
     {
+      business_id: businessId,
       key: 'receipt_counter',
       value: {
         receiptCounter,
       },
-      description: 'Last Santara POS receipt counter synced from local app.',
+      description: 'Last business-scoped POS receipt counter synced from local app.',
     },
-    { onConflict: 'key' },
+    { onConflict: 'business_id,key' },
   );
 
   throwIfError(error, 'Gagal menyinkronkan nomor struk.');
 }
 
 async function upsertLegacyImport(
+  businessId: string,
   batch: LegacyImportBatch,
   sales: LegacySale[],
 ) {
@@ -438,12 +475,16 @@ async function upsertLegacyImport(
     return;
   }
 
-  const batchId = stableUuid('legacy-import-batch', batch.id);
+  const batchId = stableUuid(
+    businessScope(businessId, 'legacy-import-batch'),
+    batch.id,
+  );
   const { error: batchError } = await supabase
     .from('legacy_import_batches')
     .upsert(
       {
         id: batchId,
+        business_id: businessId,
         local_id: batch.id,
         file_name: batch.fileName,
         imported_at: batch.importedAt,
@@ -462,7 +503,8 @@ async function upsertLegacyImport(
   throwIfError(batchError, 'Gagal menyinkronkan batch import lama.');
 
   const rows = sales.map((sale) => ({
-    id: stableUuid('legacy-sale', sale.id),
+    id: stableUuid(businessScope(businessId, 'legacy-sale'), sale.id),
+    business_id: businessId,
     local_id: sale.id,
     import_batch_id: batchId,
     sale_date: sale.saleDate,
@@ -488,14 +530,15 @@ async function upsertLegacyImport(
   }
 }
 
-async function upsertExpense(expense: Expense) {
+async function upsertExpense(businessId: string, expense: Expense) {
   if (!supabase) {
     return;
   }
 
   const { error } = await supabase.from('expenses').upsert(
     {
-      id: stableUuid('expense', expense.id),
+      id: stableUuid(businessScope(businessId, 'expense'), expense.id),
+      business_id: businessId,
       local_id: expense.id,
       expense_date: expense.date,
       name: expense.name,
@@ -513,7 +556,7 @@ async function upsertExpense(expense: Expense) {
   throwIfError(error, 'Gagal menyinkronkan pengeluaran.');
 }
 
-async function deleteExpense(expenseId: string) {
+async function deleteExpense(businessId: string, expenseId: string) {
   if (!supabase) {
     return;
   }
@@ -521,19 +564,24 @@ async function deleteExpense(expenseId: string) {
   const { error } = await supabase
     .from('expenses')
     .delete()
-    .eq('id', stableUuid('expense', expenseId));
+    .eq('business_id', businessId)
+    .eq('id', stableUuid(businessScope(businessId, 'expense'), expenseId));
 
   throwIfError(error, 'Gagal menghapus pengeluaran di cloud.');
 }
 
-async function upsertDailyClosing(dailyClosing: DailyClosing) {
+async function upsertDailyClosing(
+  businessId: string,
+  dailyClosing: DailyClosing,
+) {
   if (!supabase) {
     return;
   }
 
   const { error } = await supabase.from('daily_closings').upsert(
     {
-      id: stableUuid('daily-closing', dailyClosing.id),
+      id: stableUuid(businessScope(businessId, 'daily-closing'), dailyClosing.id),
+      business_id: businessId,
       local_id: dailyClosing.id,
       closing_date: dailyClosing.closingDate,
       cashier_name: dailyClosing.cashierName,
@@ -561,14 +609,18 @@ async function upsertDailyClosing(dailyClosing: DailyClosing) {
   throwIfError(error, 'Gagal menyinkronkan closing harian.');
 }
 
-async function upsertGoogleSheetSettings(settings: GoogleSheetSyncSettings) {
+async function upsertGoogleSheetSettings(
+  businessId: string,
+  settings: GoogleSheetSyncSettings,
+) {
   if (!supabase) {
     return;
   }
 
   const { error } = await supabase.from('google_sheet_sync_settings').upsert(
     {
-      id: stableUuid('google-sheet-settings', 'default'),
+      id: stableUuid(businessScope(businessId, 'google-sheet-settings'), 'default'),
+      business_id: businessId,
       endpoint_url: settings.endpointUrl,
       is_enabled: settings.isEnabled,
       updated_by_name: settings.updatedBy,
@@ -580,14 +632,18 @@ async function upsertGoogleSheetSettings(settings: GoogleSheetSyncSettings) {
   throwIfError(error, 'Gagal menyinkronkan pengaturan Google Sheet.');
 }
 
-async function upsertGoogleSheetSyncLog(log: GoogleSheetSyncLog) {
+async function upsertGoogleSheetSyncLog(
+  businessId: string,
+  log: GoogleSheetSyncLog,
+) {
   if (!supabase) {
     return;
   }
 
   const { error } = await supabase.from('google_sheet_sync_logs').upsert(
     {
-      id: stableUuid('google-sheet-sync-log', log.id),
+      id: stableUuid(businessScope(businessId, 'google-sheet-sync-log'), log.id),
+      business_id: businessId,
       local_id: log.id,
       report_mode: log.reportMode,
       selected_date: log.selectedDate,
@@ -602,7 +658,7 @@ async function upsertGoogleSheetSyncLog(log: GoogleSheetSyncLog) {
   throwIfError(error, 'Gagal menyinkronkan log Google Sheet.');
 }
 
-async function fetchMenuItems(): Promise<MenuItem[]> {
+async function fetchMenuItems(businessId: string): Promise<MenuItem[]> {
   if (!supabase) {
     return [];
   }
@@ -610,6 +666,7 @@ async function fetchMenuItems(): Promise<MenuItem[]> {
   const { data, error } = await supabase
     .from('menu_items')
     .select('*')
+    .eq('business_id', businessId)
     .order('category_name', { ascending: true })
     .order('name', { ascending: true });
 
@@ -625,7 +682,7 @@ async function fetchMenuItems(): Promise<MenuItem[]> {
   }));
 }
 
-async function fetchMenuCategories(): Promise<MenuCategory[]> {
+async function fetchMenuCategories(businessId: string): Promise<MenuCategory[]> {
   if (!supabase) {
     return [];
   }
@@ -633,6 +690,7 @@ async function fetchMenuCategories(): Promise<MenuCategory[]> {
   const { data, error } = await supabase
     .from('menu_categories')
     .select('*')
+    .eq('business_id', businessId)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
 
@@ -648,7 +706,9 @@ async function fetchMenuCategories(): Promise<MenuCategory[]> {
   }));
 }
 
-async function fetchTransactions(): Promise<CompletedTransaction[]> {
+async function fetchTransactions(
+  businessId: string,
+): Promise<CompletedTransaction[]> {
   if (!supabase) {
     return [];
   }
@@ -656,6 +716,7 @@ async function fetchTransactions(): Promise<CompletedTransaction[]> {
   const { data, error } = await supabase
     .from('transactions')
     .select('*, transaction_items(*)')
+    .eq('business_id', businessId)
     .order('transaction_at', { ascending: true });
 
   throwIfError(error, 'Gagal mengambil transaksi cloud.');
@@ -666,7 +727,8 @@ async function fetchTransactions(): Promise<CompletedTransaction[]> {
     return {
       receiptNumber: toStringValue(row.receipt_number),
       dateTime: toStringValue(row.transaction_at),
-      cashierName: toStringValue(row.cashier_name) || CASHIER_NAME,
+      cashierName:
+        toStringValue(row.cashier_name) || getBusinessCashierName(businessId),
       items,
       subtotalBeforeDiscount: toNumberValue(row.subtotal_before_discount),
       discountType: toDiscountType(row.discount_type),
@@ -686,7 +748,7 @@ async function fetchTransactions(): Promise<CompletedTransaction[]> {
   });
 }
 
-async function fetchPendingOrders(): Promise<PendingOrder[]> {
+async function fetchPendingOrders(businessId: string): Promise<PendingOrder[]> {
   if (!supabase) {
     return [];
   }
@@ -694,6 +756,7 @@ async function fetchPendingOrders(): Promise<PendingOrder[]> {
   const { data, error } = await supabase
     .from('pending_orders')
     .select('*, pending_order_items(*)')
+    .eq('business_id', businessId)
     .order('created_at', { ascending: false });
 
   throwIfError(error, 'Gagal mengambil order tersimpan cloud.');
@@ -716,7 +779,7 @@ async function fetchPendingOrders(): Promise<PendingOrder[]> {
   }));
 }
 
-async function fetchReceiptCounter() {
+async function fetchReceiptCounter(businessId: string) {
   if (!supabase) {
     return null;
   }
@@ -724,6 +787,7 @@ async function fetchReceiptCounter() {
   const { data, error } = await supabase
     .from('app_settings')
     .select('value')
+    .eq('business_id', businessId)
     .eq('key', 'receipt_counter')
     .maybeSingle();
 
@@ -736,7 +800,7 @@ async function fetchReceiptCounter() {
   return toNumberValue(data.value.receiptCounter);
 }
 
-async function fetchLegacyImports(): Promise<{
+async function fetchLegacyImports(businessId: string): Promise<{
   batches: LegacyImportBatch[];
   sales: LegacySale[];
 }> {
@@ -749,10 +813,12 @@ async function fetchLegacyImports(): Promise<{
       supabase
         .from('legacy_import_batches')
         .select('*')
+        .eq('business_id', businessId)
         .order('imported_at', { ascending: false }),
       supabase
         .from('legacy_sales')
         .select('*')
+        .eq('business_id', businessId)
         .order('sale_date', { ascending: true }),
     ]);
 
@@ -764,7 +830,7 @@ async function fetchLegacyImports(): Promise<{
       id: toStringValue(row.local_id) || toStringValue(row.id),
       fileName: toStringValue(row.file_name),
       importedAt: toStringValue(row.imported_at),
-      importedBy: toStringValue(row.imported_by_name) || 'Santara User',
+      importedBy: toStringValue(row.imported_by_name) || 'Cafe User',
       totalRows: toNumberValue(row.total_rows),
       dateStart: toStringValue(row.date_start),
       dateEnd: toStringValue(row.date_end),
@@ -788,12 +854,12 @@ async function fetchLegacyImports(): Promise<{
       notes: toStringValue(row.notes),
       source: 'legacy_import',
       importedAt: toStringValue(row.imported_at),
-      importedBy: toStringValue(row.imported_by_name) || 'Santara User',
+      importedBy: toStringValue(row.imported_by_name) || 'Cafe User',
     })),
   };
 }
 
-async function fetchExpenses(): Promise<Expense[]> {
+async function fetchExpenses(businessId: string): Promise<Expense[]> {
   if (!supabase) {
     return [];
   }
@@ -801,6 +867,7 @@ async function fetchExpenses(): Promise<Expense[]> {
   const { data, error } = await supabase
     .from('expenses')
     .select('*')
+    .eq('business_id', businessId)
     .order('expense_date', { ascending: false });
 
   throwIfError(error, 'Gagal mengambil pengeluaran cloud.');
@@ -815,11 +882,11 @@ async function fetchExpenses(): Promise<Expense[]> {
     notes: toStringValue(row.notes),
     createdAt: toStringValue(row.created_at),
     updatedAt: toStringValue(row.updated_at),
-    createdBy: toStringValue(row.created_by_name) || 'Santara User',
+    createdBy: toStringValue(row.created_by_name) || 'Cafe User',
   }));
 }
 
-async function fetchDailyClosings(): Promise<DailyClosing[]> {
+async function fetchDailyClosings(businessId: string): Promise<DailyClosing[]> {
   if (!supabase) {
     return [];
   }
@@ -827,6 +894,7 @@ async function fetchDailyClosings(): Promise<DailyClosing[]> {
   const { data, error } = await supabase
     .from('daily_closings')
     .select('*')
+    .eq('business_id', businessId)
     .order('closing_date', { ascending: false });
 
   throwIfError(error, 'Gagal mengambil closing harian cloud.');
@@ -851,11 +919,13 @@ async function fetchDailyClosings(): Promise<DailyClosing[]> {
     notes: toStringValue(row.notes),
     createdAt: toStringValue(row.created_at),
     updatedAt: toStringValue(row.updated_at),
-    createdBy: toStringValue(row.created_by_name) || 'Santara User',
+    createdBy: toStringValue(row.created_by_name) || 'Cafe User',
   }));
 }
 
-async function fetchGoogleSheetSettings(): Promise<GoogleSheetSyncSettings | null> {
+async function fetchGoogleSheetSettings(
+  businessId: string,
+): Promise<GoogleSheetSyncSettings | null> {
   if (!supabase) {
     return null;
   }
@@ -863,6 +933,7 @@ async function fetchGoogleSheetSettings(): Promise<GoogleSheetSyncSettings | nul
   const { data, error } = await supabase
     .from('google_sheet_sync_settings')
     .select('*')
+    .eq('business_id', businessId)
     .limit(1)
     .maybeSingle();
 
@@ -876,11 +947,13 @@ async function fetchGoogleSheetSettings(): Promise<GoogleSheetSyncSettings | nul
     endpointUrl: toStringValue(data.endpoint_url),
     isEnabled: Boolean(data.is_enabled),
     updatedAt: toStringValue(data.updated_at) || null,
-    updatedBy: toStringValue(data.updated_by_name) || 'Santara User',
+    updatedBy: toStringValue(data.updated_by_name) || 'Cafe User',
   };
 }
 
-async function fetchGoogleSheetSyncLogs(): Promise<GoogleSheetSyncLog[]> {
+async function fetchGoogleSheetSyncLogs(
+  businessId: string,
+): Promise<GoogleSheetSyncLog[]> {
   if (!supabase) {
     return [];
   }
@@ -888,6 +961,7 @@ async function fetchGoogleSheetSyncLogs(): Promise<GoogleSheetSyncLog[]> {
   const { data, error } = await supabase
     .from('google_sheet_sync_logs')
     .select('*')
+    .eq('business_id', businessId)
     .order('synced_at', { ascending: false })
     .limit(20);
 
@@ -900,7 +974,7 @@ async function fetchGoogleSheetSyncLogs(): Promise<GoogleSheetSyncLog[]> {
     status: toStringValue(row.status) === 'success' ? 'success' : 'error',
     message: toStringValue(row.message),
     syncedAt: toStringValue(row.synced_at),
-    syncedBy: toStringValue(row.synced_by_name) || 'Santara User',
+    syncedBy: toStringValue(row.synced_by_name) || 'Cafe User',
   }));
 }
 
@@ -1036,6 +1110,18 @@ function throwIfError(error: { message?: string } | null, fallbackMessage: strin
   if (error) {
     throw new Error(error.message ?? fallbackMessage);
   }
+}
+
+function getBusinessCashierName(businessId: string) {
+  const business = getBusinessById(businessId);
+
+  return business ? getDefaultCashierName(business) : 'Cafe Cashier';
+}
+
+function businessScope(businessId: string, scope: string) {
+  return businessId === SANTARA_BUSINESS.id
+    ? scope
+    : `${businessId}:${scope}`;
 }
 
 function stableUuid(scope: string, value: string) {
