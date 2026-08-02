@@ -50,6 +50,8 @@ type ThermalPrinterPlugin = {
 };
 
 const nativeThermalPrinter = registerPlugin<ThermalPrinterPlugin>('ThermalPrinter');
+export const THERMAL_PRINTER_STATUS_EVENT = 'cafe-pos:thermal-printer-status';
+let connectionQueue: Promise<void> = Promise.resolve();
 
 export function canUseNativeThermalPrinter() {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -92,17 +94,58 @@ export async function pairThermalPrinter(address: string) {
 
 export async function connectThermalPrinter(address: string) {
   assertNativeAndroid();
-  return nativeThermalPrinter.connect({ address });
+  const result = await nativeThermalPrinter.connect({ address });
+  notifyThermalPrinterStatusChanged();
+  return result;
 }
 
 export async function disconnectThermalPrinter() {
   assertNativeAndroid();
-  return nativeThermalPrinter.disconnect();
+  const result = await nativeThermalPrinter.disconnect();
+  notifyThermalPrinterStatusChanged();
+  return result;
 }
 
 export async function getThermalPrinterConnectionStatus() {
   assertNativeAndroid();
   return nativeThermalPrinter.getConnectionStatus();
+}
+
+export async function ensureThermalPrinterConnected(settings: PrinterSettings) {
+  assertNativeAndroid();
+  if (!settings.deviceAddress) {
+    throw new Error('Pilih printer Bluetooth di Settings terlebih dahulu.');
+  }
+
+  const attempt = connectionQueue.then(async () => {
+    const status = await getThermalPrinterStatus();
+    if (!status.supported) {
+      throw new Error('Perangkat Android ini tidak mendukung Bluetooth.');
+    }
+    if (status.permission !== 'granted') {
+      throw new Error(
+        'Izin Perangkat di Sekitar diperlukan. Buka Settings Printer untuk memberikannya.',
+      );
+    }
+    if (!status.enabled) {
+      throw new Error('Aktifkan Bluetooth Android, lalu coba cetak lagi.');
+    }
+    if (
+      status.connected &&
+      status.connectedAddress === settings.deviceAddress
+    ) {
+      return { connected: true, reconnected: false };
+    }
+
+    await connectThermalPrinter(settings.deviceAddress);
+    return { connected: true, reconnected: true };
+  });
+
+  connectionQueue = attempt.then(
+    () => undefined,
+    () => undefined,
+  );
+  return attempt;
 }
 
 export async function printTransactionReceipt(
@@ -115,6 +158,8 @@ export async function printTransactionReceipt(
   if (!settings.deviceAddress) {
     throw new Error('Pilih printer Bluetooth di Settings terlebih dahulu.');
   }
+
+  await ensureThermalPrinterConnected(settings);
 
   const logoRaster =
     business.slug === 'santara'
@@ -153,6 +198,8 @@ export async function printThermalTestPage(
     throw new Error('Pilih printer Bluetooth terlebih dahulu.');
   }
 
+  await ensureThermalPrinterConnected(settings);
+
   const width = settings.paperWidth === '58mm' ? 32 : 48;
   const text = [
     business.name.toUpperCase(),
@@ -187,6 +234,12 @@ export async function printThermalTestPage(
 function assertNativeAndroid() {
   if (!canUseNativeThermalPrinter()) {
     throw new Error('Direct thermal print hanya tersedia di aplikasi Android.');
+  }
+}
+
+function notifyThermalPrinterStatusChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(THERMAL_PRINTER_STATUS_EVENT));
   }
 }
 

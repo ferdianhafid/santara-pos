@@ -16,6 +16,7 @@ import {
   pairThermalPrinter,
   printThermalTestPage,
   requestThermalPrinterPermission,
+  THERMAL_PRINTER_STATUS_EVENT,
   type ThermalPrinterDevice,
   type ThermalPrinterStatus,
 } from '../services/printing/thermalPrinter';
@@ -64,6 +65,22 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
         }
       })
       .catch(() => setStatus(initialStatus));
+  }, [nativeAndroid]);
+
+  useEffect(() => {
+    if (!nativeAndroid) {
+      return;
+    }
+
+    const handleStatusChanged = () => {
+      void getThermalPrinterStatus().then(setStatus).catch(() => undefined);
+    };
+    window.addEventListener(THERMAL_PRINTER_STATUS_EVENT, handleStatusChanged);
+    return () =>
+      window.removeEventListener(
+        THERMAL_PRINTER_STATUS_EVENT,
+        handleStatusChanged,
+      );
   }, [nativeAndroid]);
 
   const updateSettings = (updates: Partial<PrinterSettings>) => {
@@ -126,6 +143,7 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
       updateSettings({
         deviceAddress: device?.address ?? '',
         deviceName: device?.name ?? '',
+        autoConnect: false,
       });
     } catch (error) {
       setMessage(getErrorMessage(error, 'Gagal mengganti pilihan printer.'));
@@ -156,7 +174,9 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
       }
 
       await connectThermalPrinter(selectedDevice.address);
-      savePrinterSettings(business.slug, settings);
+      const connectedSettings = { ...settings, autoConnect: true };
+      setSettings(connectedSettings);
+      savePrinterSettings(business.slug, connectedSettings);
       await refreshStatus();
       setMessage(`Terhubung ke ${selectedDevice.name}. Printer siap dites.`);
     } catch (error) {
@@ -172,6 +192,9 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
     setMessage('');
     try {
       await disconnectThermalPrinter();
+      const disconnectedSettings = { ...settings, autoConnect: false };
+      setSettings(disconnectedSettings);
+      savePrinterSettings(business.slug, disconnectedSettings);
       await refreshStatus();
       setMessage('Koneksi printer telah diputuskan.');
     } catch (error) {
@@ -211,7 +234,7 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
             Thermal 58/80 mm
           </h3>
           <p className="mt-1 text-sm text-santara-roast/60">
-            Bluetooth ESC/POS disimpan per bisnis dan per perangkat kasir.
+            Bluetooth ESC/POS disimpan per bisnis dan tersambung kembali otomatis.
           </p>
         </div>
         <span className="rounded-full bg-santara-cream px-3 py-1 text-xs font-black text-santara-bean ring-1 ring-santara-latte">

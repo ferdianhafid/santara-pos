@@ -33,6 +33,7 @@ import {
 import { loadPrinterSettings } from './services/printing/printerSettings';
 import {
   canUseNativeThermalPrinter,
+  ensureThermalPrinterConnected,
   printTransactionReceipt,
 } from './services/printing/thermalPrinter';
 import {
@@ -319,6 +320,46 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [printerNotice]);
 
+  useEffect(() => {
+    if (
+      !canUseNativeThermalPrinter() ||
+      (authStatus !== 'authenticated' && authStatus !== 'local')
+    ) {
+      return;
+    }
+
+    let active = true;
+    const reconnectSavedPrinter = async (showSuccess: boolean) => {
+      const settings = loadPrinterSettings(activeBusiness.slug);
+      if (!settings.deviceAddress || !settings.autoConnect) {
+        return;
+      }
+
+      try {
+        const result = await ensureThermalPrinterConnected(settings);
+        if (active && showSuccess && result.reconnected) {
+          setPrinterNotice(
+            `Printer ${settings.deviceName || settings.deviceAddress} terhubung otomatis.`,
+          );
+        }
+      } catch {
+        // Printer mungkin sedang mati. Tombol cetak akan mencoba koneksi sekali lagi.
+      }
+    };
+
+    void reconnectSavedPrinter(true);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void reconnectSavedPrinter(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeBusiness.slug, authStatus]);
+
   const printReceipt = useCallback(
     async (transaction: CompletedTransaction, isReprint = false) => {
       if (!canUseNativeThermalPrinter()) {
@@ -327,6 +368,7 @@ function App() {
       }
 
       try {
+        setPrinterNotice('Menyiapkan koneksi printer...');
         const settings = loadPrinterSettings(activeBusiness.slug);
         await printTransactionReceipt(
           transaction,

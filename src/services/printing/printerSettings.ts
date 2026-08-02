@@ -6,6 +6,7 @@ export type PrinterSettings = {
   deviceName: string;
   paperWidth: ThermalPaperWidth;
   cutPaper: boolean;
+  autoConnect: boolean;
 };
 
 const defaultSettings: PrinterSettings = {
@@ -13,6 +14,7 @@ const defaultSettings: PrinterSettings = {
   deviceName: '',
   paperWidth: '58mm',
   cutPaper: true,
+  autoConnect: false,
 };
 
 export function loadPrinterSettings(businessSlug: BusinessSlug): PrinterSettings {
@@ -27,12 +29,17 @@ export function loadPrinterSettings(businessSlug: BusinessSlug): PrinterSettings
     }
 
     const value = JSON.parse(stored) as Partial<PrinterSettings>;
+    const deviceAddress =
+      typeof value.deviceAddress === 'string' ? value.deviceAddress : '';
     return {
-      deviceAddress:
-        typeof value.deviceAddress === 'string' ? value.deviceAddress : '',
+      deviceAddress,
       deviceName: typeof value.deviceName === 'string' ? value.deviceName : '',
       paperWidth: value.paperWidth === '80mm' ? '80mm' : '58mm',
       cutPaper: value.cutPaper !== false,
+      autoConnect:
+        typeof value.autoConnect === 'boolean'
+          ? value.autoConnect
+          : Boolean(deviceAddress),
     };
   } catch {
     return { ...defaultSettings };
