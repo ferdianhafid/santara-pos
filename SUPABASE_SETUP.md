@@ -54,6 +54,10 @@ Open Supabase SQL Editor and run these files in order:
 6. `supabase/migrations/20260614000600_santara_pos_phase8_controls.sql`
 7. `supabase/migrations/20260801000100_dual_cafe_isolation.sql`
 8. `supabase/migrations/20260801000110_dual_cafe_settings_constraint_fix.sql`
+9. `supabase/migrations/20260802000100_item_notes.sql`
+10. `supabase/migrations/20260803000100_menu_sizes_daily_summary.sql`
+11. `supabase/migrations/20260803000200_staff_management_and_cashier_closing.sql`
+12. `supabase/migrations/20260803000210_secure_staff_profile_writes.sql`
 
 The Phase 5C migration removes the temporary anon sync policies and replaces
 them with authenticated owner/admin/cashier policies.
@@ -138,9 +142,19 @@ Roles supported now:
 - `admin`: full access
 - `cashier`: cashier and receipt history only
 
-There is no membership table. To add another staff account, create one Auth user
-and one profile row with exactly one of the two business IDs above and exactly
-one supported role.
+The first owner account is still bootstrapped manually. After that, the owner
+can create staff safely from `Settings > Kelola Staff`; the app assigns the new
+account to the owner's business automatically.
+
+Deploy the server-side staff function before using that UI:
+
+```bash
+npx supabase functions deploy manage-staff
+```
+
+An owner can create admins and cashiers. An admin can create and manage cashiers
+only. Staff profile writes are server-only so a browser client cannot promote a
+role or move an account to another cafe.
 
 If a logged-in user has no profile row or has no valid business, the app blocks
 access and asks the user to contact an administrator. It never falls back to
@@ -159,13 +173,14 @@ Santara data for an authenticated Parama account.
 - The small `Sync Sekarang` button retries pending sync after login.
 - Owner/admin can access Kasir, Kelola Menu, Riwayat Struk, Laporan, and Data
   Lokal backup controls.
-- Cashier can access Kasir and Riwayat Struk only.
+- Cashier can access Kasir, Riwayat Struk, Pengeluaran, and Closing.
 
 ## 9. What Is Still Not Implemented
 
-- No complex user management UI exists yet.
+- Staff accounts can be created, activated/nonactivated, and have their
+  passwords reset. Owner account creation remains a one-time Supabase setup.
 - Google Sheets sync uses Apps Script Web App URL only, not Google OAuth.
-- Expenses and simple daily closing exist for owner/admin.
+- Expenses and daily closing are available to active staff in the same cafe.
 - No realtime subscriptions exist yet.
 
 ## 10. Legacy Import Notes

@@ -4,6 +4,8 @@ import { GoogleSheetSync } from './GoogleSheetSync';
 import { LegacyImport } from './LegacyImport';
 import { LocalDataPanel } from './LocalDataPanel';
 import { PrinterSettingsPanel } from './PrinterSettings';
+import { StaffManagement } from './StaffManagement';
+import type { UserRole } from '../services/supabaseAuth';
 import type {
   AppStateData,
   CompletedTransaction,
@@ -21,6 +23,8 @@ type SettingsProps = {
   appData: AppStateData;
   businessSlug: BusinessSlug;
   currentUserName: string;
+  currentUserId: string;
+  currentUserRole: UserRole;
   dailyClosings: DailyClosing[];
   defaultMenuItems: MenuItem[];
   expenses: Expense[];
@@ -41,6 +45,8 @@ export function Settings({
   appData,
   businessSlug,
   currentUserName,
+  currentUserId,
+  currentUserRole,
   dailyClosings,
   defaultMenuItems,
   expenses,
@@ -90,6 +96,11 @@ export function Settings({
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-4">
+          <StaffManagement
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+          />
+
           <LocalDataPanel
             appData={appData}
             businessSlug={businessSlug}

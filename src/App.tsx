@@ -558,6 +558,13 @@ function App() {
 
     setAuthProfile(profile);
 
+    if (!profile.isActive) {
+      setAuthStatus('profile-error');
+      setSyncStatus('login-required');
+      setAuthError('Akun ini telah dinonaktifkan. Hubungi owner atau administrator.');
+      return;
+    }
+
     if (profile.isMissing || !profile.business) {
       setAuthStatus('profile-error');
       setSyncStatus('login-required');
@@ -1395,8 +1402,8 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="app-main min-w-0 flex-1 pt-16 lg:ml-64 lg:pt-0">
-        <div className="app-content-shell flex min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
+      <main className="app-main min-w-0 max-w-full flex-1 overflow-x-hidden pt-16 lg:ml-64 lg:pt-0">
+        <div className="app-content-shell flex min-w-0 max-w-full min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
           {/* Quick Stats Bar */}
           <div className="quick-stats-bar bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
             <div className="quick-stats-row">
@@ -1447,7 +1454,7 @@ function App() {
           </nav>
 
           {/* Page Content */}
-          <div className="page-content min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 lg:px-6 lg:py-6 lg:pb-6">
+          <div className="page-content min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 pb-28 lg:px-6 lg:py-6 lg:pb-6">
             {activeTab === 'cashier' && (
               <CashierView
                 activeCategoryName={activeCategoryNameSafe}
@@ -1557,7 +1564,9 @@ function App() {
               <Settings
                 appData={appData}
                 businessSlug={activeBusiness.slug}
+                currentUserId={authProfile?.id ?? ''}
                 currentUserName={cashierName}
+                currentUserRole={effectiveRole}
                 dailyClosings={dailyClosings}
                 defaultMenuItems={activeDefaultMenuItems}
                 expenses={expenses}
@@ -1818,6 +1827,7 @@ function CashierView({
   totalQuantity,
 }: CashierViewProps) {
   const [sizeSelectionItem, setSizeSelectionItem] = useState<MenuItem | null>(null);
+  const [noteEditorItemId, setNoteEditorItemId] = useState<string | null>(null);
 
   return (
     <div className="cashier-layout flex min-h-full flex-col gap-4 lg:h-full lg:flex-row lg:gap-6">
@@ -1895,20 +1905,20 @@ function CashierView({
       <div className="cart-column flex min-w-0 flex-col lg:w-[410px] xl:w-[420px]">
         <div className="card cart-panel flex min-h-0 flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
           {/* Cart Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
             <div>
-              <h2 className="text-xl font-extrabold text-coffee-dark tracking-tight">Keranjang</h2>
-              <p className="text-xs text-gray-500">{cart.length} item</p>
+              <h2 className="text-lg font-extrabold tracking-tight text-coffee-dark">Keranjang</h2>
+              <p className="text-[10px] text-gray-500">{totalQuantity} item</p>
             </div>
             {cart.length > 0 && (
-              <button onClick={clearCart} className="btn btn-ghost text-sm">
+              <button onClick={clearCart} className="rounded-lg px-2 py-1.5 text-xs font-bold text-coffee/70 hover:bg-coffee/5">
                 Clear All
               </button>
             )}
           </div>
 
           {/* Cart Items */}
-          <div className="cart-items-list min-h-0 overflow-y-auto py-4 space-y-3 lg:max-h-none lg:flex-1">
+          <div className="cart-items-list min-h-0 space-y-2 overflow-y-auto py-2 lg:max-h-none lg:flex-1">
             {cart.length === 0 ? (
               <div className="empty-state min-h-40 lg:h-full">
                 <div className="text-5xl mb-4">🛒</div>
@@ -1917,29 +1927,39 @@ function CashierView({
               </div>
             ) : (
               cart.map((item) => (
-                <div key={item.id} className="cart-line-item bg-gray-50 rounded-2xl p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                <div key={item.id} className="cart-line-item rounded-xl bg-gray-50 p-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <h4 className="cart-item-name text-base font-extrabold text-coffee-dark">
+                      <h4 className="cart-item-name truncate text-sm font-extrabold text-coffee-dark">
                         {getCartItemDisplayName(item)}
                       </h4>
-                      <p className="mt-0.5 truncate text-sm font-semibold text-gray-400">
-                        {item.categorySnapshot}
-                      </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         aria-label={`Atur diskon ${getCartItemDisplayName(item)}`}
-                        className="min-h-11 rounded-full bg-white px-3 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
+                        className="grid h-7 min-w-7 place-items-center rounded-full bg-white px-1.5 text-[9px] font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
                         onClick={() => onDiscountItem(item.id)}
                         type="button"
                       >
-                        Diskon
+                        %
+                      </button>
+                      <button
+                        aria-label={`Buka catatan untuk ${getCartItemDisplayName(item)}`}
+                        className={`relative grid size-7 place-items-center rounded-full bg-white ring-1 transition focus:outline-none focus:ring-4 focus:ring-coffee/10 ${item.notes ? 'text-santara-bean ring-santara-clay' : 'text-gray-400 ring-gray-200'}`}
+                        onClick={() => setNoteEditorItemId((current) => current === item.id ? null : item.id)}
+                        title="Catatan item"
+                        type="button"
+                      >
+                        <svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
+                          <path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 3v-3a2 2 0 0 1-1-2V6a2 2 0 0 1 2-2Z" />
+                          <path d="M8 9h8M8 13h5" />
+                        </svg>
+                        {item.notes && <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-santara-clay" />}
                       </button>
                     <button
                       aria-label={`Hapus ${getCartItemDisplayName(item)} dari keranjang`}
                       onClick={() => removeItem(item.id)}
-                      className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-gray-400 ring-1 ring-gray-100 transition-colors hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-100"
+                      className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[10px] text-gray-400 ring-1 ring-gray-100 transition-colors hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-100"
                       type="button"
                     >
                       ✕
@@ -1947,25 +1967,33 @@ function CashierView({
                     </div>
                   </div>
 
-                  <label className="mt-3 block">
-                    <span className="sr-only">
-                      Catatan untuk {getCartItemDisplayName(item)}
-                    </span>
-                    <input
-                      aria-label={`Catatan untuk ${getCartItemDisplayName(item)}`}
-                      autoComplete="off"
-                      className="w-full rounded-xl bg-white px-3 py-2 text-sm font-semibold text-coffee-dark outline-none ring-1 ring-gray-200 transition placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-coffee/30"
-                      maxLength={120}
-                      onChange={(event) =>
-                        onUpdateItemNotes(item.id, event.target.value)
-                      }
-                      placeholder="Catatan: less sugar, less ice, more ice..."
-                      type="text"
-                      value={item.notes ?? ''}
-                    />
-                  </label>
+                  {noteEditorItemId === item.id ? (
+                    <label className="mt-2 block">
+                      <span className="sr-only">Catatan untuk {getCartItemDisplayName(item)}</span>
+                      <input
+                        aria-label={`Catatan untuk ${getCartItemDisplayName(item)}`}
+                        autoComplete="off"
+                        autoFocus
+                        className="w-full rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-coffee-dark outline-none ring-1 ring-gray-200 transition placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-coffee/30"
+                        maxLength={120}
+                        onBlur={() => setNoteEditorItemId(null)}
+                        onChange={(event) => onUpdateItemNotes(item.id, event.target.value)}
+                        placeholder="Less sugar, less ice, more ice..."
+                        type="text"
+                        value={item.notes ?? ''}
+                      />
+                    </label>
+                  ) : item.notes ? (
+                    <button
+                      className="mt-1.5 block max-w-full truncate text-left text-[10px] font-bold italic text-santara-clay"
+                      onClick={() => setNoteEditorItemId(item.id)}
+                      type="button"
+                    >
+                      Catatan: {item.notes}
+                    </button>
+                  ) : null}
 
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-1 flex items-center justify-between gap-2">
                     <div className="qty-control shrink-0">
                       <button
                         aria-label={`Kurangi jumlah ${getCartItemDisplayName(item)}`}
@@ -1975,7 +2003,7 @@ function CashierView({
                       >
                         −
                       </button>
-                      <span className="w-10 text-center text-lg font-extrabold tabular-nums">{item.quantity}</span>
+                      <span className="w-7 text-center text-sm font-extrabold tabular-nums">{item.quantity}</span>
                       <button
                         aria-label={`Tambah jumlah ${getCartItemDisplayName(item)}`}
                         onClick={() => increaseQuantity(item.id)}
@@ -1985,7 +2013,7 @@ function CashierView({
                         +
                       </button>
                     </div>
-                    <p className="min-w-0 shrink-0 whitespace-nowrap text-right text-base font-extrabold text-coffee-dark tabular-nums">
+                    <p className="min-w-0 shrink-0 whitespace-nowrap text-right text-sm font-extrabold text-coffee-dark tabular-nums">
                       {formatRupiah(getCartLineNet(item))}
                     </p>
                   </div>
@@ -2000,23 +2028,23 @@ function CashierView({
           </div>
 
           {/* Cart Summary */}
-          <div className="cart-summary pt-4 border-t border-gray-100 space-y-2">
-            <div className="flex justify-between text-base">
+          <div className="cart-summary space-y-1.5 border-t border-gray-100 pt-2.5">
+            <div className="flex justify-between text-sm">
               <span className="text-gray-500">Subtotal</span>
               <span className="font-semibold">{formatRupiah(subtotal)}</span>
             </div>
             {itemDiscountTotal > 0 && (
-              <div className="flex justify-between text-base text-green-600">
+              <div className="flex justify-between text-sm text-green-600">
                 <span>Diskon</span>
                 <span className="font-semibold">-{formatRupiah(itemDiscountTotal)}</span>
               </div>
             )}
-            <div className="flex justify-between text-xl pt-2 border-t border-gray-100">
+            <div className="flex justify-between border-t border-gray-100 pt-1.5 text-lg">
               <span className="font-bold">Total</span>
               <span className="font-extrabold text-coffee">{formatRupiah(cartNetSubtotal)}</span>
             </div>
 
-            <div className="cart-actions mt-4 grid gap-2">
+            <div className="cart-actions mt-2 grid gap-1.5">
               <button
                 onClick={onOpenCheckout}
                 disabled={cart.length === 0}

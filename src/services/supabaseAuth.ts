@@ -13,6 +13,7 @@ export type UserProfile = {
   fullName: string;
   role: UserRole;
   business: BusinessIdentity | null;
+  isActive: boolean;
   isMissing: boolean;
 };
 
@@ -22,6 +23,7 @@ type ProfileRow = {
   full_name?: unknown;
   role?: unknown;
   business_id?: unknown;
+  is_active?: unknown;
 };
 
 export async function getCurrentSession() {
@@ -88,7 +90,7 @@ export async function fetchUserProfile(user: User): Promise<UserProfile> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, business_id')
+    .select('id, email, full_name, role, business_id, is_active')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -108,6 +110,7 @@ export async function fetchUserProfile(user: User): Promise<UserProfile> {
       'Cafe Cashier',
     role: toUserRole((data as ProfileRow).role),
     business,
+    isActive: (data as ProfileRow).is_active !== false,
     isMissing: !business,
   };
 }
@@ -119,6 +122,7 @@ function createFallbackProfile(user: User, isMissing: boolean): UserProfile {
     fullName: user.email ?? 'Cafe Cashier',
     role: 'cashier',
     business: null,
+    isActive: false,
     isMissing,
   };
 }

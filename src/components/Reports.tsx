@@ -74,10 +74,10 @@ export function Reports({
   const canUseDailyClosing = reportMode === 'today' || reportMode === 'date';
 
   return (
-    <section className="min-h-full rounded-2xl bg-white/80 backdrop-blur-sm p-4 shadow-elegant border border-santara-latte/40 lg:flex lg:min-h-0 lg:flex-col">
+    <section className="min-h-full w-full min-w-0 max-w-full overflow-x-hidden rounded-2xl border border-santara-latte/40 bg-white/80 p-3 shadow-elegant backdrop-blur-sm sm:p-4 lg:flex lg:min-h-0 lg:flex-col">
       {/* Premium Header */}
-      <div className="flex shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <div className="flex min-w-0 shrink-0 flex-col gap-3 border-b border-santara-latte/50 pb-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
             Laporan
           </p>
@@ -87,11 +87,11 @@ export function Reports({
         </div>
 
         {/* Premium Report Mode Buttons */}
-        <div className="grid gap-3 lg:w-[780px]">
-          <div className="flex flex-wrap gap-2">
+        <div className="grid w-full min-w-0 gap-3 lg:max-w-[780px]">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {reportModes.map((mode) => (
               <button
-                className={`min-w-[130px] flex-1 rounded-xl px-4 py-3 text-xs font-bold transition-all duration-200 sm:flex-none ${
+                className={`min-w-0 rounded-xl px-2 py-2.5 text-xs font-bold transition-all duration-200 sm:min-w-[130px] sm:flex-none sm:px-4 sm:py-3 ${
                   reportMode === mode.value
                     ? 'btn-primary'
                     : 'btn-secondary'
@@ -116,7 +116,7 @@ export function Reports({
         </div>
       </div>
 
-      <div className="pt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      <div className="min-w-0 max-w-full pt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         {!hasReportData ? (
           <div className="space-y-3">
             <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -148,7 +148,7 @@ export function Reports({
           </div>
         ) : (
           <div className="space-y-3">
-            <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               <ReportCard
                 label="Penjualan Kotor"
                 value={formatRupiah(report.grossSales)}
@@ -192,10 +192,10 @@ export function Reports({
               />
             </section>
 
-            <section className="grid gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
-              <div className="space-y-3">
+            <section className="grid min-w-0 gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-1">
                 <Panel title="Ringkasan Pembayaran">
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
                     {report.paymentSummary.map((summary) => (
                       <SummaryLine
                         key={summary.method}
@@ -274,7 +274,7 @@ export function Reports({
                 </Panel>
               </div>
 
-              <Panel title="Ringkasan Penjualan Menu">
+              <Panel className="min-w-0" title="Ringkasan Penjualan Menu">
                 {report.menuSales.length === 0 ? (
                   <p className="text-sm font-bold text-santara-roast/55">
                     Belum ada menu terjual di periode ini.
@@ -286,7 +286,7 @@ export function Reports({
             </section>
 
             <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
-              <Panel title="Daftar Pengeluaran">
+              <Panel className="min-w-0" title="Daftar Pengeluaran">
                 {report.expenses.length === 0 ? (
                   <p className="text-sm font-bold text-santara-roast/55">
                     Belum ada pengeluaran di periode ini.
@@ -333,8 +333,28 @@ type ExpenseTableProps = {
 
 function ExpenseTable({ expenses }: ExpenseTableProps) {
   return (
-    <div className="overflow-x-auto rounded-lg ring-1 ring-santara-latte">
-      <table className="w-full min-w-[720px] border-collapse bg-white text-left text-sm">
+    <>
+      <div className="space-y-2 md:hidden">
+        {expenses.map((expense) => (
+          <article className="rounded-lg bg-santara-cream/70 p-3 ring-1 ring-santara-latte" key={expense.id}>
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-santara-roast">{expense.name}</p>
+                <p className="mt-0.5 text-[11px] font-bold text-santara-roast/55">
+                  {expense.date} · {expense.category}
+                </p>
+              </div>
+              <p className="shrink-0 text-sm font-black text-santara-bean">{formatRupiah(expense.amount)}</p>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs font-bold text-santara-roast/65">
+              <span>{expense.quantity ? `${expense.quantity} ${expense.unit ?? ''}`.trim() : 'Tanpa jumlah'}</span>
+              <span>{expense.paymentMethod}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hidden max-w-full overflow-x-auto rounded-lg ring-1 ring-santara-latte md:block">
+        <table className="w-full min-w-[720px] border-collapse bg-white text-left text-sm">
         <thead className="bg-santara-cream text-[10px] font-black uppercase tracking-[0.08em] text-santara-sage">
           <tr>
             <TableHeader>Tanggal</TableHeader>
@@ -361,8 +381,9 @@ function ExpenseTable({ expenses }: ExpenseTableProps) {
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -385,11 +406,12 @@ function ReportCard({ label, value }: ReportCardProps) {
 type PanelProps = {
   title: string;
   children: ReactNode;
+  className?: string;
 };
 
-function Panel({ title, children }: PanelProps) {
+function Panel({ title, children, className = '' }: PanelProps) {
   return (
-    <section className="rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+    <section className={`max-w-full rounded-lg bg-white p-3 ring-1 ring-santara-latte ${className}`}>
       <h3 className="text-base font-black text-santara-roast">{title}</h3>
       <div className="mt-3">{children}</div>
     </section>
@@ -404,14 +426,14 @@ type SummaryLineProps = {
 
 function SummaryLine({ label, value, meta }: SummaryLineProps) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-santara-cream/75 px-3 py-2 ring-1 ring-santara-latte">
-      <div>
+    <div className="flex min-w-0 flex-col items-start justify-between gap-1 rounded-lg bg-santara-cream/75 px-3 py-2 ring-1 ring-santara-latte sm:flex-row sm:items-center sm:gap-3">
+      <div className="min-w-0">
         <p className="text-sm font-black text-santara-roast">{label}</p>
         {meta && (
           <p className="mt-0.5 text-xs font-bold text-santara-roast/55">{meta}</p>
         )}
       </div>
-      <p className="text-right text-sm font-black text-santara-bean">{value}</p>
+      <p className="shrink-0 text-left text-sm font-black text-santara-bean sm:text-right">{value}</p>
     </div>
   );
 }
@@ -422,8 +444,32 @@ type MenuSalesTableProps = {
 
 function MenuSalesTable({ items }: MenuSalesTableProps) {
   return (
-    <div className="overflow-x-auto rounded-lg ring-1 ring-santara-latte">
-      <table className="min-w-[920px] w-full border-collapse bg-white text-left text-sm">
+    <>
+      <div className="space-y-2 lg:hidden">
+        {items.map((item) => (
+          <article className="rounded-lg bg-santara-cream/65 p-3 ring-1 ring-santara-latte" key={item.key}>
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-santara-roast">{item.name}</p>
+                <p className="mt-0.5 truncate text-[11px] font-bold text-santara-roast/55">{item.category}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-santara-bean px-2.5 py-1 text-xs font-black text-white">
+                {item.quantity} item
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <ReportMetric label="Gross" value={formatRupiah(item.grossSales)} />
+              <ReportMetric label="Diskon" value={formatRupiah(item.discountAmount)} />
+              <ReportMetric label="Net" value={formatRupiah(item.netSales)} />
+              <ReportMetric label="HPP" value={formatRupiah(item.hpp)} />
+              <ReportMetric label="Profit" value={formatRupiah(item.estimatedProfit)} />
+              <ReportMetric label="Margin" value={formatPercent(item.margin)} />
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hidden max-w-full overflow-x-auto rounded-lg ring-1 ring-santara-latte lg:block">
+        <table className="min-w-[920px] w-full border-collapse bg-white text-left text-sm">
         <thead className="bg-santara-cream text-[10px] font-black uppercase tracking-[0.08em] text-santara-sage">
           <tr>
             <TableHeader>Menu</TableHeader>
@@ -452,7 +498,17 @@ function MenuSalesTable({ items }: MenuSalesTableProps) {
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function ReportMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-white px-2 py-1.5 ring-1 ring-santara-latte/80">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-santara-sage">{label}</p>
+      <p className="mt-0.5 truncate text-[11px] font-black text-santara-roast">{value}</p>
     </div>
   );
 }
