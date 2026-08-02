@@ -137,8 +137,8 @@ const appTabs: Array<{ id: AppTab; label: string; icon: string }> = [
   { id: 'receipts', label: 'Struk', icon: '🧾' },
   { id: 'reports', label: 'Laporan', icon: '📊' },
   { id: 'expenses', label: 'Pengeluaran', icon: '💰' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
-  { id: 'closing', label: 'Closing', icon: 'closing' },
+  { id: 'settings', label: 'Pengaturan', icon: 'settings' },
+  { id: 'closing', label: 'Tutup Kasir', icon: 'closing' },
 ];
 
 function createReceiptNumber(
@@ -230,6 +230,7 @@ function TabIcon({ id }: { id: AppTab }) {
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('cashier');
   const [isTabletSidebarOpen, setIsTabletSidebarOpen] = useState(false);
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
   const [initialAppData] = useState(() =>
     loadAppState(santaraDefaultMenuItems, SANTARA_BUSINESS.slug),
   );
@@ -307,6 +308,9 @@ function App() {
       ),
     [effectiveRole],
   );
+  const mobilePrimaryTabs = visibleTabs.slice(0, 4);
+  const mobileMoreTabs = visibleTabs.slice(4);
+  const isMobileMoreActive = mobileMoreTabs.some((tab) => tab.id === activeTab);
   const todayClosingDate = getTodayInputValue();
   const todayClosingReport = useMemo(
     () =>
@@ -1377,19 +1381,21 @@ function App() {
       </aside>
 
       {/* Mobile Header */}
-      <header className="mobile-header lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
+      <header className="mobile-header lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 px-3 py-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-coffee to-coffee-light flex items-center justify-center shadow-md">
-              <span className="text-white font-extrabold">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-coffee to-coffee-light shadow-sm">
+              <span className="text-sm font-extrabold text-white">
                 {activeBusiness.slug === 'santara' ? 'SC' : 'PC'}
               </span>
             </div>
-            <div>
-              <h1 className="font-extrabold text-coffee-dark">
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-extrabold text-coffee-dark">
                 {activeBusiness.name}
               </h1>
-              <p className="text-xs text-gray-500">Kasir</p>
+              <p className="truncate text-[11px] font-semibold text-gray-500">
+                {getActiveTabLabel(activeTab)}
+              </p>
             </div>
           </div>
           <SyncStatusIndicator
@@ -1402,23 +1408,23 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="app-main min-w-0 max-w-full flex-1 overflow-x-hidden pt-16 lg:ml-64 lg:pt-0">
-        <div className="app-content-shell flex min-w-0 max-w-full min-h-[calc(100dvh-4rem)] flex-col lg:h-screen lg:min-h-0">
+      <main className="app-main min-w-0 max-w-full flex-1 overflow-x-hidden pt-[3.25rem] lg:ml-64 lg:pt-0">
+        <div className="app-content-shell flex min-w-0 max-w-full min-h-[calc(100dvh-3.25rem)] flex-col lg:h-screen lg:min-h-0">
           {/* Quick Stats Bar */}
           <div className="quick-stats-bar bg-white border-b border-gray-100 px-4 lg:px-6 py-3">
             <div className="quick-stats-row">
               <div className="quick-stats-left">
-                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
+                <div className="quick-stat-card quick-stat-mode flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
                   <span className="text-sm font-semibold text-gray-500">Mode:</span>
                   <span className="badge badge-primary">{getActiveTabLabel(activeTab)}</span>
                 </div>
-                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
-                  <span className="text-sm font-semibold text-gray-500">Cart:</span>
+                <div className="quick-stat-card flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
+                  <span className="text-sm font-semibold text-gray-500">Keranjang:</span>
                   <span className="font-bold text-coffee-dark">{totalQuantity} item</span>
                 </div>
-                <div className="quick-stat-card flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-50">
-                  <span className="text-sm font-semibold text-gray-500">Subtotal:</span>
-                  <span className="font-bold text-coffee-dark">{formatRupiah(subtotal)}</span>
+                <div className="quick-stat-card flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
+                  <span className="text-sm font-semibold text-gray-500">Total:</span>
+                  <span className="font-bold text-coffee-dark">{formatRupiah(cartNetSubtotal)}</span>
                 </div>
               </div>
               <LatestReceiptStatus
@@ -1432,10 +1438,13 @@ function App() {
           {/* Mobile Bottom Navigation */}
           <nav className="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
             <div className="grid grid-flow-col auto-cols-fr gap-1">
-              {visibleTabs.map((tab) => (
+              {mobilePrimaryTabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setIsMobileMoreOpen(false);
+                  }}
                   className={`min-w-0 flex flex-col items-center gap-1 rounded-xl px-1 py-2 transition-all ${
                     activeTab === tab.id
                       ? 'bg-coffee/10 text-coffee-dark'
@@ -1450,8 +1459,81 @@ function App() {
                   </span>
                 </button>
               ))}
+              {mobileMoreTabs.length > 0 && (
+                <button
+                  aria-expanded={isMobileMoreOpen}
+                  aria-label="Buka menu lainnya"
+                  className={`min-w-0 flex flex-col items-center gap-1 rounded-xl px-1 py-2 transition-all ${
+                    isMobileMoreOpen || isMobileMoreActive
+                      ? 'bg-coffee/10 text-coffee-dark'
+                      : 'text-gray-400'
+                  }`}
+                  onClick={() => setIsMobileMoreOpen((isOpen) => !isOpen)}
+                  type="button"
+                >
+                  <span className="mobile-tab-icon grid size-8 place-items-center rounded-full bg-current/10">
+                    <svg aria-hidden="true" className="size-5" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="5" cy="12" r="1.7" />
+                      <circle cx="12" cy="12" r="1.7" />
+                      <circle cx="19" cy="12" r="1.7" />
+                    </svg>
+                  </span>
+                  <span className="mobile-tab-label max-w-full truncate text-[10px] font-semibold leading-tight">
+                    Lainnya
+                  </span>
+                </button>
+              )}
             </div>
           </nav>
+
+          {isMobileMoreOpen && mobileMoreTabs.length > 0 && (
+            <>
+              <button
+                aria-label="Tutup menu lainnya"
+                className="mobile-more-backdrop lg:hidden"
+                onClick={() => setIsMobileMoreOpen(false)}
+                type="button"
+              />
+              <section aria-label="Menu lainnya" className="mobile-more-sheet lg:hidden">
+                <div className="mb-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-extrabold text-coffee-dark">Menu lainnya</p>
+                    <p className="text-[11px] text-gray-500">Fitur operasional dan pengaturan</p>
+                  </div>
+                  <button
+                    aria-label="Tutup"
+                    className="grid size-9 place-items-center rounded-full bg-gray-100 text-gray-500"
+                    onClick={() => setIsMobileMoreOpen(false)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {mobileMoreTabs.map((tab) => (
+                    <button
+                      className={`flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 text-left ${
+                        activeTab === tab.id
+                          ? 'border-coffee/25 bg-coffee/10 text-coffee-dark'
+                          : 'border-gray-100 bg-gray-50 text-gray-600'
+                      }`}
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setIsMobileMoreOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-coffee shadow-sm">
+                        <TabIcon id={tab.id} />
+                      </span>
+                      <span className="truncate text-xs font-bold">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
 
           {/* Page Content */}
           <div className="page-content min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 pb-28 lg:px-6 lg:py-6 lg:pb-6">
@@ -1754,8 +1836,8 @@ function LatestReceiptStatus({
       <button
         aria-label={
           transaction
-            ? `Print struk terakhir ${transaction.receiptNumber}`
-            : 'Print struk terakhir belum tersedia'
+            ? `Cetak struk terakhir ${transaction.receiptNumber}`
+            : 'Cetak struk terakhir belum tersedia'
         }
         className="latest-receipt-print"
         disabled={!transaction}
@@ -1766,7 +1848,7 @@ function LatestReceiptStatus({
         }}
         type="button"
       >
-        Print
+        Cetak
       </button>
       {transaction && (
         <div className="print-only-receipt">
@@ -2227,17 +2309,18 @@ function SyncStatusIndicator({
   const dotClass = getSyncStatusDotClass(status);
   const detail =
     pendingCount > 0
-      ? `${pendingCount} pending`
+      ? `${pendingCount} menunggu`
       : lastSyncedAt && status === 'synced'
-        ? formatShortTime(lastSyncedAt)
+        ? `Aman ${formatShortTime(lastSyncedAt)}`
         : '';
 
   return (
     <button
       onClick={onSyncNow}
       disabled={status === 'syncing'}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors"
-      title="Klik untuk sync"
+      aria-label={`${label}${detail ? `, ${detail}` : ''}. Klik untuk mencoba sinkronisasi.`}
+      className="sync-status-button flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 transition-colors hover:bg-gray-200"
+      title="Klik untuk mencoba sinkronisasi"
     >
       <span className={`w-2 h-2 rounded-full ${dotClass}`} />
       <span>{label}</span>
@@ -2329,10 +2412,10 @@ function getActiveTabLabel(tab: AppTab) {
     cashier: 'Kasir',
     menu: 'Kelola Menu',
     receipts: 'Riwayat Struk',
-    closing: 'Closing Harian',
+    closing: 'Tutup Kasir',
     reports: 'Laporan',
     expenses: 'Pengeluaran',
-    settings: 'Settings',
+    settings: 'Pengaturan',
   };
 
   return labels[tab];
@@ -2355,7 +2438,7 @@ function getRoleLabel(role: UserRole) {
   const labels: Record<UserRole, string> = {
     owner: 'Owner',
     admin: 'Admin',
-    cashier: 'Cashier',
+    cashier: 'Kasir',
   };
 
   return labels[role];
@@ -2363,12 +2446,12 @@ function getRoleLabel(role: UserRole) {
 
 function getSyncStatusLabel(status: SyncStatus) {
   const labels: Record<SyncStatus, string> = {
-    local: 'Lokal',
-    synced: 'Tersinkron',
-    syncing: 'Menyinkronkan',
-    pending: 'Menunggu',
-    error: 'Error',
-    'login-required': 'Login diperlukan',
+    local: 'Offline',
+    synced: 'Online',
+    syncing: 'Menyimpan',
+    pending: 'Offline',
+    error: 'Perlu dicek',
+    'login-required': 'Masuk dulu',
   };
 
   return labels[status];
