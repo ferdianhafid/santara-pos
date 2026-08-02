@@ -1910,21 +1910,22 @@ function CashierView({
 }: CashierViewProps) {
   const [sizeSelectionItem, setSizeSelectionItem] = useState<MenuItem | null>(null);
   const [noteEditorItemId, setNoteEditorItemId] = useState<string | null>(null);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   return (
     <div className="cashier-layout flex min-h-full flex-col gap-4 lg:h-full lg:flex-row lg:gap-6">
       {/* Left Panel - Menu */}
       <div className="menu-panel flex min-h-[55dvh] flex-col min-w-0 lg:min-h-0 lg:flex-1">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-3 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-extrabold text-coffee-dark tracking-tight">Menu</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{activeMenuItems.length} item tersedia</p>
+            <h2 className="text-xl font-extrabold tracking-tight text-coffee-dark sm:text-2xl">Menu</h2>
+            <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">{activeMenuItems.length} item tersedia</p>
           </div>
           <span className="badge badge-primary">{activeCategoryName}</span>
         </div>
 
         {/* Category Filter */}
-        <div className="category-filter flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1">
+        <div className="category-filter -mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1.5">
           {categoryNames.map((category) => (
             <button
               key={category}
@@ -1938,7 +1939,7 @@ function CashierView({
 
         {/* Menu Grid */}
         <div className="min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2">
-          <div className="menu-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="menu-grid grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
             {activeMenuItems.length === 0 ? (
               <div className="col-span-full empty-state">
                 <div className="text-4xl mb-3">☕</div>
@@ -1955,23 +1956,23 @@ function CashierView({
                       onAddItem(item, null);
                     }
                   }}
-                  className="menu-item text-left"
+                  className="menu-item min-w-0 text-left"
                 >
-                  <div className="flex flex-col h-full">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-coffee-dark text-sm leading-tight">{item.name}</h3>
-                      <p className="text-xs text-gray-400 mt-1 uppercase tracking-wide">{item.category}</p>
+                  <div className="flex h-full min-w-0 flex-col">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="menu-card-name text-sm font-bold leading-snug text-coffee-dark">{item.name}</h3>
+                      <p className="mt-1 truncate text-[11px] font-medium text-gray-400">{item.category}</p>
                     </div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                      <p className="text-lg font-extrabold text-coffee">
+                    <div className="mt-2 flex min-w-0 items-end justify-between gap-1.5">
+                      <p className="min-w-0 whitespace-nowrap text-sm font-extrabold text-coffee sm:text-base">
                         {getMenuSizeVariants(item).length > 0 && (
-                          <span className="mr-1 text-[10px] font-bold uppercase text-gray-400">Mulai</span>
+                          <span className="mr-1 text-[9px] font-bold uppercase text-gray-400">Mulai</span>
                         )}
                         {formatRupiah(getMenuStartingPrice(item))}
                       </p>
                       {getMenuSizeVariants(item).length > 0 && (
-                        <span className="rounded-full bg-santara-cream px-2 py-1 text-[10px] font-black text-santara-bean">
-                          M / L
+                        <span className="shrink-0 rounded-full bg-santara-cream px-2 py-1 text-[9px] font-black text-santara-bean">
+                          {getMenuSizeVariants(item).map((variant) => variant.size).join(' · ')}
                         </span>
                       )}
                     </div>
@@ -1984,17 +1985,38 @@ function CashierView({
       </div>
 
       {/* Right Panel - Cart */}
-      <div className="cart-column flex min-w-0 flex-col lg:w-[410px] xl:w-[420px]">
+      {isMobileCartOpen && (
+        <button
+          aria-label="Tutup keranjang"
+          className="fixed inset-0 z-[55] bg-santara-roast/35 backdrop-blur-[2px] lg:hidden"
+          onClick={() => setIsMobileCartOpen(false)}
+          type="button"
+        />
+      )}
+
+      <div className={`cart-column min-w-0 flex-col ${isMobileCartOpen ? 'flex' : 'hidden'} lg:flex lg:w-[410px] xl:w-[420px]`}>
         <div className="card cart-panel flex min-h-0 flex-col overflow-visible lg:flex-1 lg:overflow-hidden">
           {/* Cart Header */}
           <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-            <div>
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                aria-label="Tutup keranjang"
+                className="compact-action grid size-8 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-500 lg:hidden"
+                onClick={() => setIsMobileCartOpen(false)}
+                type="button"
+              >
+                <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+              <div>
               <h2 className="text-lg font-extrabold tracking-tight text-coffee-dark">Keranjang</h2>
               <p className="text-[10px] text-gray-500">{totalQuantity} item</p>
+              </div>
             </div>
             {cart.length > 0 && (
               <button onClick={clearCart} className="rounded-lg px-2 py-1.5 text-xs font-bold text-coffee/70 hover:bg-coffee/5">
-                Clear All
+                Kosongkan
               </button>
             )}
           </div>
@@ -2019,7 +2041,7 @@ function CashierView({
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         aria-label={`Atur diskon ${getCartItemDisplayName(item)}`}
-                        className="grid h-7 min-w-7 place-items-center rounded-full bg-white px-1.5 text-[9px] font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
+                        className="compact-action grid size-8 place-items-center rounded-full bg-white px-1.5 text-[10px] font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
                         onClick={() => onDiscountItem(item.id)}
                         type="button"
                       >
@@ -2027,7 +2049,7 @@ function CashierView({
                       </button>
                       <button
                         aria-label={`Buka catatan untuk ${getCartItemDisplayName(item)}`}
-                        className={`relative grid size-7 place-items-center rounded-full bg-white ring-1 transition focus:outline-none focus:ring-4 focus:ring-coffee/10 ${item.notes ? 'text-santara-bean ring-santara-clay' : 'text-gray-400 ring-gray-200'}`}
+                        className={`compact-action relative grid size-8 place-items-center rounded-full bg-white ring-1 transition focus:outline-none focus:ring-4 focus:ring-coffee/10 ${item.notes ? 'text-santara-bean ring-santara-clay' : 'text-gray-400 ring-gray-200'}`}
                         onClick={() => setNoteEditorItemId((current) => current === item.id ? null : item.id)}
                         title="Catatan item"
                         type="button"
@@ -2041,7 +2063,7 @@ function CashierView({
                     <button
                       aria-label={`Hapus ${getCartItemDisplayName(item)} dari keranjang`}
                       onClick={() => removeItem(item.id)}
-                      className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[10px] text-gray-400 ring-1 ring-gray-100 transition-colors hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-100"
+                      className="compact-action grid size-8 shrink-0 place-items-center rounded-full bg-white text-[10px] text-gray-400 ring-1 ring-gray-100 transition-colors hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-100"
                       type="button"
                     >
                       ✕
@@ -2128,7 +2150,10 @@ function CashierView({
 
             <div className="cart-actions mt-2 grid gap-1.5">
               <button
-                onClick={onOpenCheckout}
+                onClick={() => {
+                  setIsMobileCartOpen(false);
+                  onOpenCheckout();
+                }}
                 disabled={cart.length === 0}
                 className="btn btn-primary w-full"
               >
@@ -2149,13 +2174,13 @@ function CashierView({
       </div>
 
       {/* Mobile Cart FAB */}
-      {cart.length > 0 && (
+      {(cart.length > 0 || pendingOrderCount > 0) && !isMobileCartOpen && (
         <button
-          onClick={onOpenCheckout}
-          className="checkout-fab lg:hidden fixed bottom-[92px] left-4 right-4 z-30 btn btn-primary justify-between shadow-xl rounded-2xl px-5 py-4 sm:left-auto sm:right-6"
+          onClick={() => setIsMobileCartOpen(true)}
+          className="checkout-fab btn btn-primary fixed bottom-[76px] left-3 right-3 z-30 justify-between rounded-xl px-4 py-3 shadow-xl lg:hidden sm:left-auto sm:right-5"
         >
-          <span>Bayar</span>
-          <span className="ml-2 font-extrabold">{formatRupiah(cartNetSubtotal)}</span>
+          <span>{cart.length > 0 ? `Lihat Keranjang · ${totalQuantity}` : `Order Tersimpan · ${pendingOrderCount}`}</span>
+          {cart.length > 0 && <span className="ml-2 font-extrabold">{formatRupiah(cartNetSubtotal)}</span>}
         </button>
       )}
 
