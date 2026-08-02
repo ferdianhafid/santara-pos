@@ -94,6 +94,16 @@ export function DailyClosing({
     if (isDateClosingAvailable) onSaveClosing(buildClosing());
   };
 
+  const handleSaveOpeningCash = () => {
+    if (!isDateClosingAvailable) return;
+    const closing = buildClosing();
+    onSaveClosing({
+      ...closing,
+      actualCash: openingCashValue,
+      cashDifference: openingCashValue - expectedCash,
+    });
+  };
+
   const handleSaveAndPrint = async () => {
     if (!isDateClosingAvailable || isPrinting) return;
     const closing = buildClosing();
@@ -147,6 +157,9 @@ export function DailyClosing({
               {formatRupiah(cashDifference)}
             </p>
           </div>
+          <button className="rounded-lg bg-santara-cream px-4 py-3 text-sm font-black text-santara-bean ring-1 ring-santara-latte disabled:opacity-45" disabled={!isDateClosingAvailable || isPrinting} onClick={handleSaveOpeningCash} type="button">
+            Simpan Saldo Awal
+          </button>
           <button className="rounded-lg bg-white px-4 py-3 text-sm font-black text-santara-bean ring-1 ring-santara-latte disabled:opacity-45" disabled={!isDateClosingAvailable || isPrinting} type="submit">
             Simpan Closing
           </button>
