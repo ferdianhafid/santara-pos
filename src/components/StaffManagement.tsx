@@ -89,7 +89,7 @@ export function StaffManagement({
   };
 
   return (
-    <section className="rounded-lg bg-white p-3 ring-1 ring-santara-latte">
+    <section className="min-w-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
@@ -106,7 +106,7 @@ export function StaffManagement({
           onClick={() => setIsAdding((value) => !value)}
           type="button"
         >
-          {isAdding ? 'Batal' : '+ Tambah Staff'}
+          {isAdding ? 'Batal' : 'Tambah Staff'}
         </button>
       </div>
 
@@ -150,7 +150,7 @@ export function StaffManagement({
             value={form.password}
           />
           <label className="block">
-            <span className="text-xs font-black text-santara-roast/70">Role</span>
+            <span className="text-xs font-black text-santara-roast/70">Peran</span>
             <select
               className="mt-1 w-full rounded-lg bg-white px-3 py-2.5 text-sm font-bold text-santara-roast outline-none ring-1 ring-santara-latte focus:ring-2 focus:ring-santara-clay"
               onChange={(event) =>
@@ -184,6 +184,11 @@ export function StaffManagement({
       <div className="mt-3 space-y-2">
         {isLoading ? (
           <p className="py-4 text-center text-sm font-bold text-santara-roast/50">Memuat staff...</p>
+        ) : staff.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-santara-latte bg-white px-4 py-6 text-center">
+            <p className="text-sm font-black text-santara-roast">Belum ada akun staff</p>
+            <p className="mt-1 text-xs font-medium text-santara-roast/55">Pilih Tambah Staff untuk membuat akun kasir pertama.</p>
+          </div>
         ) : (
           staff.map((member) => {
             const isSelf = member.id === currentUserId;
