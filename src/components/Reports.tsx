@@ -56,6 +56,8 @@ export function Reports({
 }: ReportsProps) {
   const [reportMode, setReportMode] = useState<ReportMode>('today');
   const [selectedDate, setSelectedDate] = useState(getTodayInputValue);
+  const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
+  const [showAllBestSellers, setShowAllBestSellers] = useState(false);
   const report = useMemo(
     () =>
       buildSalesReport(
@@ -148,52 +150,51 @@ export function Reports({
           </div>
         ) : (
           <div className="space-y-3">
-            <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              <ReportCard
-                label="Penjualan Kotor"
-                value={formatRupiah(report.grossSales)}
-              />
-              <ReportCard
-                label="Total Diskon"
-                value={formatRupiah(report.totalDiscount)}
-              />
+            <section className="space-y-2">
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
               <ReportCard
                 label="Penjualan Bersih"
                 value={formatRupiah(report.netSales)}
-              />
-              <ReportCard label="Total HPP" value={formatRupiah(report.totalHpp)} />
-              <ReportCard
-                label="Laba Kotor"
-                value={formatRupiah(report.grossProfit)}
-              />
-              <ReportCard
-                label="Gross Margin"
-                value={formatPercent(report.grossMargin)}
-              />
-              <ReportCard
-                label="Total Transaksi"
-                value={`${report.totalTransactions} data`}
-              />
-              <ReportCard
-                label="Rata-rata Transaksi"
-                value={formatRupiah(report.averageTransactionValue)}
-              />
-              <ReportCard
-                label="Total Pengeluaran"
-                value={formatRupiah(report.totalExpenses)}
               />
               <ReportCard
                 label="Laba Bersih"
                 value={formatRupiah(report.netProfit)}
               />
               <ReportCard
-                label="Net Margin"
-                value={formatPercent(report.netMargin)}
+                label="Total Transaksi"
+                value={`${report.totalTransactions} struk`}
               />
+              <ReportCard
+                label="Total Pengeluaran"
+                value={formatRupiah(report.totalExpenses)}
+              />
+              </div>
+
+              <button
+                aria-expanded={showAdvancedMetrics}
+                className="flex w-full items-center justify-between rounded-xl border border-santara-latte bg-santara-cream/55 px-3 py-2 text-left text-xs font-black text-santara-bean"
+                onClick={() => setShowAdvancedMetrics((isShown) => !isShown)}
+                type="button"
+              >
+                <span>{showAdvancedMetrics ? 'Sembunyikan metrik lengkap' : 'Lihat metrik lengkap'}</span>
+                <span aria-hidden="true" className={`transition-transform ${showAdvancedMetrics ? 'rotate-180' : ''}`}>⌄</span>
+              </button>
+
+              {showAdvancedMetrics && (
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+                  <ReportCard label="Penjualan Kotor" value={formatRupiah(report.grossSales)} />
+                  <ReportCard label="Total Diskon" value={formatRupiah(report.totalDiscount)} />
+                  <ReportCard label="Total HPP" value={formatRupiah(report.totalHpp)} />
+                  <ReportCard label="Laba Kotor" value={formatRupiah(report.grossProfit)} />
+                  <ReportCard label="Margin Kotor" value={formatPercent(report.grossMargin)} />
+                  <ReportCard label="Rata-rata Struk" value={formatRupiah(report.averageTransactionValue)} />
+                  <ReportCard label="Margin Bersih" value={formatPercent(report.netMargin)} />
+                </div>
+              )}
             </section>
 
             <section className="grid min-w-0 gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
-              <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-1">
+              <div className="order-2 grid min-w-0 gap-3 md:grid-cols-2 xl:order-1 xl:grid-cols-1">
                 <Panel title="Ringkasan Pembayaran">
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
                     {report.paymentSummary.map((summary) => (
@@ -214,7 +215,7 @@ export function Reports({
                       value={`${report.sourceTransactionCount} struk`}
                     />
                     <SummaryLine
-                      label="Import lama"
+                      label="Data lama"
                       value={`${report.sourceLegacyCount} baris`}
                     />
                   </div>
@@ -262,19 +263,28 @@ export function Reports({
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {report.bestSellers.map((item, index) => (
+                      {(showAllBestSellers ? report.bestSellers : report.bestSellers.slice(0, 3)).map((item, index) => (
                         <BestSellerItem
                           index={index + 1}
                           item={item}
                           key={item.key}
                         />
                       ))}
+                      {report.bestSellers.length > 3 && (
+                        <button
+                          className="w-full rounded-lg border border-santara-latte bg-white px-3 py-2 text-xs font-black text-santara-bean"
+                          onClick={() => setShowAllBestSellers((isShown) => !isShown)}
+                          type="button"
+                        >
+                          {showAllBestSellers ? 'Tampilkan 3 teratas' : `Lihat semua (${report.bestSellers.length})`}
+                        </button>
+                      )}
                     </div>
                   )}
                 </Panel>
               </div>
 
-              <Panel className="min-w-0" title="Ringkasan Penjualan Menu">
+              <Panel className="order-1 min-w-0 xl:order-2" title="Penjualan per Menu">
                 {report.menuSales.length === 0 ? (
                   <p className="text-sm font-bold text-santara-roast/55">
                     Belum ada menu terjual di periode ini.
@@ -458,11 +468,11 @@ function MenuSalesTable({ items }: MenuSalesTableProps) {
               </span>
             </div>
             <div className="mt-2 grid grid-cols-3 gap-1.5">
-              <ReportMetric label="Gross" value={formatRupiah(item.grossSales)} />
+              <ReportMetric label="Kotor" value={formatRupiah(item.grossSales)} />
               <ReportMetric label="Diskon" value={formatRupiah(item.discountAmount)} />
-              <ReportMetric label="Net" value={formatRupiah(item.netSales)} />
+              <ReportMetric label="Bersih" value={formatRupiah(item.netSales)} />
               <ReportMetric label="HPP" value={formatRupiah(item.hpp)} />
-              <ReportMetric label="Profit" value={formatRupiah(item.estimatedProfit)} />
+              <ReportMetric label="Laba" value={formatRupiah(item.estimatedProfit)} />
               <ReportMetric label="Margin" value={formatPercent(item.margin)} />
             </div>
           </article>
@@ -475,11 +485,11 @@ function MenuSalesTable({ items }: MenuSalesTableProps) {
             <TableHeader>Menu</TableHeader>
             <TableHeader>Kategori</TableHeader>
             <TableHeader align="right">Qty</TableHeader>
-            <TableHeader align="right">Gross Sales</TableHeader>
+            <TableHeader align="right">Penjualan Kotor</TableHeader>
             <TableHeader align="right">Diskon</TableHeader>
-            <TableHeader align="right">Net Sales</TableHeader>
+            <TableHeader align="right">Penjualan Bersih</TableHeader>
             <TableHeader align="right">HPP</TableHeader>
-            <TableHeader align="right">Profit</TableHeader>
+            <TableHeader align="right">Laba</TableHeader>
             <TableHeader align="right">Margin</TableHeader>
           </tr>
         </thead>
