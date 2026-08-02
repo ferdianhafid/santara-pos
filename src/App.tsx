@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckoutModal } from './components/CheckoutModal';
+import { DailyClosing as DailyClosingPanel } from './components/DailyClosing';
 import { Expenses } from './components/Expenses';
 import { ConfirmOrderModal, SaveOrderModal } from './components/HoldOrderModals';
 import { ItemDiscountModal } from './components/ItemDiscountModal';
@@ -34,8 +35,10 @@ import { loadPrinterSettings } from './services/printing/printerSettings';
 import {
   canUseNativeThermalPrinter,
   ensureThermalPrinterConnected,
+  printDailySummary as printThermalDailySummary,
   printTransactionReceipt,
 } from './services/printing/thermalPrinter';
+import { printDailySummaryInBrowser } from './services/printing/dailySummaryEncoder';
 import {
   addSyncOperation,
   createDailyClosingSyncOperation,
@@ -71,6 +74,7 @@ import type {
   LegacySale,
   MenuCategory,
   MenuItem,
+  MenuSize,
   PendingOrder,
 } from './types';
 import {
@@ -83,6 +87,17 @@ import {
   loadAppState,
   saveAppState,
 } from './utils/storage';
+import {
+  getCartItemDisplayName,
+  getMenuSizeVariants,
+  getMenuStartingPrice,
+  getMenuVariant,
+} from './utils/menuVariants';
+import {
+  buildSalesReport,
+  getTodayInputValue,
+  type SalesReport,
+} from './utils/reports';
 
 const santaraDefaultMenuItems = initialMenuCategories.flatMap(
   (category) => category.items,
@@ -92,6 +107,7 @@ type AppTab =
   | 'cashier'
   | 'menu'
   | 'receipts'
+  | 'closing'
   | 'reports'
   | 'expenses'
   | 'settings';
@@ -122,6 +138,7 @@ const appTabs: Array<{ id: AppTab; label: string; icon: string }> = [
   { id: 'reports', label: 'Laporan', icon: '📊' },
   { id: 'expenses', label: 'Pengeluaran', icon: '💰' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'closing', label: 'Closing', icon: 'closing' },
 ];
 
 function createReceiptNumber(
@@ -181,7 +198,7 @@ function TabIcon({ id }: { id: AppTab }) {
     );
   }
 
-  if (id === 'reports') {
+  if (id === 'reports' || id === 'closing') {
     return (
       <svg aria-hidden="true" {...commonProps}>
         <path d="M4 19V5" />
@@ -279,8 +296,29 @@ function App() {
   const effectiveRole: UserRole =
     authStatus === 'local' ? 'owner' : authProfile?.role ?? 'cashier';
   const visibleTabs = useMemo(
-    () => appTabs.filter((tab) => canAccessTab(tab.id, effectiveRole)),
+    () =>
+      appTabs.filter(
+        (tab) =>
+          canAccessTab(tab.id, effectiveRole) &&
+          !(
+            tab.id === 'closing' &&
+            (effectiveRole === 'owner' || effectiveRole === 'admin')
+          ),
+      ),
     [effectiveRole],
+  );
+  const todayClosingDate = getTodayInputValue();
+  const todayClosingReport = useMemo(
+    () =>
+      buildSalesReport(
+        completedTransactions,
+        'today',
+        todayClosingDate,
+        legacySales,
+        expenses,
+        dailyClosings,
+      ),
+    [completedTransactions, dailyClosings, expenses, legacySales, todayClosingDate],
   );
   const activeCategoryNames = useMemo(
     () =>
@@ -383,6 +421,31 @@ function App() {
             ? error.message
             : 'Struk gagal dikirim ke printer thermal.',
         );
+      }
+    },
+    [activeBusiness],
+  );
+
+  const printDailySummary = useCallback(
+    async (report: SalesReport, closing: DailyClosing) => {
+      try {
+        if (!canUseNativeThermalPrinter()) {
+          printDailySummaryInBrowser(report, closing, activeBusiness);
+          setPrinterNotice('Preview daily summary dibuka di browser.');
+          return;
+        }
+
+        setPrinterNotice('Menyiapkan daily summary...');
+        const settings = loadPrinterSettings(activeBusiness.slug);
+        await printThermalDailySummary(report, closing, activeBusiness, settings);
+        setPrinterNotice('Daily summary berhasil dikirim ke printer thermal.');
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Daily summary gagal dikirim ke printer thermal.';
+        setPrinterNotice(message);
+        throw error;
       }
     },
     [activeBusiness],
@@ -853,13 +916,18 @@ function App() {
     );
   };
 
-  const addItem = (item: MenuItem) => {
+  const addItem = (item: MenuItem, size: MenuSize | null = null) => {
+    const variant = size ? getMenuVariant(item, size) : null;
+    const cartLineId = size ? `${item.id}::${size}` : item.id;
+
     setCart((currentCart) => {
-      const existingItem = currentCart.find((cartItem) => cartItem.id === item.id);
+      const existingItem = currentCart.find(
+        (cartItem) => cartItem.id === cartLineId,
+      );
 
       if (existingItem) {
         return currentCart.map((cartItem) =>
-          cartItem.id === item.id
+          cartItem.id === cartLineId
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem,
         );
@@ -868,11 +936,12 @@ function App() {
       return [
         ...currentCart,
         {
-          id: item.id,
+          id: cartLineId,
           nameSnapshot: item.name,
           categorySnapshot: item.category,
-          unitPriceSnapshot: item.price,
-          hppSnapshot: item.hpp ?? 0,
+          sizeSnapshot: size,
+          unitPriceSnapshot: variant?.price ?? item.price,
+          hppSnapshot: variant?.hpp ?? item.hpp ?? 0,
           quantity: 1,
           notes: '',
         },
@@ -1442,10 +1511,36 @@ function App() {
                 googleSheetSyncSettings={googleSheetSyncSettings}
                 legacySales={legacySales}
                 onAddGoogleSheetSyncLog={addGoogleSheetSyncLog}
+                onPrintSummary={printDailySummary}
                 onSaveClosing={saveDailyClosing}
                 onSaveGoogleSheetSettings={saveGoogleSheetSettings}
                 transactions={completedTransactions}
               />
+            )}
+
+            {activeTab === 'closing' && canAccessTab('closing', effectiveRole) && (
+              <section className="min-h-full rounded-2xl bg-white/80 p-4 shadow-elegant ring-1 ring-santara-latte/40">
+                <div className="mb-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-santara-gold">
+                    Operasional
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black text-santara-roast">
+                    Closing Hari Ini
+                  </h2>
+                  <p className="mt-1 text-sm text-santara-roast/60">
+                    Pastikan seluruh transaksi dan pengeluaran hari ini sudah
+                    dicatat sebelum mencetak summary.
+                  </p>
+                </div>
+                <DailyClosingPanel
+                  cashierName={cashierName}
+                  key={todayClosingReport.dailyClosing?.id ?? todayClosingDate}
+                  onPrintSummary={printDailySummary}
+                  onSaveClosing={saveDailyClosing}
+                  report={todayClosingReport}
+                  selectedDate={todayClosingDate}
+                />
+              </section>
             )}
 
             {activeTab === 'expenses' && canAccessTab('expenses', effectiveRole) && (
@@ -1683,7 +1778,7 @@ type CashierViewProps = {
   decreaseQuantity: (id: string) => void;
   increaseQuantity: (id: string) => void;
   itemDiscountTotal: number;
-  onAddItem: (item: MenuItem) => void;
+  onAddItem: (item: MenuItem, size?: MenuSize | null) => void;
   onDeletePending: (order: PendingOrder) => void;
   onDiscountItem: (id: string) => void;
   onOpenCheckout: () => void;
@@ -1722,6 +1817,8 @@ function CashierView({
   subtotal,
   totalQuantity,
 }: CashierViewProps) {
+  const [sizeSelectionItem, setSizeSelectionItem] = useState<MenuItem | null>(null);
+
   return (
     <div className="cashier-layout flex min-h-full flex-col gap-4 lg:h-full lg:flex-row lg:gap-6">
       {/* Left Panel - Menu */}
@@ -1759,7 +1856,13 @@ function CashierView({
               activeMenuItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => onAddItem(item)}
+                  onClick={() => {
+                    if (getMenuSizeVariants(item).length > 0) {
+                      setSizeSelectionItem(item);
+                    } else {
+                      onAddItem(item, null);
+                    }
+                  }}
                   className="menu-item text-left"
                 >
                   <div className="flex flex-col h-full">
@@ -1767,7 +1870,19 @@ function CashierView({
                       <h3 className="font-bold text-coffee-dark text-sm leading-tight">{item.name}</h3>
                       <p className="text-xs text-gray-400 mt-1 uppercase tracking-wide">{item.category}</p>
                     </div>
-                    <p className="text-lg font-extrabold text-coffee mt-2">{formatRupiah(item.price)}</p>
+                    <div className="mt-2 flex items-end justify-between gap-2">
+                      <p className="text-lg font-extrabold text-coffee">
+                        {getMenuSizeVariants(item).length > 0 && (
+                          <span className="mr-1 text-[10px] font-bold uppercase text-gray-400">Mulai</span>
+                        )}
+                        {formatRupiah(getMenuStartingPrice(item))}
+                      </p>
+                      {getMenuSizeVariants(item).length > 0 && (
+                        <span className="rounded-full bg-santara-cream px-2 py-1 text-[10px] font-black text-santara-bean">
+                          M / L
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))
@@ -1806,7 +1921,7 @@ function CashierView({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <h4 className="cart-item-name text-base font-extrabold text-coffee-dark">
-                        {item.nameSnapshot}
+                        {getCartItemDisplayName(item)}
                       </h4>
                       <p className="mt-0.5 truncate text-sm font-semibold text-gray-400">
                         {item.categorySnapshot}
@@ -1814,7 +1929,7 @@ function CashierView({
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <button
-                        aria-label={`Atur diskon ${item.nameSnapshot}`}
+                        aria-label={`Atur diskon ${getCartItemDisplayName(item)}`}
                         className="min-h-11 rounded-full bg-white px-3 text-xs font-black text-santara-bean ring-1 ring-santara-latte transition hover:bg-santara-cream focus:outline-none focus:ring-4 focus:ring-coffee/10"
                         onClick={() => onDiscountItem(item.id)}
                         type="button"
@@ -1822,7 +1937,7 @@ function CashierView({
                         Diskon
                       </button>
                     <button
-                      aria-label={`Hapus ${item.nameSnapshot} dari keranjang`}
+                      aria-label={`Hapus ${getCartItemDisplayName(item)} dari keranjang`}
                       onClick={() => removeItem(item.id)}
                       className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-gray-400 ring-1 ring-gray-100 transition-colors hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-100"
                       type="button"
@@ -1834,10 +1949,10 @@ function CashierView({
 
                   <label className="mt-3 block">
                     <span className="sr-only">
-                      Catatan untuk {item.nameSnapshot}
+                      Catatan untuk {getCartItemDisplayName(item)}
                     </span>
                     <input
-                      aria-label={`Catatan untuk ${item.nameSnapshot}`}
+                      aria-label={`Catatan untuk ${getCartItemDisplayName(item)}`}
                       autoComplete="off"
                       className="w-full rounded-xl bg-white px-3 py-2 text-sm font-semibold text-coffee-dark outline-none ring-1 ring-gray-200 transition placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-coffee/30"
                       maxLength={120}
@@ -1853,7 +1968,7 @@ function CashierView({
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div className="qty-control shrink-0">
                       <button
-                        aria-label={`Kurangi jumlah ${item.nameSnapshot}`}
+                        aria-label={`Kurangi jumlah ${getCartItemDisplayName(item)}`}
                         onClick={() => decreaseQuantity(item.id)}
                         className="qty-btn qty-btn-minus focus:outline-none focus:ring-4 focus:ring-coffee/10"
                         type="button"
@@ -1862,7 +1977,7 @@ function CashierView({
                       </button>
                       <span className="w-10 text-center text-lg font-extrabold tabular-nums">{item.quantity}</span>
                       <button
-                        aria-label={`Tambah jumlah ${item.nameSnapshot}`}
+                        aria-label={`Tambah jumlah ${getCartItemDisplayName(item)}`}
                         onClick={() => increaseQuantity(item.id)}
                         className="qty-btn qty-btn-plus focus:outline-none focus:ring-4 focus:ring-coffee/20"
                         type="button"
@@ -1933,6 +2048,67 @@ function CashierView({
           <span className="ml-2 font-extrabold">{formatRupiah(cartNetSubtotal)}</span>
         </button>
       )}
+
+      {sizeSelectionItem && (
+        <SizeSelectionModal
+          item={sizeSelectionItem}
+          onClose={() => setSizeSelectionItem(null)}
+          onSelect={(size) => {
+            onAddItem(sizeSelectionItem, size);
+            setSizeSelectionItem(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SizeSelectionModal({
+  item,
+  onClose,
+  onSelect,
+}: {
+  item: MenuItem;
+  onClose: () => void;
+  onSelect: (size: MenuSize) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-santara-roast/55 p-4 backdrop-blur-sm">
+      <div
+        aria-labelledby="size-selection-title"
+        aria-modal="true"
+        className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-elegant"
+        role="dialog"
+      >
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-santara-clay">
+          Pilih Ukuran
+        </p>
+        <h2 className="mt-1 text-2xl font-black text-santara-roast" id="size-selection-title">
+          {item.name}
+        </h2>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {getMenuSizeVariants(item).map((variant) => (
+            <button
+              className="rounded-2xl bg-santara-cream p-4 text-left ring-1 ring-santara-latte transition hover:bg-santara-bean hover:text-white"
+              key={variant.size}
+              onClick={() => onSelect(variant.size)}
+              type="button"
+            >
+              <span className="block text-2xl font-black">{variant.size}</span>
+              <span className="mt-1 block text-sm font-bold">
+                {formatRupiah(variant.price)}
+              </span>
+            </button>
+          ))}
+        </div>
+        <button
+          className="mt-3 w-full rounded-xl bg-white px-4 py-3 text-sm font-black text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream"
+          onClick={onClose}
+          type="button"
+        >
+          Batal
+        </button>
+      </div>
     </div>
   );
 }
@@ -2125,6 +2301,7 @@ function getActiveTabLabel(tab: AppTab) {
     cashier: 'Kasir',
     menu: 'Kelola Menu',
     receipts: 'Riwayat Struk',
+    closing: 'Closing Harian',
     reports: 'Laporan',
     expenses: 'Pengeluaran',
     settings: 'Settings',
@@ -2138,7 +2315,12 @@ function canAccessTab(tab: AppTab, role: UserRole) {
     return true;
   }
 
-  return tab === 'cashier' || tab === 'receipts';
+  return (
+    tab === 'cashier' ||
+    tab === 'receipts' ||
+    tab === 'closing' ||
+    tab === 'expenses'
+  );
 }
 
 function getRoleLabel(role: UserRole) {

@@ -3,6 +3,7 @@ import { ReceiptPreview } from './ReceiptPreview';
 import type { CompletedTransaction, PaymentMethod } from '../types';
 import type { BusinessIdentity } from '../config/businesses';
 import { formatReceiptDate, formatRupiah } from '../utils/format';
+import { getSizedMenuName } from '../utils/menuVariants';
 
 type ReceiptHistoryProps = {
   business: BusinessIdentity;
@@ -19,7 +20,9 @@ type ReceiptHistoryProps = {
 type PaymentFilter = 'Semua' | PaymentMethod;
 type ReceiptDateFilter = 'today' | 'yesterday' | 'date';
 
-const paymentFilters: PaymentFilter[] = ['Semua', 'Cash', 'QRIS', 'Debit'];
+const paymentFilters: PaymentFilter[] = [
+  'Semua', 'Cash', 'QRIS', 'Debit', 'Grab', 'Shopee',
+];
 const dateFilters: Array<{ label: string; value: ReceiptDateFilter }> = [
   { label: 'Hari Ini', value: 'today' },
   { label: 'Kemarin', value: 'yesterday' },
@@ -361,7 +364,8 @@ export function ReceiptHistory({
                     <div className="flex justify-between gap-2" key={item.id}>
                       <div>
                         <p>
-                          {item.quantity}x {item.nameSnapshot}
+                          {item.quantity}x{' '}
+                          {getSizedMenuName(item.nameSnapshot, item.sizeSnapshot)}
                         </p>
                         {item.notes?.trim() && (
                           <p className="mt-0.5 text-xs font-semibold italic text-santara-roast/60">

@@ -17,6 +17,8 @@ import type {
   LegacySale,
   MenuCategory,
   MenuItem,
+  MenuSize,
+  MenuSizeVariant,
   PaymentMethod,
   PendingOrder,
   TransactionItem,
@@ -250,6 +252,7 @@ async function upsertMenuItems(
     name: item.name,
     price: item.price,
     hpp: item.hpp,
+    size_variants: item.sizeVariants ?? [],
     is_active: item.isActive,
   }));
   const { error } = await supabase
@@ -356,6 +359,7 @@ async function upsertTransaction(
     unit_price_snapshot: item.unitPriceSnapshot,
     hpp_snapshot: item.hppSnapshot ?? 0,
     quantity: item.quantity,
+    size_snapshot: item.sizeSnapshot ?? null,
     notes: item.notes?.trim() ?? '',
     subtotal: item.subtotal,
     gross_line_total: item.grossLineTotal ?? item.subtotal,
@@ -417,6 +421,7 @@ async function upsertPendingOrder(businessId: string, order: PendingOrder) {
     unit_price_snapshot: item.unitPriceSnapshot,
     hpp_snapshot: item.hppSnapshot ?? 0,
     quantity: item.quantity,
+    size_snapshot: item.sizeSnapshot ?? null,
     notes: item.notes?.trim() ?? '',
     item_discount_type: item.itemDiscountType ?? 'none',
     item_discount_value: item.itemDiscountValue ?? 0,
@@ -545,6 +550,8 @@ async function upsertExpense(businessId: string, expense: Expense) {
       expense_date: expense.date,
       name: expense.name,
       category: expense.category,
+      quantity: expense.quantity ?? null,
+      unit: expense.unit?.trim() ?? '',
       amount: expense.amount,
       payment_method: expense.paymentMethod,
       notes: expense.notes,
@@ -597,6 +604,9 @@ async function upsertDailyClosing(
       cash_sales: dailyClosing.cashSales,
       qris_sales: dailyClosing.qrisSales,
       debit_sales: dailyClosing.debitSales,
+      grab_sales: dailyClosing.grabSales,
+      shopee_sales: dailyClosing.shopeeSales,
+      opening_cash: dailyClosing.openingCash,
       expected_cash: dailyClosing.expectedCash,
       actual_cash: dailyClosing.actualCash,
       cash_difference: dailyClosing.cashDifference,
@@ -680,6 +690,7 @@ async function fetchMenuItems(businessId: string): Promise<MenuItem[]> {
     category: toStringValue(row.category_name),
     price: toNumberValue(row.price),
     hpp: toNumberValue(row.hpp),
+    sizeVariants: toMenuSizeVariants(row.size_variants),
     isActive: Boolean(row.is_active),
   }));
 }
@@ -774,6 +785,7 @@ async function fetchPendingOrders(businessId: string): Promise<PendingOrder[]> {
       unitPriceSnapshot: toNumberValue(itemRow.unit_price_snapshot),
       hppSnapshot: toNumberValue(itemRow.hpp_snapshot),
       quantity: Math.max(1, toNumberValue(itemRow.quantity)),
+      sizeSnapshot: toMenuSize(itemRow.size_snapshot),
       notes: toStringValue(itemRow.notes),
       itemDiscountType: toDiscountType(itemRow.item_discount_type),
       itemDiscountValue: toNumberValue(itemRow.item_discount_value),
@@ -880,6 +892,11 @@ async function fetchExpenses(businessId: string): Promise<Expense[]> {
     date: toStringValue(row.expense_date),
     name: toStringValue(row.name),
     category: toStringValue(row.category),
+    quantity:
+      row.quantity === null || row.quantity === undefined
+        ? null
+        : toNumberValue(row.quantity),
+    unit: toStringValue(row.unit),
     amount: toNumberValue(row.amount),
     paymentMethod: toExpensePaymentMethod(row.payment_method),
     notes: toStringValue(row.notes),
@@ -916,6 +933,9 @@ async function fetchDailyClosings(businessId: string): Promise<DailyClosing[]> {
     cashSales: toNumberValue(row.cash_sales),
     qrisSales: toNumberValue(row.qris_sales),
     debitSales: toNumberValue(row.debit_sales),
+    grabSales: toNumberValue(row.grab_sales),
+    shopeeSales: toNumberValue(row.shopee_sales),
+    openingCash: toNumberValue(row.opening_cash),
     expectedCash: toSignedNumberValue(row.expected_cash),
     actualCash: toSignedNumberValue(row.actual_cash),
     cashDifference: toSignedNumberValue(row.cash_difference),
@@ -995,6 +1015,7 @@ function mapTransactionItem(row: DbRow): TransactionItem {
     unitPriceSnapshot: toNumberValue(row.unit_price_snapshot),
     hppSnapshot,
     quantity,
+    sizeSnapshot: toMenuSize(row.size_snapshot),
     notes: toStringValue(row.notes),
     itemDiscountType: toDiscountType(row.item_discount_type),
     itemDiscountValue: toNumberValue(row.item_discount_value),
@@ -1197,7 +1218,31 @@ function toDiscountType(value: unknown): DiscountType {
 function toPaymentMethod(value: unknown): PaymentMethod {
   const text = toStringValue(value);
 
-  return text === 'QRIS' || text === 'Debit' ? text : 'Cash';
+  return text === 'QRIS' ||
+    text === 'Debit' ||
+    text === 'Grab' ||
+    text === 'Shopee'
+    ? text
+    : 'Cash';
+}
+
+function toMenuSize(value: unknown): MenuSize | null {
+  return value === 'M' || value === 'L' ? value : null;
+}
+
+function toMenuSizeVariants(value: unknown): MenuSizeVariant[] {
+  return toArray(value).flatMap((row) => {
+    const size = toMenuSize(row.size);
+    return size
+      ? [
+          {
+            size,
+            price: toNumberValue(row.price),
+            hpp: toNumberValue(row.hpp),
+          },
+        ]
+      : [];
+  });
 }
 
 function toExpensePaymentMethod(value: unknown): ExpensePaymentMethod {

@@ -76,6 +76,7 @@ test('compact 58 mm item keeps a short name, quantity, and prices on one line', 
       {
         ...transaction.items[0],
         nameSnapshot: 'Americano',
+        sizeSnapshot: 'L',
         quantity: 1,
         notes: 'More ice',
         subtotal: 18000,
@@ -90,7 +91,7 @@ test('compact 58 mm item keeps a short name, quantity, and prices on one line', 
     paperWidth: '58mm',
   });
 
-  assert.ok(text.split('\n').some((line) => line.includes('Americano x1') && line.includes('18.000')));
+  assert.ok(text.split('\n').some((line) => line.includes('Americano L x1') && line.includes('18.000')));
   assert.ok(text.includes('  > More ice'));
 });
 

@@ -1,4 +1,5 @@
 import type { CompletedTransaction } from '../../types';
+import { getSizedMenuName } from '../../utils/menuVariants.ts';
 
 export type ThermalPaperWidth = '58mm' | '80mm';
 
@@ -73,7 +74,7 @@ export function buildReceiptText(
   lines.push(divider);
   transaction.items.forEach((item, index) => {
     const itemLabelLines = wrapText(
-      `${item.nameSnapshot} x${item.quantity}`,
+      `${getSizedMenuName(item.nameSnapshot, item.sizeSnapshot)} x${item.quantity}`,
       getThreeColumnLeftWidth(width),
     );
     lines.push(
@@ -229,7 +230,7 @@ function threeColumns(
 }
 
 function getThreeColumnRightWidth(width: number) {
-  return width === paperColumns['58mm'] ? 10 : 14;
+  return width === paperColumns['58mm'] ? 9 : 14;
 }
 
 function getThreeColumnLeftWidth(width: number) {

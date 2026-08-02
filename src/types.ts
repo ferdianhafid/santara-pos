@@ -1,9 +1,18 @@
+export type MenuSize = 'M' | 'L';
+
+export type MenuSizeVariant = {
+  size: MenuSize;
+  price: number;
+  hpp: number;
+};
+
 export type MenuItem = {
   id: string;
   name: string;
   category: string;
   price: number;
   hpp: number;
+  sizeVariants?: MenuSizeVariant[];
   isActive: boolean;
 };
 
@@ -23,6 +32,7 @@ export type CartItem = {
   unitPriceSnapshot: number;
   hppSnapshot: number;
   quantity: number;
+  sizeSnapshot?: MenuSize | null;
   notes?: string;
   itemDiscountType?: DiscountType;
   itemDiscountValue?: number;
@@ -38,7 +48,7 @@ export type TransactionItem = CartItem & {
   profit: number;
 };
 
-export type PaymentMethod = 'Cash' | 'QRIS' | 'Debit';
+export type PaymentMethod = 'Cash' | 'QRIS' | 'Debit' | 'Grab' | 'Shopee';
 export type ReportPaymentMethod = PaymentMethod | 'Legacy' | string;
 export type ExpensePaymentMethod =
   | 'Cash'
@@ -114,6 +124,8 @@ export type Expense = {
   date: string;
   name: string;
   category: string;
+  quantity?: number | null;
+  unit?: string;
   amount: number;
   paymentMethod: ExpensePaymentMethod;
   notes: string;
@@ -136,6 +148,9 @@ export type DailyClosing = {
   cashSales: number;
   qrisSales: number;
   debitSales: number;
+  grabSales: number;
+  shopeeSales: number;
+  openingCash: number;
   expectedCash: number;
   actualCash: number;
   cashDifference: number;

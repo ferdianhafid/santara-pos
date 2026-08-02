@@ -1,6 +1,7 @@
 import type { CompletedTransaction, TransactionItem } from '../types';
 import type { BusinessIdentity } from '../config/businesses';
 import { formatRupiah } from '../utils/format';
+import { getSizedMenuName } from '../utils/menuVariants';
 import { useState } from 'react';
 
 const LOGO_SRC = '/assets/santara-logo-transparent.png';
@@ -173,7 +174,7 @@ function ReceiptItem({ item }: ReceiptItemProps) {
     <div className="receipt-item">
       <div className="receipt-item-line">
         <span className="receipt-item-name">
-          {item.nameSnapshot} x{item.quantity}
+          {getSizedMenuName(item.nameSnapshot, item.sizeSnapshot)} x{item.quantity}
         </span>
         <span>{formatReceiptMoney(item.unitPriceSnapshot)}</span>
         <span>{formatReceiptMoney(grossLineTotal)}</span>

@@ -71,6 +71,8 @@ export function Expenses({
       date: String(formData.get('date') ?? getTodayInputValue()),
       name: String(formData.get('name') ?? '').trim(),
       category: String(formData.get('category') ?? 'Lainnya'),
+      quantity: toOptionalPositiveNumber(formData.get('quantity')),
+      unit: String(formData.get('unit') ?? '').trim().slice(0, 30),
       amount: toPositiveNumber(formData.get('amount')),
       paymentMethod: toExpensePaymentMethod(formData.get('paymentMethod')),
       notes: String(formData.get('notes') ?? '').trim(),
@@ -118,7 +120,8 @@ export function Expenses({
       {/* Premium Add Expense Form */}
       <div className="pt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <form
-          className="grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 md:grid-cols-2 lg:grid-cols-[150px_minmax(180px,1.2fr)_170px_150px]"
+          className="grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 md:grid-cols-2 lg:grid-cols-4"
+          key={editingExpense?.id ?? 'new-expense'}
           onSubmit={handleSubmit}
         >
           <Input
@@ -140,6 +143,21 @@ export function Expenses({
             options={expenseCategories}
           />
           <Input
+            defaultValue={
+              editingExpense?.quantity ? String(editingExpense.quantity) : ''
+            }
+            label="Jumlah (Opsional)"
+            name="quantity"
+            placeholder="1"
+            type="number"
+          />
+          <Input
+            defaultValue={editingExpense?.unit}
+            label="Satuan (Opsional)"
+            name="unit"
+            placeholder="Pack, Kg, Pcs"
+          />
+          <Input
             defaultValue={editingExpense?.amount ? String(editingExpense.amount) : ''}
             label="Nominal"
             name="amount"
@@ -152,7 +170,7 @@ export function Expenses({
             name="paymentMethod"
             options={paymentMethods}
           />
-          <div className="md:col-span-2 lg:col-span-2">
+          <div className="md:col-span-2">
             <Input
               defaultValue={editingExpense?.notes}
               label="Catatan"
@@ -215,11 +233,15 @@ export function Expenses({
             ) : (
               filteredExpenses.map((expense) => (
                 <article
-                  className="grid gap-2 rounded-lg bg-santara-cream/75 p-3 ring-1 ring-santara-latte lg:grid-cols-[120px_1.2fr_150px_130px_120px_auto]"
+                  className="grid gap-2 rounded-lg bg-santara-cream/75 p-3 ring-1 ring-santara-latte lg:grid-cols-[110px_1.2fr_90px_130px_120px_100px_auto]"
                   key={expense.id}
                 >
                   <Meta label="Tanggal" value={expense.date} />
                   <Meta label="Nama Pengeluaran" value={expense.name} strong />
+                  <Meta
+                    label="Jumlah"
+                    value={formatExpenseQuantity(expense)}
+                  />
                   <Meta label="Kategori" value={expense.category} />
                   <Meta label="Nominal" value={formatRupiah(expense.amount)} />
                   <Meta label="Metode" value={expense.paymentMethod} />
@@ -431,6 +453,19 @@ function toInputDate(date: Date) {
 function toPositiveNumber(value: FormDataEntryValue | null) {
   const parsedValue = Number(value);
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+}
+
+function toOptionalPositiveNumber(value: FormDataEntryValue | null) {
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : null;
+}
+
+function formatExpenseQuantity(expense: Expense) {
+  if (!expense.quantity) {
+    return '-';
+  }
+
+  return `${Number.isInteger(expense.quantity) ? expense.quantity : expense.quantity.toLocaleString('id-ID')} ${expense.unit ?? ''}`.trim();
 }
 
 function toExpensePaymentMethod(value: FormDataEntryValue | null): ExpensePaymentMethod {

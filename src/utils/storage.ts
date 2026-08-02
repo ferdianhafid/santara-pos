@@ -12,6 +12,8 @@ import type {
   LegacySale,
   MenuCategory,
   MenuItem,
+  MenuSize,
+  MenuSizeVariant,
   PaymentMethod,
   PendingOrder,
   TransactionItem,
@@ -27,7 +29,13 @@ type PersistedAppState = AppStateData & {
   businessSlug: BusinessSlug;
 };
 
-const paymentMethods: PaymentMethod[] = ['Cash', 'QRIS', 'Debit'];
+const paymentMethods: PaymentMethod[] = [
+  'Cash',
+  'QRIS',
+  'Debit',
+  'Grab',
+  'Shopee',
+];
 const expensePaymentMethods: ExpensePaymentMethod[] = [
   'Cash',
   'QRIS',
@@ -325,8 +333,33 @@ function normalizeMenuItem(value: unknown): MenuItem | null {
     category: value.category,
     price: toNonNegativeNumber(value.price),
     hpp: toNonNegativeNumber(value.hpp),
+    sizeVariants: normalizeMenuSizeVariants(value.sizeVariants),
     isActive: value.isActive,
   };
+}
+
+function normalizeMenuSizeVariants(value: unknown): MenuSizeVariant[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const variants = value.flatMap((entry) => {
+    if (!isRecord(entry) || !isMenuSize(entry.size)) {
+      return [];
+    }
+    return [
+      {
+        size: entry.size,
+        price: toNonNegativeNumber(entry.price),
+        hpp: toNonNegativeNumber(entry.hpp),
+      },
+    ];
+  });
+
+  return (['M', 'L'] as MenuSize[]).flatMap((size) => {
+    const variant = variants.find((entry) => entry.size === size);
+    return variant ? [variant] : [];
+  });
 }
 
 function normalizePendingOrders(value: unknown): PendingOrder[] | null {
@@ -550,6 +583,11 @@ function normalizeExpense(value: unknown): Expense | null {
     date: value.date,
     name: value.name,
     category: value.category,
+    quantity:
+      value.quantity === null || value.quantity === undefined
+        ? null
+        : toNonNegativeNumber(value.quantity),
+    unit: isString(value.unit) ? value.unit.trim().slice(0, 30) : '',
     amount: toNonNegativeNumber(value.amount),
     paymentMethod: isExpensePaymentMethod(value.paymentMethod)
       ? value.paymentMethod
@@ -604,6 +642,9 @@ function normalizeDailyClosing(value: unknown): DailyClosing | null {
     cashSales: toNonNegativeNumber(value.cashSales),
     qrisSales: toNonNegativeNumber(value.qrisSales),
     debitSales: toNonNegativeNumber(value.debitSales),
+    grabSales: toNonNegativeNumber(value.grabSales),
+    shopeeSales: toNonNegativeNumber(value.shopeeSales),
+    openingCash: toNonNegativeNumber(value.openingCash),
     expectedCash: toNumber(value.expectedCash),
     actualCash: toNumber(value.actualCash),
     cashDifference: toNumber(value.cashDifference),
@@ -755,6 +796,7 @@ function normalizeCartItem(value: unknown): CartItem | null {
     unitPriceSnapshot: toNonNegativeNumber(value.unitPriceSnapshot),
     hppSnapshot: toNonNegativeNumber(value.hppSnapshot),
     quantity: Math.max(1, Math.floor(toNonNegativeNumber(value.quantity))),
+    sizeSnapshot: isMenuSize(value.sizeSnapshot) ? value.sizeSnapshot : null,
     notes: isString(value.notes) ? value.notes.trim().slice(0, 120) : '',
     itemDiscountType: isDiscountType(value.itemDiscountType)
       ? value.itemDiscountType
@@ -807,6 +849,10 @@ function isString(value: unknown): value is string {
 
 function isPaymentMethod(value: unknown): value is PaymentMethod {
   return isString(value) && paymentMethods.includes(value as PaymentMethod);
+}
+
+function isMenuSize(value: unknown): value is MenuSize {
+  return value === 'M' || value === 'L';
 }
 
 function isExpensePaymentMethod(value: unknown): value is ExpensePaymentMethod {

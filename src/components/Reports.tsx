@@ -25,6 +25,10 @@ type ReportsProps = {
   googleSheetSyncSettings: GoogleSheetSyncSettings;
   googleSheetSyncLogs: GoogleSheetSyncLog[];
   currentUserName: string;
+  onPrintSummary: (
+    report: ReturnType<typeof buildSalesReport>,
+    closing: DailyClosingData,
+  ) => Promise<void>;
   onSaveClosing: (closing: DailyClosingData) => void;
   onSaveGoogleSheetSettings: (settings: GoogleSheetSyncSettings) => void;
   onAddGoogleSheetSyncLog: (log: GoogleSheetSyncLog) => void;
@@ -45,6 +49,7 @@ export function Reports({
   googleSheetSyncSettings,
   legacySales,
   onAddGoogleSheetSyncLog,
+  onPrintSummary,
   onSaveClosing,
   onSaveGoogleSheetSettings,
   transactions,
@@ -134,6 +139,7 @@ export function Reports({
               <DailyClosing
                 cashierName={currentUserName}
                 key={report.dailyClosing?.id ?? closingDate}
+                onPrintSummary={onPrintSummary}
                 onSaveClosing={onSaveClosing}
                 report={report}
                 selectedDate={closingDate}
@@ -308,6 +314,7 @@ export function Reports({
               <DailyClosing
                 cashierName={currentUserName}
                 key={report.dailyClosing?.id ?? closingDate}
+                onPrintSummary={onPrintSummary}
                 onSaveClosing={onSaveClosing}
                 report={report}
                 selectedDate={closingDate}
@@ -332,6 +339,7 @@ function ExpenseTable({ expenses }: ExpenseTableProps) {
           <tr>
             <TableHeader>Tanggal</TableHeader>
             <TableHeader>Nama</TableHeader>
+            <TableHeader>Jumlah</TableHeader>
             <TableHeader>Kategori</TableHeader>
             <TableHeader>Metode</TableHeader>
             <TableHeader align="right">Nominal</TableHeader>
@@ -342,6 +350,11 @@ function ExpenseTable({ expenses }: ExpenseTableProps) {
             <tr className="transition hover:bg-santara-cream/55" key={expense.id}>
               <TableCell>{expense.date}</TableCell>
               <TableCell strong>{expense.name}</TableCell>
+              <TableCell>
+                {expense.quantity
+                  ? `${expense.quantity} ${expense.unit ?? ''}`.trim()
+                  : '-'}
+              </TableCell>
               <TableCell>{expense.category}</TableCell>
               <TableCell>{expense.paymentMethod}</TableCell>
               <TableCell align="right">{formatRupiah(expense.amount)}</TableCell>

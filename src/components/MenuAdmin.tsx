@@ -6,8 +6,9 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import type { MenuCategory, MenuItem } from '../types';
+import type { MenuCategory, MenuItem, MenuSize, MenuSizeVariant } from '../types';
 import { formatRupiah } from '../utils/format';
+import { getMenuSizeVariants } from '../utils/menuVariants';
 
 type MenuAdminProps = {
   items: MenuItem[];
@@ -26,6 +27,7 @@ const emptyItem = {
   category: '',
   price: 0,
   hpp: 0,
+  sizeVariants: [],
   isActive: true,
 };
 
@@ -48,6 +50,7 @@ export function MenuAdmin({
     activeCategoryNames[0] ?? allCategoryNames[0] ?? '',
   );
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newItemUsesSizes, setNewItemUsesSizes] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<{
     category: MenuCategory;
     itemCount: number;
@@ -66,8 +69,22 @@ export function MenuAdmin({
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get('name') ?? '').trim();
     const category = newItemCategory.trim();
-    const price = toPositiveNumber(formData.get('price'));
-    const hpp = toPositiveNumber(formData.get('hpp'));
+    const priceM = toPositiveNumber(
+      formData.get(newItemUsesSizes ? 'priceM' : 'price'),
+    );
+    const hppM = toPositiveNumber(
+      formData.get(newItemUsesSizes ? 'hppM' : 'hpp'),
+    );
+    const sizeVariants: MenuSizeVariant[] = newItemUsesSizes
+      ? [
+          { size: 'M', price: priceM, hpp: hppM },
+          {
+            size: 'L',
+            price: toPositiveNumber(formData.get('priceL')),
+            hpp: toPositiveNumber(formData.get('hppL')),
+          },
+        ]
+      : [];
 
     if (!name || !category) {
       return;
@@ -77,10 +94,12 @@ export function MenuAdmin({
       ...emptyItem,
       name,
       category,
-      price,
-      hpp,
+      price: priceM,
+      hpp: hppM,
+      sizeVariants,
     });
     event.currentTarget.reset();
+    setNewItemUsesSizes(false);
     setNewItemCategory(activeCategoryNames[0] ?? allCategoryNames[0] ?? '');
   };
 
@@ -130,7 +149,7 @@ export function MenuAdmin({
 
       {/* Premium Add Item Form */}
       <form
-        className="mt-4 grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 md:grid-cols-[1.4fr_1fr_140px_140px_auto]"
+        className="mt-4 grid gap-3 rounded-2xl bg-santara-foam/50 p-4 border border-santara-latte/30 md:grid-cols-2 xl:grid-cols-6"
         onSubmit={handleAddItem}
       >
         <InputField name="name" placeholder="Nama Menu" />
@@ -140,10 +159,25 @@ export function MenuAdmin({
           onChange={setNewItemCategory}
           value={newItemCategory}
         />
-        <InputField name="price" placeholder="Harga" type="number" />
-        <InputField name="hpp" placeholder="HPP" type="number" />
+        <SizeModeSelect
+          onChange={setNewItemUsesSizes}
+          usesSizes={newItemUsesSizes}
+        />
+        {newItemUsesSizes ? (
+          <>
+            <InputField name="priceM" placeholder="Harga M" type="number" />
+            <InputField name="hppM" placeholder="HPP M" type="number" />
+            <InputField name="priceL" placeholder="Harga L" type="number" />
+            <InputField name="hppL" placeholder="HPP L" type="number" />
+          </>
+        ) : (
+          <>
+            <InputField name="price" placeholder="Harga" type="number" />
+            <InputField name="hpp" placeholder="HPP" type="number" />
+          </>
+        )}
         <button
-          className="btn-primary px-4 py-3 text-sm font-bold rounded-xl"
+          className="btn-primary px-4 py-3 text-sm font-bold rounded-xl xl:col-span-1"
           type="submit"
         >
           Tambah
@@ -247,57 +281,13 @@ export function MenuAdmin({
 
               <div className="space-y-2">
                 {group.items.map((item) => (
-                  <article
-                    className={`grid gap-2 rounded-lg p-2 ring-1 ring-santara-latte md:grid-cols-[1.4fr_1fr_110px_110px_92px_96px] ${
-                      item.isActive ? 'bg-santara-foam' : 'bg-santara-cream/60 opacity-75'
-                    }`}
+                  <MenuItemEditor
+                    allCategoryNames={allCategoryNames}
+                    item={item}
                     key={item.id}
-                  >
-                    <InputField
-                      ariaLabel={`Nama Menu ${item.name}`}
-                      value={item.name}
-                      onChange={(value) => onUpdateItem(item.id, { name: value })}
-                    />
-                    <CategoryDropdown
-                      categories={allCategoryNames}
-                      label={`Kategori ${item.name}`}
-                      value={item.category}
-                      onChange={(category) => onUpdateItem(item.id, { category })}
-                    />
-                    <InputField
-                      ariaLabel={`Harga ${item.name}`}
-                      type="number"
-                      value={String(item.price)}
-                      onChange={(value) =>
-                        onUpdateItem(item.id, { price: toPositiveNumber(value) })
-                      }
-                    />
-                    <InputField
-                      ariaLabel={`HPP ${item.name}`}
-                      type="number"
-                      value={String(item.hpp)}
-                      onChange={(value) =>
-                        onUpdateItem(item.id, { hpp: toPositiveNumber(value) })
-                      }
-                    />
-                    <div className="rounded-lg bg-white px-3 py-2 text-sm font-black ring-1 ring-santara-latte">
-                      <span className="block text-[10px] uppercase tracking-[0.1em] text-santara-sage">
-                        Margin
-                      </span>
-                      {formatRupiah(Math.max(item.price - item.hpp, 0))}
-                    </div>
-                    <button
-                      className={`rounded-lg px-3 py-2 text-sm font-black transition ${
-                        item.isActive
-                          ? 'bg-santara-bean text-white hover:bg-santara-roast'
-                          : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
-                      }`}
-                      onClick={() => onToggleItem(item.id)}
-                      type="button"
-                    >
-                      {item.isActive ? 'Aktif' : 'Nonaktif'}
-                    </button>
-                  </article>
+                    onToggle={() => onToggleItem(item.id)}
+                    onUpdate={(updates) => onUpdateItem(item.id, updates)}
+                  />
                 ))}
               </div>
             </section>
@@ -315,6 +305,162 @@ export function MenuAdmin({
         />
       )}
     </section>
+  );
+}
+
+function MenuItemEditor({
+  allCategoryNames,
+  item,
+  onToggle,
+  onUpdate,
+}: {
+  allCategoryNames: string[];
+  item: MenuItem;
+  onToggle: () => void;
+  onUpdate: (updates: Partial<Omit<MenuItem, 'id'>>) => void;
+}) {
+  const variants = getMenuSizeVariants(item);
+  const usesSizes = variants.length > 0;
+
+  const updateVariant = (
+    size: MenuSize,
+    field: 'price' | 'hpp',
+    value: string,
+  ) => {
+    const nextVariants = variants.map((variant) =>
+      variant.size === size
+        ? { ...variant, [field]: toPositiveNumber(value) }
+        : variant,
+    );
+    const medium = nextVariants.find((variant) => variant.size === 'M');
+    onUpdate({
+      sizeVariants: nextVariants,
+      price: medium?.price ?? item.price,
+      hpp: medium?.hpp ?? item.hpp,
+    });
+  };
+
+  const setUsesSizes = (enabled: boolean) => {
+    if (enabled) {
+      onUpdate({
+        sizeVariants: [
+          { size: 'M', price: item.price, hpp: item.hpp },
+          { size: 'L', price: item.price, hpp: item.hpp },
+        ],
+      });
+      return;
+    }
+
+    const medium = variants.find((variant) => variant.size === 'M');
+    onUpdate({
+      sizeVariants: [],
+      price: medium?.price ?? item.price,
+      hpp: medium?.hpp ?? item.hpp,
+    });
+  };
+
+  return (
+    <article
+      className={`rounded-xl p-3 ring-1 ring-santara-latte ${
+        item.isActive ? 'bg-santara-foam' : 'bg-santara-cream/60 opacity-75'
+      }`}
+    >
+      <div className="grid gap-2 md:grid-cols-[1.4fr_1fr_150px_96px]">
+        <InputField
+          ariaLabel={`Nama Menu ${item.name}`}
+          value={item.name}
+          onChange={(value) => onUpdate({ name: value })}
+        />
+        <CategoryDropdown
+          categories={allCategoryNames}
+          label={`Kategori ${item.name}`}
+          value={item.category}
+          onChange={(category) => onUpdate({ category })}
+        />
+        <SizeModeSelect onChange={setUsesSizes} usesSizes={usesSizes} />
+        <button
+          className={`rounded-lg px-3 py-2 text-sm font-black transition ${
+            item.isActive
+              ? 'bg-santara-bean text-white hover:bg-santara-roast'
+              : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
+          }`}
+          onClick={onToggle}
+          type="button"
+        >
+          {item.isActive ? 'Aktif' : 'Nonaktif'}
+        </button>
+      </div>
+
+      {usesSizes ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {variants.map((variant) => (
+            <div
+              className="grid gap-2 rounded-lg bg-white p-2 ring-1 ring-santara-latte sm:grid-cols-[42px_1fr_1fr_auto]"
+              key={variant.size}
+            >
+              <span className="grid place-items-center rounded-lg bg-santara-bean text-lg font-black text-white">
+                {variant.size}
+              </span>
+              <InputField
+                ariaLabel={`Harga ${item.name} ${variant.size}`}
+                type="number"
+                value={String(variant.price)}
+                onChange={(value) => updateVariant(variant.size, 'price', value)}
+              />
+              <InputField
+                ariaLabel={`HPP ${item.name} ${variant.size}`}
+                type="number"
+                value={String(variant.hpp)}
+                onChange={(value) => updateVariant(variant.size, 'hpp', value)}
+              />
+              <div className="rounded-lg bg-santara-cream px-3 py-2 text-xs font-black">
+                <span className="block text-[9px] uppercase text-santara-sage">Margin</span>
+                {formatRupiah(Math.max(variant.price - variant.hpp, 0))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <InputField
+            ariaLabel={`Harga ${item.name}`}
+            type="number"
+            value={String(item.price)}
+            onChange={(value) => onUpdate({ price: toPositiveNumber(value) })}
+          />
+          <InputField
+            ariaLabel={`HPP ${item.name}`}
+            type="number"
+            value={String(item.hpp)}
+            onChange={(value) => onUpdate({ hpp: toPositiveNumber(value) })}
+          />
+          <div className="rounded-lg bg-white px-3 py-2 text-sm font-black ring-1 ring-santara-latte">
+            <span className="block text-[10px] uppercase tracking-[0.1em] text-santara-sage">Margin</span>
+            {formatRupiah(Math.max(item.price - item.hpp, 0))}
+          </div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function SizeModeSelect({
+  onChange,
+  usesSizes,
+}: {
+  onChange: (usesSizes: boolean) => void;
+  usesSizes: boolean;
+}) {
+  return (
+    <select
+      aria-label="Mode ukuran menu"
+      className="min-w-0 rounded-lg bg-white px-3 py-2 text-sm font-black text-santara-roast outline-none ring-1 ring-santara-latte focus:ring-2 focus:ring-santara-clay"
+      onChange={(event) => onChange(event.target.value === 'sizes')}
+      value={usesSizes ? 'sizes' : 'none'}
+    >
+      <option value="none">Tanpa ukuran</option>
+      <option value="sizes">Ukuran M &amp; L</option>
+    </select>
   );
 }
 

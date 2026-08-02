@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CartItem, DiscountType } from '../types';
 import { formatRupiah } from '../utils/format';
+import { getCartItemDisplayName } from '../utils/menuVariants';
 
 type ItemDiscountModalProps = {
   item: CartItem | null;
@@ -58,7 +59,7 @@ export function ItemDiscountModal({
           Diskon item
         </p>
         <h2 className="mt-1 text-2xl font-black text-santara-roast">
-          {item.nameSnapshot}
+          {getCartItemDisplayName(item)}
         </h2>
         <p className="mt-1 text-sm font-bold text-santara-roast/60">
           Total awal: {formatRupiah(grossLineTotal)}

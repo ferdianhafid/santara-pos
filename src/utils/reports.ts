@@ -5,6 +5,7 @@ import type {
   LegacySale,
   ReportPaymentMethod,
 } from '../types';
+import { getSizedMenuName } from './menuVariants';
 
 export type ReportMode = 'today' | 'date' | 'month' | 'all';
 
@@ -63,7 +64,9 @@ export type SalesReport = {
   sourceLegacyCount: number;
 };
 
-const paymentMethods: ReportPaymentMethod[] = ['Cash', 'QRIS', 'Debit', 'Legacy'];
+const paymentMethods: ReportPaymentMethod[] = [
+  'Cash', 'QRIS', 'Debit', 'Grab', 'Shopee', 'Legacy',
+];
 
 export function buildSalesReport(
   transactions: CompletedTransaction[],
@@ -434,9 +437,11 @@ function mapTransactionToReportRecord(transaction: CompletedTransaction): Report
       const unitHpp = safeNumber(item.unitHppSnapshot ?? item.hppSnapshot ?? 0);
       const totalHpp = safeNumber(item.totalHpp ?? unitHpp * item.quantity);
 
+      const sizedName = getSizedMenuName(item.nameSnapshot, item.sizeSnapshot);
+
       return {
-        key: `${item.nameSnapshot}|${item.categorySnapshot}`,
-        name: item.nameSnapshot,
+        key: `${sizedName}|${item.categorySnapshot}`,
+        name: sizedName,
         category: item.categorySnapshot,
         quantity: item.quantity,
         grossSales,

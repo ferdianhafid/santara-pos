@@ -93,6 +93,10 @@ export function buildGoogleSheetPayload(
     report.paymentSummary.find((summary) => summary.method === 'QRIS')?.total ?? 0;
   const debitSales =
     report.paymentSummary.find((summary) => summary.method === 'Debit')?.total ?? 0;
+  const grabSales =
+    report.paymentSummary.find((summary) => summary.method === 'Grab')?.total ?? 0;
+  const shopeeSales =
+    report.paymentSummary.find((summary) => summary.method === 'Shopee')?.total ?? 0;
 
   return {
     metadata: {
@@ -127,6 +131,8 @@ export function buildGoogleSheetPayload(
       cashSales,
       qrisSales,
       debitSales,
+      grabSales,
+      shopeeSales,
       totalTransactions: report.totalTransactions,
       averageTransactionValue: report.averageTransactionValue,
       sourceTransactionCount: report.sourceTransactionCount,
@@ -307,6 +313,8 @@ function toExpensePayload(expense: Expense) {
     date: expense.date,
     name: expense.name,
     category: expense.category,
+    quantity: expense.quantity ?? null,
+    unit: expense.unit ?? '',
     amount: expense.amount,
     paymentMethod: expense.paymentMethod,
     notes: expense.notes,
@@ -317,6 +325,12 @@ function toDailyClosingPayload(closing: DailyClosing) {
   return {
     closingDate: closing.closingDate,
     date: closing.closingDate,
+    openingCash: closing.openingCash,
+    cashSales: closing.cashSales,
+    qrisSales: closing.qrisSales,
+    debitSales: closing.debitSales,
+    grabSales: closing.grabSales,
+    shopeeSales: closing.shopeeSales,
     expectedCash: closing.expectedCash,
     actualCash: closing.actualCash,
     cashDifference: closing.cashDifference,

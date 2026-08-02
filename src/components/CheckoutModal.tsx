@@ -18,7 +18,7 @@ type CheckoutModalProps = {
   }) => void;
 };
 
-const paymentMethods: PaymentMethod[] = ['Cash', 'QRIS', 'Debit'];
+const paymentMethods: PaymentMethod[] = ['Cash', 'QRIS', 'Debit', 'Grab', 'Shopee'];
 
 const toPositiveNumber = (value: string) => {
   const parsedValue = Number(value);
@@ -114,7 +114,7 @@ export function CheckoutModal({
             {/* Payment Method */}
             <div>
               <label className="text-sm font-semibold text-gray-600 mb-3 block">Metode Pembayaran</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {paymentMethods.map((method) => (
                   <button
                     key={method}

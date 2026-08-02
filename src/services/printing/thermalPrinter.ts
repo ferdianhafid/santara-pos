@@ -1,6 +1,9 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { BusinessIdentity } from '../../config/businesses';
 import type { CompletedTransaction } from '../../types';
+import type { DailyClosing } from '../../types';
+import type { SalesReport } from '../../utils/reports';
+import { buildDailySummaryPrintBytes } from './dailySummaryEncoder';
 import type { PrinterSettings } from './printerSettings';
 import { buildReceiptPrintBytes } from './receiptEncoder';
 import { loadReceiptLogoRaster } from './receiptLogoRaster';
@@ -186,6 +189,27 @@ export async function printTransactionReceipt(
   return nativeThermalPrinter.print({
     address: settings.deviceAddress,
     dataBase64: bytesToBase64(printBytes),
+  });
+}
+
+export async function printDailySummary(
+  report: SalesReport,
+  closing: DailyClosing,
+  business: BusinessIdentity,
+  settings: PrinterSettings,
+) {
+  assertNativeAndroid();
+  if (!settings.deviceAddress) {
+    throw new Error('Pilih printer Bluetooth di Settings terlebih dahulu.');
+  }
+  await ensureThermalPrinterConnected(settings);
+  const bytes = buildDailySummaryPrintBytes(report, closing, business, {
+    cutPaper: settings.cutPaper,
+    paperWidth: settings.paperWidth,
+  });
+  return nativeThermalPrinter.print({
+    address: settings.deviceAddress,
+    dataBase64: bytesToBase64(bytes),
   });
 }
 
