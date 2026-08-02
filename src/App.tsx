@@ -832,6 +832,7 @@ function App() {
           unitPriceSnapshot: item.price,
           hppSnapshot: item.hpp ?? 0,
           quantity: 1,
+          notes: '',
         },
       ];
     });
@@ -859,6 +860,15 @@ function App() {
 
   const removeItem = (id: string) => {
     setCart((currentCart) => currentCart.filter((item) => item.id !== id));
+  };
+
+  const updateItemNotes = (id: string, notes: string) => {
+    const nextNotes = notes.replace(/[\r\n]+/g, ' ').slice(0, 120);
+    setCart((currentCart) =>
+      currentCart.map((item) =>
+        item.id === id ? { ...item, notes: nextNotes } : item,
+      ),
+    );
   };
 
   const applyItemDiscount = (
@@ -1344,6 +1354,7 @@ function App() {
                 onOpenCheckout={() => setIsCheckoutOpen(true)}
                 onOpenSaveOrder={() => setIsSaveOrderOpen(true)}
                 onResumePending={requestResumePendingOrder}
+                onUpdateItemNotes={updateItemNotes}
                 pendingOrderCount={pendingOrderCount}
                 pendingOrders={pendingOrders}
                 removeItem={removeItem}
@@ -1636,6 +1647,7 @@ type CashierViewProps = {
   onOpenCheckout: () => void;
   onOpenSaveOrder: () => void;
   onResumePending: (order: PendingOrder) => void;
+  onUpdateItemNotes: (id: string, notes: string) => void;
   pendingOrderCount: number;
   pendingOrders: PendingOrder[];
   removeItem: (id: string) => void;
@@ -1660,6 +1672,7 @@ function CashierView({
   onOpenCheckout,
   onOpenSaveOrder,
   onResumePending,
+  onUpdateItemNotes,
   pendingOrderCount,
   pendingOrders,
   removeItem,
@@ -1776,6 +1789,24 @@ function CashierView({
                     </button>
                     </div>
                   </div>
+
+                  <label className="mt-3 block">
+                    <span className="sr-only">
+                      Catatan untuk {item.nameSnapshot}
+                    </span>
+                    <input
+                      aria-label={`Catatan untuk ${item.nameSnapshot}`}
+                      autoComplete="off"
+                      className="w-full rounded-xl bg-white px-3 py-2 text-sm font-semibold text-coffee-dark outline-none ring-1 ring-gray-200 transition placeholder:font-medium placeholder:text-gray-400 focus:ring-2 focus:ring-coffee/30"
+                      maxLength={120}
+                      onChange={(event) =>
+                        onUpdateItemNotes(item.id, event.target.value)
+                      }
+                      placeholder="Catatan: less sugar, less ice, more ice..."
+                      type="text"
+                      value={item.notes ?? ''}
+                    />
+                  </label>
 
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <div className="qty-control shrink-0">

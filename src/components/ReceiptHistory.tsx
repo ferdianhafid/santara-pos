@@ -363,6 +363,11 @@ export function ReceiptHistory({
                         <p>
                           {item.quantity}x {item.nameSnapshot}
                         </p>
+                        {item.notes?.trim() && (
+                          <p className="mt-0.5 text-xs font-semibold italic text-santara-roast/60">
+                            Catatan: {item.notes.trim()}
+                          </p>
+                        )}
                       </div>
                       <span className="text-right">{formatRupiah(item.subtotal)}</span>
                     </div>

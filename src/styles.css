@@ -888,7 +888,7 @@ html {
 
 .receipt-table-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 8mm 14mm 15mm;
+  grid-template-columns: minmax(0, 1fr) 14mm 15mm;
   gap: 1mm;
   font-weight: 900;
   letter-spacing: 0.05em;
@@ -913,19 +913,30 @@ html {
 }
 
 .receipt-item-name {
-  margin: 0 0 1.2mm;
+  min-width: 0;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .receipt-item-line {
   display: grid;
-  grid-template-columns: 8mm 1fr 17mm;
+  grid-template-columns: minmax(0, 1fr) 14mm 15mm;
   gap: 1mm;
 }
 
 .receipt-item-line span:nth-child(n + 2),
 .receipt-discount-line span:last-child {
   text-align: right;
+}
+
+.receipt-item-note {
+  margin: 0.8mm 0 0;
+  padding-left: 2mm;
+  font-size: 9px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .receipt-discount-line {

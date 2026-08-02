@@ -19,6 +19,7 @@ const transaction: CompletedTransaction = {
       unitPriceSnapshot: 22000,
       hppSnapshot: 8000,
       quantity: 2,
+      notes: 'Less sugar, less ice',
       itemDiscountType: 'fixed',
       itemDiscountValue: 2000,
       itemDiscountAmount: 2000,
@@ -61,10 +62,36 @@ test('58 mm receipt respects 32 character content width', () => {
   assert.ok(text.includes('Total diskon'));
   assert.ok(text.includes('Kembalian'));
   assert.ok(text.includes('QTY'));
+  assert.ok(text.includes('> Less sugar, less ice'));
   assert.ok(text.includes('Terima kasih sudah mampir'));
   for (const line of text.trimEnd().split('\n')) {
     assert.ok(line.length <= 32, `${line.length}: ${line}`);
   }
+});
+
+test('compact 58 mm item keeps a short name, quantity, and prices on one line', () => {
+  const compactTransaction: CompletedTransaction = {
+    ...transaction,
+    items: [
+      {
+        ...transaction.items[0],
+        nameSnapshot: 'Americano',
+        quantity: 1,
+        notes: 'More ice',
+        subtotal: 18000,
+        grossLineTotal: 18000,
+        lineNetTotal: 18000,
+        unitPriceSnapshot: 18000,
+      },
+    ],
+  };
+  const text = buildReceiptText(compactTransaction, {
+    businessName: 'Santara Coffee',
+    paperWidth: '58mm',
+  });
+
+  assert.ok(text.split('\n').some((line) => line.includes('Americano x1') && line.includes('18.000')));
+  assert.ok(text.includes('  > More ice'));
 });
 
 test('80 mm receipt uses a wider 48 character profile', () => {

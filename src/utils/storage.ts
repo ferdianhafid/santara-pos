@@ -755,6 +755,7 @@ function normalizeCartItem(value: unknown): CartItem | null {
     unitPriceSnapshot: toNonNegativeNumber(value.unitPriceSnapshot),
     hppSnapshot: toNonNegativeNumber(value.hppSnapshot),
     quantity: Math.max(1, Math.floor(toNonNegativeNumber(value.quantity))),
+    notes: isString(value.notes) ? value.notes.trim().slice(0, 120) : '',
     itemDiscountType: isDiscountType(value.itemDiscountType)
       ? value.itemDiscountType
       : 'none',

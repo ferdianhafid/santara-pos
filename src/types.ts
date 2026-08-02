@@ -23,6 +23,7 @@ export type CartItem = {
   unitPriceSnapshot: number;
   hppSnapshot: number;
   quantity: number;
+  notes?: string;
   itemDiscountType?: DiscountType;
   itemDiscountValue?: number;
   itemDiscountAmount?: number;

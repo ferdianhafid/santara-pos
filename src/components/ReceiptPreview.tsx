@@ -78,8 +78,7 @@ export function ReceiptPreview({
 
         <section aria-label="Daftar item">
           <div className="receipt-table-head">
-            <span>ITEM</span>
-            <span>QTY</span>
+            <span>ITEM QTY</span>
             <span>HARGA</span>
             <span>TOTAL</span>
           </div>
@@ -172,12 +171,16 @@ function ReceiptItem({ item }: ReceiptItemProps) {
 
   return (
     <div className="receipt-item">
-      <p className="receipt-item-name">{item.nameSnapshot}</p>
       <div className="receipt-item-line">
-        <span>{item.quantity}</span>
+        <span className="receipt-item-name">
+          {item.nameSnapshot} x{item.quantity}
+        </span>
         <span>{formatReceiptMoney(item.unitPriceSnapshot)}</span>
         <span>{formatReceiptMoney(grossLineTotal)}</span>
       </div>
+      {item.notes?.trim() && (
+        <p className="receipt-item-note">&#8627; {item.notes.trim()}</p>
+      )}
       {itemDiscountAmount > 0 && (
         <div className="receipt-discount-line">
           <span>Diskon Item</span>

@@ -69,19 +69,29 @@ export function buildReceiptText(
   }
 
   lines.push(divider);
-  lines.push('ITEM');
-  lines.push(threeColumns('QTY', 'HARGA', 'TOTAL', width));
+  lines.push(threeColumns('ITEM QTY', 'HARGA', 'TOTAL', width));
   lines.push(divider);
   transaction.items.forEach((item, index) => {
-    lines.push(...wrapText(item.nameSnapshot, width));
+    const itemLabelLines = wrapText(
+      `${item.nameSnapshot} x${item.quantity}`,
+      getThreeColumnLeftWidth(width),
+    );
     lines.push(
       threeColumns(
-        String(item.quantity),
+        itemLabelLines[0],
         formatMoney(item.unitPriceSnapshot),
         formatMoney(item.grossLineTotal ?? item.subtotal),
         width,
       ),
     );
+    itemLabelLines.slice(1).forEach((line) => {
+      lines.push(threeColumns(line, '', '', width));
+    });
+    if (item.notes?.trim()) {
+      lines.push(
+        ...wrapText(`> ${item.notes.trim()}`, width - 2).map((line) => `  ${line}`),
+      );
+    }
     if ((item.itemDiscountAmount ?? 0) > 0) {
       lines.push(
         columns(
@@ -211,11 +221,19 @@ function threeColumns(
   const safeLeft = toPrinterAscii(left);
   const safeMiddle = toPrinterAscii(middle);
   const safeRight = toPrinterAscii(right);
-  const rightWidth = width === paperColumns['58mm'] ? 11 : 16;
-  const leftWidth = width - rightWidth * 2;
+  const rightWidth = getThreeColumnRightWidth(width);
+  const leftWidth = getThreeColumnLeftWidth(width);
   return `${safeLeft.slice(0, leftWidth).padEnd(leftWidth)}${safeMiddle
     .slice(0, rightWidth)
     .padStart(rightWidth)}${safeRight.slice(0, rightWidth).padStart(rightWidth)}`;
+}
+
+function getThreeColumnRightWidth(width: number) {
+  return width === paperColumns['58mm'] ? 10 : 14;
+}
+
+function getThreeColumnLeftWidth(width: number) {
+  return width - getThreeColumnRightWidth(width) * 2;
 }
 
 function labelValue(label: string, value: string, width: number) {
