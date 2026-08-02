@@ -24,12 +24,12 @@ the repository to a temporary ASCII drive and keeps Gradle caches/build output
 under `%LOCALAPPDATA%\SantaraPOS\gradle`; this avoids Gradle/AAPT path failures
 without moving the repository.
 
-## Planned printer scope
+## Initial printer scope
 
 Initial production target:
 
 1. Android Bluetooth Classic printers that expose the common ESC/POS serial
-   profile and are already paired in Android settings.
+   profile.
 2. Paper profiles for 58 mm and 80 mm.
 3. Printer selection, saved paper width, test print, connection feedback, and
    direct receipt print from checkout/reprint.
@@ -64,8 +64,22 @@ Implemented after the Android shell checkpoint:
 
 ## Remaining validation
 
-- Install the APK on a physical Android device and test permission, paired-device
-  listing, connect, print, reconnect, Bluetooth-off, and printer-off handling.
+- Physical testing of the first printer checkpoint found that paired-device-only
+  listing and a connect-per-print socket did not match normal POS pairing UX;
+  the app could report bytes written even though the printer produced no paper.
+- The remediation adds nearby-device discovery, Android 12+ `BLUETOOTH_SCAN`
+  permission (and legacy location permission through Android 11), Android system
+  pairing/PIN flow, explicit connect/disconnect controls, and a persistent SPP
+  socket. Test print is disabled until the selected address is connected.
+- Print success now means bytes were written through the active socket; the UI
+  explicitly asks the cashier to verify the paper instead of claiming physical
+  output that Android cannot observe.
+- The Android build script now fails on unsuccessful npm/Gradle child processes,
+  runs debug unit tests, and only copies an APK after a successful build. This
+  prevents a stale APK from being mistaken for the latest checkpoint.
+- Install the updated APK on a physical Android device and test nearby discovery,
+  system PIN pairing, connect, print, disconnect/reconnect, Bluetooth-off, and
+  printer-off handling.
 - Verify physical output for long menu names, discounts, cash change,
   void/reprint labels, and both 58 mm and 80 mm paper profiles.
 - Validate the final paper output on physical printers before declaring thermal

@@ -10,12 +10,15 @@ export type ThermalPrinterStatus = {
   supported: boolean;
   enabled: boolean;
   permission: BluetoothPermissionState;
+  connected: boolean;
+  connectedAddress?: string | null;
 };
 
-export type PairedPrinterDevice = {
+export type ThermalPrinterDevice = {
   name: string;
   address: string;
   type: 'classic' | 'dual' | 'le' | 'unknown';
+  paired: boolean;
 };
 
 type ThermalPrinterPlugin = {
@@ -23,7 +26,22 @@ type ThermalPrinterPlugin = {
   requestBluetoothPermission(): Promise<{
     permission: BluetoothPermissionState;
   }>;
-  listPairedDevices(): Promise<{ devices: PairedPrinterDevice[] }>;
+  listPairedDevices(): Promise<{ devices: ThermalPrinterDevice[] }>;
+  discoverDevices(): Promise<{
+    devices: ThermalPrinterDevice[];
+    completed: boolean;
+  }>;
+  pairDevice(options: {
+    address: string;
+  }): Promise<ThermalPrinterDevice>;
+  connect(options: {
+    address: string;
+  }): Promise<ThermalPrinterDevice & { connected: boolean }>;
+  disconnect(): Promise<{ connected: false }>;
+  getConnectionStatus(): Promise<{
+    connected: boolean;
+    connectedAddress?: string | null;
+  }>;
   print(options: {
     address: string;
     dataBase64: string;
@@ -42,6 +60,8 @@ export async function getThermalPrinterStatus(): Promise<ThermalPrinterStatus> {
       supported: false,
       enabled: false,
       permission: 'denied',
+      connected: false,
+      connectedAddress: null,
     };
   }
   return nativeThermalPrinter.getStatus();
@@ -55,9 +75,33 @@ export async function requestThermalPrinterPermission() {
 export async function listPairedThermalPrinters() {
   assertNativeAndroid();
   const result = await nativeThermalPrinter.listPairedDevices();
-  return result.devices.filter(
-    (device) => device.type === 'classic' || device.type === 'dual',
-  );
+  return filterPrinterCandidates(result.devices);
+}
+
+export async function discoverThermalPrinters() {
+  assertNativeAndroid();
+  const result = await nativeThermalPrinter.discoverDevices();
+  return filterPrinterCandidates(result.devices);
+}
+
+export async function pairThermalPrinter(address: string) {
+  assertNativeAndroid();
+  return nativeThermalPrinter.pairDevice({ address });
+}
+
+export async function connectThermalPrinter(address: string) {
+  assertNativeAndroid();
+  return nativeThermalPrinter.connect({ address });
+}
+
+export async function disconnectThermalPrinter() {
+  assertNativeAndroid();
+  return nativeThermalPrinter.disconnect();
+}
+
+export async function getThermalPrinterConnectionStatus() {
+  assertNativeAndroid();
+  return nativeThermalPrinter.getConnectionStatus();
 }
 
 export async function printTransactionReceipt(
@@ -135,6 +179,10 @@ function assertNativeAndroid() {
   if (!canUseNativeThermalPrinter()) {
     throw new Error('Direct thermal print hanya tersedia di aplikasi Android.');
   }
+}
+
+function filterPrinterCandidates(devices: ThermalPrinterDevice[]) {
+  return devices.filter((device) => device.type !== 'le');
 }
 
 function bytesToBase64(bytes: Uint8Array) {

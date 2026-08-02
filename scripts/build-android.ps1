@@ -31,6 +31,9 @@ $env:CAFE_POS_ANDROID_BUILD_DIR = $externalBuildRoot
 Push-Location $projectRoot
 try {
   & npm.cmd run android:sync
+  if ($LASTEXITCODE -ne 0) {
+    throw "Sinkronisasi Android gagal dengan exit code $LASTEXITCODE."
+  }
 
   $buildDrive = @('Z:', 'Y:', 'X:', 'W:') |
     Where-Object { -not (Test-Path -LiteralPath "$_\") } |
@@ -44,7 +47,10 @@ try {
   try {
     Push-Location "$buildDrive\android"
     try {
-      & .\gradlew.bat --project-cache-dir $projectCache assembleDebug
+      & .\gradlew.bat --project-cache-dir $projectCache testDebugUnitTest assembleDebug
+      if ($LASTEXITCODE -ne 0) {
+        throw "Build Gradle gagal dengan exit code $LASTEXITCODE."
+      }
     }
     finally {
       Pop-Location

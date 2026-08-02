@@ -8,11 +8,15 @@ import {
 } from '../services/printing/printerSettings';
 import {
   canUseNativeThermalPrinter,
+  connectThermalPrinter,
+  disconnectThermalPrinter,
+  discoverThermalPrinters,
   getThermalPrinterStatus,
   listPairedThermalPrinters,
+  pairThermalPrinter,
   printThermalTestPage,
   requestThermalPrinterPermission,
-  type PairedPrinterDevice,
+  type ThermalPrinterDevice,
   type ThermalPrinterStatus,
 } from '../services/printing/thermalPrinter';
 
@@ -24,6 +28,8 @@ const initialStatus: ThermalPrinterStatus = {
   supported: false,
   enabled: false,
   permission: 'denied',
+  connected: false,
+  connectedAddress: null,
 };
 
 export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
@@ -32,9 +38,10 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
     loadPrinterSettings(business.slug),
   );
   const [status, setStatus] = useState<ThermalPrinterStatus>(initialStatus);
-  const [devices, setDevices] = useState<PairedPrinterDevice[]>([]);
+  const [devices, setDevices] = useState<ThermalPrinterDevice[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
@@ -50,7 +57,12 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
     }
 
     void getThermalPrinterStatus()
-      .then(setStatus)
+      .then(async (nextStatus) => {
+        setStatus(nextStatus);
+        if (nextStatus.permission === 'granted' && nextStatus.enabled) {
+          setDevices(await listPairedThermalPrinters());
+        }
+      })
       .catch(() => setStatus(initialStatus));
   }, [nativeAndroid]);
 
@@ -59,7 +71,7 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
     setMessage('');
   };
 
-  const loadPrinters = async () => {
+  const scanPrinters = async () => {
     setIsLoading(true);
     setMessage('');
     try {
@@ -74,17 +86,98 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
         throw new Error('Aktifkan Bluetooth Android, lalu coba lagi.');
       }
 
-      const pairedDevices = await listPairedThermalPrinters();
-      setDevices(pairedDevices);
+      setMessage('Mencari printer Bluetooth di sekitar selama sekitar 15 detik...');
+      const nearbyDevices = await discoverThermalPrinters();
+      setDevices(nearbyDevices);
       setMessage(
-        pairedDevices.length > 0
-          ? `${pairedDevices.length} perangkat Bluetooth Classic ditemukan.`
-          : 'Belum ada printer Bluetooth yang dipasangkan di Android.',
+        nearbyDevices.length > 0
+          ? `${nearbyDevices.length} perangkat Bluetooth ditemukan. Pilih printer, lalu hubungkan.`
+          : 'Tidak ada printer ditemukan. Pastikan printer menyala dan mode Bluetooth aktif.',
       );
     } catch (error) {
       setMessage(getErrorMessage(error, 'Gagal membaca printer Bluetooth.'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const selectedDevice = devices.find(
+    (device) => device.address === settings.deviceAddress,
+  );
+  const selectedPrinterConnected = Boolean(
+    status.connected &&
+      status.connectedAddress === settings.deviceAddress &&
+      settings.deviceAddress,
+  );
+
+  const refreshStatus = async () => {
+    const nextStatus = await getThermalPrinterStatus();
+    setStatus(nextStatus);
+    return nextStatus;
+  };
+
+  const selectPrinter = async (address: string) => {
+    try {
+      const device = devices.find((item) => item.address === address);
+      if (status.connected && status.connectedAddress !== address) {
+        await disconnectThermalPrinter();
+        await refreshStatus();
+      }
+      updateSettings({
+        deviceAddress: device?.address ?? '',
+        deviceName: device?.name ?? '',
+      });
+    } catch (error) {
+      setMessage(getErrorMessage(error, 'Gagal mengganti pilihan printer.'));
+    }
+  };
+
+  const connectSelectedPrinter = async () => {
+    if (!selectedDevice) {
+      setMessage('Pilih printer yang ingin dihubungkan.');
+      return;
+    }
+
+    setIsConnecting(true);
+    setMessage('Menyiapkan koneksi printer...');
+    try {
+      if (!selectedDevice.paired) {
+        setMessage(
+          'Konfirmasi pairing pada dialog Android dan masukkan PIN printer jika diminta (umumnya 0000 atau 1234).',
+        );
+        await pairThermalPrinter(selectedDevice.address);
+        setDevices((current) =>
+          current.map((device) =>
+            device.address === selectedDevice.address
+              ? { ...device, paired: true }
+              : device,
+          ),
+        );
+      }
+
+      await connectThermalPrinter(selectedDevice.address);
+      savePrinterSettings(business.slug, settings);
+      await refreshStatus();
+      setMessage(`Terhubung ke ${selectedDevice.name}. Printer siap dites.`);
+    } catch (error) {
+      await refreshStatus().catch(() => undefined);
+      setMessage(getErrorMessage(error, 'Gagal menghubungkan printer.'));
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const disconnectSelectedPrinter = async () => {
+    setIsConnecting(true);
+    setMessage('');
+    try {
+      await disconnectThermalPrinter();
+      await refreshStatus();
+      setMessage('Koneksi printer telah diputuskan.');
+    } catch (error) {
+      setMessage(getErrorMessage(error, 'Gagal memutuskan printer.'));
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -99,7 +192,7 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
     try {
       savePrinterSettings(business.slug, settings);
       await printThermalTestPage(business, settings);
-      setMessage('Tes print berhasil dikirim ke printer.');
+      setMessage('Data tes terkirim melalui koneksi Bluetooth. Periksa hasil kertas printer.');
     } catch (error) {
       setMessage(getErrorMessage(error, 'Tes print gagal.'));
     } finally {
@@ -133,50 +226,73 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <PrinterStatus label="Bluetooth" value={status.enabled ? 'Aktif' : 'Belum aktif'} />
             <PrinterStatus
               label="Izin"
               value={status.permission === 'granted' ? 'Diberikan' : 'Diperlukan'}
             />
             <PrinterStatus
-              label="Printer"
+              label="Pilihan"
               value={settings.deviceName || 'Belum dipilih'}
+            />
+            <PrinterStatus
+              label="Koneksi"
+              value={selectedPrinterConnected ? 'Terhubung' : 'Belum terhubung'}
             />
           </div>
 
           <button
             className="btn-secondary w-full px-4 py-3 text-sm"
             disabled={isLoading}
-            onClick={loadPrinters}
+            onClick={scanPrinters}
             type="button"
           >
-            {isLoading ? 'Membaca perangkat...' : 'Izinkan & Muat Printer Terpasang'}
+            {isLoading ? 'Mencari perangkat sekitar...' : 'Cari Printer Bluetooth Sekitar'}
           </button>
 
           <label className="block text-sm font-black text-santara-roast">
             Printer Bluetooth
             <select
               className="input-premium mt-2 w-full"
-              onChange={(event) => {
-                const device = devices.find(
-                  (item) => item.address === event.target.value,
-                );
-                updateSettings({
-                  deviceAddress: device?.address ?? '',
-                  deviceName: device?.name ?? '',
-                });
-              }}
+              disabled={isConnecting || isLoading}
+              onChange={(event) => void selectPrinter(event.target.value)}
               value={settings.deviceAddress}
             >
-              <option value="">Pilih printer terpasang</option>
+              <option value="">Pilih printer yang ditemukan</option>
               {devices.map((device) => (
                 <option key={device.address} value={device.address}>
-                  {device.name} ({device.address})
+                  {device.name} — {device.paired ? 'Dipasangkan' : 'Belum dipasangkan'} ({device.address})
                 </option>
               ))}
             </select>
           </label>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {selectedPrinterConnected ? (
+              <button
+                className="btn-secondary px-4 py-3 text-sm sm:col-span-2"
+                disabled={isConnecting}
+                onClick={disconnectSelectedPrinter}
+                type="button"
+              >
+                {isConnecting ? 'Memutuskan...' : 'Putuskan Printer'}
+              </button>
+            ) : (
+              <button
+                className="btn-primary px-4 py-3 text-sm sm:col-span-2 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!selectedDevice || isConnecting || isLoading}
+                onClick={connectSelectedPrinter}
+                type="button"
+              >
+                {isConnecting
+                  ? 'Menghubungkan...'
+                  : selectedDevice?.paired
+                    ? 'Hubungkan Printer'
+                    : 'Pasangkan & Hubungkan'}
+              </button>
+            )}
+          </div>
 
           <div>
             <p className="text-sm font-black text-santara-roast">Ukuran kertas</p>
@@ -223,7 +339,7 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
             </button>
             <button
               className="btn-primary px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!settings.deviceAddress || isTesting}
+              disabled={!selectedPrinterConnected || isTesting}
               onClick={testPrint}
               type="button"
             >
@@ -237,6 +353,13 @@ export function PrinterSettingsPanel({ business }: PrinterSettingsProps) {
               const defaults = getDefaultPrinterSettings();
               setSettings(defaults);
               savePrinterSettings(business.slug, defaults);
+              if (status.connected) {
+                void disconnectThermalPrinter()
+                  .then(refreshStatus)
+                  .catch((error) =>
+                    setMessage(getErrorMessage(error, 'Gagal memutuskan printer.')),
+                  );
+              }
               setMessage('Pengaturan printer direset.');
             }}
             type="button"
