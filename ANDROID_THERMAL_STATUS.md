@@ -84,3 +84,24 @@ Implemented after the Android shell checkpoint:
   void/reprint labels, and both 58 mm and 80 mm paper profiles.
 - Validate the final paper output on physical printers before declaring thermal
   printing production-ready.
+
+## Preview parity and online build checkpoint
+
+Implemented after the first successful physical Bluetooth print:
+
+- The Android build now receives the same public Supabase project URL and
+  publishable key as Vercel through a git-ignored `.env.local`; credentials are
+  embedded only in the local APK build and are not committed to the repository.
+- A local production preview confirms that the configured build opens the Cafe
+  POS login screen instead of the previous local/demo fallback.
+- The Santara receipt logo background was removed from the original pixels and
+  saved as a transparent PNG, preserving the exact brand contours.
+- Web Print Preview uses the transparent logo and selects business-specific
+  branding for Santara Coffee versus Parama Cafe.
+- Android ESC/POS printing converts the same transparent logo into a centered
+  monochrome raster image for 58 mm or 80 mm paper.
+- Thermal text now mirrors the preview content more closely: item table header,
+  quantity/unit-price/total columns, item separators, discount breakdown and
+  total discount, cash dividers, WiFi block, thank-you message, and footer dots.
+- Installing the next APK over the existing app is required to preserve its
+  local WebView data and queued operations before logging in and syncing.

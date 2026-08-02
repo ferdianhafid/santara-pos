@@ -760,8 +760,7 @@ html {
   max-width: 86%;
   height: auto;
   margin: 0 auto 3mm;
-  filter: grayscale(1) invert(1) contrast(1.55) brightness(0.93);
-  mix-blend-mode: multiply;
+  filter: grayscale(1) brightness(0);
 }
 
 .receipt-logo-hidden {

@@ -51,13 +51,17 @@ test('58 mm receipt respects 32 character content width', () => {
     businessName: 'Parama Cafe',
     paperWidth: '58mm',
     isReprint: true,
+    thankYouMessage: 'Terima kasih sudah mampir ke Parama',
   });
 
   assert.equal(getPaperColumns('58mm'), 32);
   assert.ok(text.includes('PARAMA CAFE'));
   assert.ok(text.includes('*** CETAK ULANG ***'));
   assert.ok(text.includes('Diskon transaksi'));
+  assert.ok(text.includes('Total diskon'));
   assert.ok(text.includes('Kembalian'));
+  assert.ok(text.includes('QTY'));
+  assert.ok(text.includes('Terima kasih sudah mampir'));
   for (const line of text.trimEnd().split('\n')) {
     assert.ok(line.length <= 32, `${line.length}: ${line}`);
   }
@@ -77,11 +81,14 @@ test('80 mm receipt uses a wider 48 character profile', () => {
 });
 
 test('ESC/POS payload initializes, feeds, and cuts', () => {
+  const logoRaster = new Uint8Array([0x1d, 0x76, 0x30, 0x00, 0x01, 0, 0x01, 0, 0xff, 0x0a]);
   const bytes = buildReceiptPrintBytes(transaction, {
     businessName: 'Parama Cafe',
     paperWidth: '58mm',
+    logoRaster,
   });
 
   assert.deepEqual(Array.from(bytes.slice(0, 2)), [0x1b, 0x40]);
+  assert.deepEqual(Array.from(bytes.slice(5, 15)), Array.from(logoRaster));
   assert.deepEqual(Array.from(bytes.slice(-4)), [0x1d, 0x56, 0x42, 0x00]);
 });

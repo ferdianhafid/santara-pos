@@ -1,16 +1,19 @@
 import type { CompletedTransaction, TransactionItem } from '../types';
+import type { BusinessIdentity } from '../config/businesses';
 import { formatRupiah } from '../utils/format';
 import { useState } from 'react';
 
-const LOGO_SRC = '/assets/santara-logo-receipt.jpg';
+const LOGO_SRC = '/assets/santara-logo-transparent.png';
 const WIFI_PASSWORD = 'chillwithsantara';
 
 type ReceiptPreviewProps = {
+  business: BusinessIdentity;
   transaction: CompletedTransaction;
   isReprint?: boolean;
 };
 
 export function ReceiptPreview({
+  business,
   isReprint = false,
   transaction,
 }: ReceiptPreviewProps) {
@@ -26,15 +29,21 @@ export function ReceiptPreview({
     <section className="receipt-print-area rounded-lg bg-white p-3 shadow-soft ring-1 ring-santara-latte">
       <article className="receipt-paper mx-auto bg-white text-[#1d1713]">
         <header className="receipt-header">
-          <img
-            alt="Santara Coffee"
-            className={logoFailed ? 'receipt-logo receipt-logo-hidden' : 'receipt-logo'}
-            onError={() => setLogoFailed(true)}
-            src={LOGO_SRC}
-          />
-          {logoFailed && <p className="receipt-logo-fallback">SANTARA COFFEE</p>}
-          <p className="receipt-brand">SANTARA COFFEE</p>
-          <p className="receipt-slogan">Ruang untuk cerita, jeda untuk jiwa</p>
+          {business.slug === 'santara' && (
+            <img
+              alt="Santara Coffee"
+              className={logoFailed ? 'receipt-logo receipt-logo-hidden' : 'receipt-logo'}
+              onError={() => setLogoFailed(true)}
+              src={LOGO_SRC}
+            />
+          )}
+          {business.slug === 'santara' && logoFailed && (
+            <p className="receipt-logo-fallback">SANTARA COFFEE</p>
+          )}
+          <p className="receipt-brand">{business.name.toUpperCase()}</p>
+          {business.slug === 'santara' && (
+            <p className="receipt-slogan">Ruang untuk cerita, jeda untuk jiwa</p>
+          )}
           <ReceiptDivider />
           {isReprint && <ReceiptBadge>CETAK ULANG</ReceiptBadge>}
           {transaction.status === 'voided' && (
@@ -131,14 +140,19 @@ export function ReceiptPreview({
 
         <ReceiptRule />
 
-        <section className="receipt-wifi" aria-label="WiFi Santara">
-          <p>WiFi Santara</p>
-          <p>Password: {WIFI_PASSWORD}</p>
-        </section>
+        {business.slug === 'santara' && (
+          <section className="receipt-wifi" aria-label="WiFi Santara">
+            <p>WiFi Santara</p>
+            <p>Password: {WIFI_PASSWORD}</p>
+          </section>
+        )}
 
         <footer className="receipt-footer">
           <ReceiptDivider variant="wave" />
-          <p>Terima kasih sudah mampir ke Santara</p>
+          <p>
+            Terima kasih sudah mampir ke{' '}
+            {business.slug === 'santara' ? 'Santara' : 'Parama'}
+          </p>
           <p>Sampai jumpa lagi</p>
           <p className="receipt-footer-dots">. . . . .</p>
         </footer>

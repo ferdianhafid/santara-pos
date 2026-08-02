@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { ReceiptPreview } from './ReceiptPreview';
 import type { CompletedTransaction, PaymentMethod } from '../types';
+import type { BusinessIdentity } from '../config/businesses';
 import { formatReceiptDate, formatRupiah } from '../utils/format';
 
 type ReceiptHistoryProps = {
+  business: BusinessIdentity;
   canVoid: boolean;
   currentUserName: string;
   onPrintReceipt: (
@@ -25,6 +27,7 @@ const dateFilters: Array<{ label: string; value: ReceiptDateFilter }> = [
 ];
 
 export function ReceiptHistory({
+  business,
   canVoid,
   currentUserName,
   onPrintReceipt,
@@ -368,7 +371,11 @@ export function ReceiptHistory({
               </section>
 
               <h4 className="text-sm font-black">Preview Struk</h4>
-              <ReceiptPreview isReprint transaction={selectedTransaction} />
+              <ReceiptPreview
+                business={business}
+                isReprint
+                transaction={selectedTransaction}
+              />
             </div>
           ) : (
             <div className="grid h-full min-h-72 place-items-center rounded-lg border border-dashed border-santara-latte bg-santara-cream/70 p-5 text-center">

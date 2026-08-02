@@ -1294,6 +1294,7 @@ function App() {
                 </div>
               </div>
               <LatestReceiptStatus
+                business={activeBusiness}
                 onPrint={printReceipt}
                 transaction={latestTransaction}
               />
@@ -1370,6 +1371,7 @@ function App() {
 
             {activeTab === 'receipts' && (
               <ReceiptHistory
+                business={activeBusiness}
                 canVoid={effectiveRole === 'owner' || effectiveRole === 'admin'}
                 currentUserName={cashierName}
                 onPrintReceipt={printReceipt}
@@ -1572,9 +1574,11 @@ function AuthSummary({
 }
 
 function LatestReceiptStatus({
+  business,
   onPrint,
   transaction,
 }: {
+  business: BusinessIdentity;
   onPrint: (transaction: CompletedTransaction, isReprint?: boolean) => void;
   transaction: CompletedTransaction | undefined;
 }) {
@@ -1609,7 +1613,7 @@ function LatestReceiptStatus({
       </button>
       {transaction && (
         <div className="print-only-receipt">
-          <ReceiptPreview transaction={transaction} />
+          <ReceiptPreview business={business} transaction={transaction} />
         </div>
       )}
     </div>

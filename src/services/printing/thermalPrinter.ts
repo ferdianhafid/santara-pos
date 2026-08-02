@@ -3,6 +3,7 @@ import type { BusinessIdentity } from '../../config/businesses';
 import type { CompletedTransaction } from '../../types';
 import type { PrinterSettings } from './printerSettings';
 import { buildReceiptPrintBytes } from './receiptEncoder';
+import { loadReceiptLogoRaster } from './receiptLogoRaster';
 
 export type BluetoothPermissionState = 'granted' | 'prompt' | 'denied';
 
@@ -115,6 +116,10 @@ export async function printTransactionReceipt(
     throw new Error('Pilih printer Bluetooth di Settings terlebih dahulu.');
   }
 
+  const logoRaster =
+    business.slug === 'santara'
+      ? await loadReceiptLogoRaster(settings.paperWidth).catch(() => undefined)
+      : undefined;
   const printBytes = buildReceiptPrintBytes(transaction, {
     businessName: business.name,
     cutPaper: settings.cutPaper,
@@ -127,6 +132,10 @@ export async function printTransactionReceipt(
     wifiName: business.slug === 'santara' ? 'Santara' : undefined,
     wifiPassword:
       business.slug === 'santara' ? 'chillwithsantara' : undefined,
+    logoRaster,
+    thankYouMessage: `Terima kasih sudah mampir ke ${
+      business.slug === 'santara' ? 'Santara' : 'Parama'
+    }`,
   });
 
   return nativeThermalPrinter.print({

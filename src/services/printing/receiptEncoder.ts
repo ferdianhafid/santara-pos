@@ -10,6 +10,8 @@ export type ReceiptEncodingOptions = {
   wifiName?: string;
   wifiPassword?: string;
   cutPaper?: boolean;
+  logoRaster?: Uint8Array;
+  thankYouMessage?: string;
 };
 
 const paperColumns: Record<ThermalPaperWidth, number> = {
@@ -55,14 +57,27 @@ export function buildReceiptText(
     lines.push(divider);
     lines.push(...wrapText(`Alasan: ${transaction.voidReason ?? '-'}`, width));
     lines.push(...wrapText(`Oleh: ${transaction.voidedBy ?? '-'}`, width));
+    if (transaction.voidedAt) {
+      const voidedDate = new Date(transaction.voidedAt);
+      lines.push(
+        ...wrapText(
+          `Waktu: ${formatReceiptDate(voidedDate)}, ${formatReceiptTime(voidedDate)}`,
+          width,
+        ),
+      );
+    }
   }
 
   lines.push(divider);
-  for (const item of transaction.items) {
+  lines.push('ITEM');
+  lines.push(threeColumns('QTY', 'HARGA', 'TOTAL', width));
+  lines.push(divider);
+  transaction.items.forEach((item, index) => {
     lines.push(...wrapText(item.nameSnapshot, width));
     lines.push(
-      columns(
-        `${item.quantity} x ${formatMoney(item.unitPriceSnapshot)}`,
+      threeColumns(
+        String(item.quantity),
+        formatMoney(item.unitPriceSnapshot),
         formatMoney(item.grossLineTotal ?? item.subtotal),
         width,
       ),
@@ -76,7 +91,10 @@ export function buildReceiptText(
         ),
       );
     }
-  }
+    if (index < transaction.items.length - 1) {
+      lines.push(divider);
+    }
+  });
 
   lines.push(divider);
   lines.push(
@@ -94,11 +112,22 @@ export function buildReceiptText(
       ),
     );
   }
+  if (transaction.discountAmount > 0) {
+    lines.push(
+      columns(
+        'Total diskon',
+        `-${formatMoney(transaction.discountAmount)}`,
+        width,
+      ),
+    );
+  }
   lines.push(strongDivider);
   lines.push(columns('TOTAL', formatMoney(transaction.totalAfterDiscount), width));
 
   if (transaction.paymentMethod === 'Cash') {
+    lines.push(divider);
     lines.push(columns('Bayar', formatMoney(transaction.paidAmount ?? 0), width));
+    lines.push(divider);
     lines.push(
       columns('Kembalian', formatMoney(transaction.changeAmount ?? 0), width),
     );
@@ -107,7 +136,7 @@ export function buildReceiptText(
   if (options.wifiName || options.wifiPassword) {
     lines.push(divider);
     if (options.wifiName) {
-      lines.push(center(`WiFi: ${options.wifiName}`, width));
+      lines.push(center(`WiFi ${options.wifiName}`, width));
     }
     if (options.wifiPassword) {
       lines.push(center(`Password: ${options.wifiPassword}`, width));
@@ -115,8 +144,13 @@ export function buildReceiptText(
   }
 
   lines.push(divider);
-  lines.push(center('Terima kasih', width));
+  lines.push(
+    ...wrapText(options.thankYouMessage ?? 'Terima kasih', width).map((line) =>
+      center(line, width),
+    ),
+  );
   lines.push(center('Sampai jumpa lagi', width));
+  lines.push(center('. . . . .', width));
 
   return `${lines.map(toPrinterAscii).join('\n')}\n`;
 }
@@ -144,10 +178,14 @@ export function buildReceiptPrintBytes(
         0x42,
         0x00, // Feed and partial cut; ignored by printers without a cutter.
       ]);
-  const result = new Uint8Array(prefix.length + textBytes.length + suffix.length);
+  const logoRaster = options.logoRaster ?? new Uint8Array();
+  const result = new Uint8Array(
+    prefix.length + logoRaster.length + textBytes.length + suffix.length,
+  );
   result.set(prefix, 0);
-  result.set(textBytes, prefix.length);
-  result.set(suffix, prefix.length + textBytes.length);
+  result.set(logoRaster, prefix.length);
+  result.set(textBytes, prefix.length + logoRaster.length);
+  result.set(suffix, prefix.length + logoRaster.length + textBytes.length);
   return result;
 }
 
@@ -162,6 +200,22 @@ function columns(left: string, right: string, width: number) {
   const trimmedLeft = safeLeft.slice(0, availableLeft);
   const gap = Math.max(width - trimmedLeft.length - safeRight.length, 1);
   return `${trimmedLeft}${' '.repeat(gap)}${safeRight}`;
+}
+
+function threeColumns(
+  left: string,
+  middle: string,
+  right: string,
+  width: number,
+) {
+  const safeLeft = toPrinterAscii(left);
+  const safeMiddle = toPrinterAscii(middle);
+  const safeRight = toPrinterAscii(right);
+  const rightWidth = width === paperColumns['58mm'] ? 11 : 16;
+  const leftWidth = width - rightWidth * 2;
+  return `${safeLeft.slice(0, leftWidth).padEnd(leftWidth)}${safeMiddle
+    .slice(0, rightWidth)
+    .padStart(rightWidth)}${safeRight.slice(0, rightWidth).padStart(rightWidth)}`;
 }
 
 function labelValue(label: string, value: string, width: number) {
