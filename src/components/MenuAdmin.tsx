@@ -2,8 +2,10 @@ import {
   useEffect,
   useRef,
   useState,
+  type Dispatch,
   type FormEvent,
   type KeyboardEvent,
+  type SetStateAction,
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { MenuCategory, MenuItem, MenuSize, MenuSizeVariant } from '../types';
@@ -51,6 +53,9 @@ export function MenuAdmin({
   );
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newItemUsesSizes, setNewItemUsesSizes] = useState(false);
+  const [menuSearch, setMenuSearch] = useState('');
+  const [openCategoryEditors, setOpenCategoryEditors] = useState<string[]>([]);
+  const [openMenuGroups, setOpenMenuGroups] = useState<string[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<{
     category: MenuCategory;
     itemCount: number;
@@ -63,6 +68,30 @@ export function MenuAdmin({
     categoryRecord: category,
     items: items.filter((item) => item.category === category.name),
   }));
+  const normalizedMenuSearch = menuSearch.trim().toLocaleLowerCase('id-ID');
+  const filteredGroupedItems = groupedItems
+    .map((group) => ({
+      ...group,
+      items: normalizedMenuSearch
+        ? group.items.filter((item) =>
+            `${item.name} ${item.category}`
+              .toLocaleLowerCase('id-ID')
+              .includes(normalizedMenuSearch),
+          )
+        : group.items,
+    }))
+    .filter((group) => !normalizedMenuSearch || group.items.length > 0);
+
+  const toggleOpenId = (
+    id: string,
+    setter: Dispatch<SetStateAction<string[]>>,
+  ) => {
+    setter((current) =>
+      current.includes(id)
+        ? current.filter((currentId) => currentId !== id)
+        : [...current, id],
+    );
+  };
 
   const handleAddItem = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -212,86 +241,155 @@ export function MenuAdmin({
           </button>
         </form>
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-          {groupedItems.map(({ categoryRecord: category, items: categoryItems }) => (
-            <article
-              className={`grid gap-2 rounded-xl p-2 transition-all ${
-                category.isActive ? 'bg-white border border-santara-latte/40' : 'bg-santara-foam/50 border border-dashed border-santara-latte/30 opacity-75'
-              }`}
-              key={category.id}
-            >
-              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
-                <InputField
-                  ariaLabel={`Nama kategori ${category.name}`}
-                  value={category.name}
-                  onChange={(value) => onRenameCategory(category.id, value)}
-                />
+          {groupedItems.map(({ categoryRecord: category, items: categoryItems }) => {
+            const isCategoryEditorOpen = openCategoryEditors.includes(category.id);
+
+            return (
+              <article
+                className={`overflow-hidden rounded-xl border transition-colors ${
+                  category.isActive
+                    ? 'border-santara-latte/40 bg-white'
+                    : 'border-dashed border-santara-latte/40 bg-santara-foam/50 opacity-80'
+                }`}
+                key={category.id}
+              >
                 <button
-                  aria-label={category.isActive ? 'Nonaktifkan kategori' : 'Aktifkan kategori'}
-                  className={`grid size-10 place-items-center rounded-lg text-sm font-black transition ${
-                    category.isActive
-                      ? 'bg-santara-bean text-white hover:bg-santara-roast'
-                      : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
-                  }`}
-                  onClick={() => onToggleCategory(category.id)}
-                  title={category.isActive ? 'Aktif' : 'Nonaktif'}
+                  aria-expanded={isCategoryEditorOpen}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-santara-cream/55"
+                  onClick={() => toggleOpenId(category.id, setOpenCategoryEditors)}
                   type="button"
                 >
-                  <StatusIcon active={category.isActive} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-santara-roast">{category.name}</span>
+                    <span className="mt-0.5 block text-[10px] font-bold text-santara-roast/55">
+                      {categoryItems.length} menu · {category.isActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </span>
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-full bg-santara-cream text-santara-bean transition-transform duration-200 ${isCategoryEditorOpen ? 'rotate-180' : ''}`}>
+                    <ChevronIcon />
+                  </span>
                 </button>
-                <button
-                  aria-label={`Hapus kategori ${category.name}`}
-                  className="grid size-10 place-items-center rounded-lg bg-white text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
-                  onClick={(event) => {
-                    lastDeleteButtonRef.current = event.currentTarget;
-                    deleteSubmittedRef.current = false;
-                    setCategoryToDelete({
-                      category,
-                      itemCount: categoryItems.length,
-                    });
-                  }}
-                  title={
-                    categoryItems.length > 0
-                      ? 'Hapus kategori dan menu di dalamnya'
-                      : 'Hapus kategori'
-                  }
-                  type="button"
-                >
-                  <TrashIcon />
-                </button>
-              </div>
-            </article>
-          ))}
+
+                {isCategoryEditorOpen && (
+                  <div className="accordion-reveal grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 border-t border-santara-latte/60 p-2">
+                    <InputField
+                      ariaLabel={`Nama kategori ${category.name}`}
+                      value={category.name}
+                      onChange={(value) => onRenameCategory(category.id, value)}
+                    />
+                    <button
+                      aria-label={category.isActive ? 'Nonaktifkan kategori' : 'Aktifkan kategori'}
+                      className={`grid size-10 place-items-center rounded-lg text-sm font-black transition ${
+                        category.isActive
+                          ? 'bg-santara-bean text-white hover:bg-santara-roast'
+                          : 'bg-white text-santara-clay ring-1 ring-santara-latte hover:bg-santara-cream'
+                      }`}
+                      onClick={() => onToggleCategory(category.id)}
+                      title={category.isActive ? 'Aktif' : 'Nonaktif'}
+                      type="button"
+                    >
+                      <StatusIcon active={category.isActive} />
+                    </button>
+                    <button
+                      aria-label={`Hapus kategori ${category.name}`}
+                      className="grid size-10 place-items-center rounded-lg bg-white text-santara-clay ring-1 ring-santara-latte transition hover:bg-santara-cream"
+                      onClick={(event) => {
+                        lastDeleteButtonRef.current = event.currentTarget;
+                        deleteSubmittedRef.current = false;
+                        setCategoryToDelete({ category, itemCount: categoryItems.length });
+                      }}
+                      title={categoryItems.length > 0 ? 'Hapus kategori dan menu di dalamnya' : 'Hapus kategori'}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       </section>
 
       <div className="mt-3">
-        <div className="space-y-3">
-          {groupedItems.map((group) => (
-            <section
-              className="rounded-lg bg-white p-3 ring-1 ring-santara-latte"
-              key={group.category}
-            >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="font-black text-santara-roast">{group.category}</h3>
-                <span className="rounded-full bg-santara-cream px-2 py-1 text-xs font-black text-santara-bean">
-                  {group.items.length} menu -{' '}
-                  {group.categoryRecord.isActive ? 'Aktif' : 'Nonaktif'}
-                </span>
-              </div>
+        <div className="mb-3 rounded-xl border border-santara-latte/50 bg-white p-2.5">
+          <label className="relative block">
+            <span className="sr-only">Cari menu</span>
+            <svg aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-santara-sage" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              className="w-full rounded-lg bg-santara-cream/55 py-2.5 pl-9 pr-9 text-sm font-bold text-santara-roast outline-none ring-1 ring-santara-latte transition placeholder:text-santara-roast/40 focus:bg-white focus:ring-2 focus:ring-santara-clay"
+              onChange={(event) => setMenuSearch(event.target.value)}
+              placeholder="Cari nama menu atau kategori..."
+              type="search"
+              value={menuSearch}
+            />
+            {menuSearch && (
+              <button
+                aria-label="Hapus pencarian"
+                className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-santara-clay hover:bg-white"
+                onClick={() => setMenuSearch('')}
+                type="button"
+              >
+                <svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg>
+              </button>
+            )}
+          </label>
+        </div>
 
-              <div className="space-y-2">
-                {group.items.map((item) => (
-                  <MenuItemEditor
-                    allCategoryNames={allCategoryNames}
-                    item={item}
-                    key={item.id}
-                    onToggle={() => onToggleItem(item.id)}
-                    onUpdate={(updates) => onUpdateItem(item.id, updates)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="space-y-3">
+          {filteredGroupedItems.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-santara-latte bg-white px-4 py-8 text-center">
+              <p className="text-sm font-black text-santara-roast">Menu tidak ditemukan</p>
+              <p className="mt-1 text-xs font-medium text-santara-roast/55">Coba kata pencarian atau kategori lain.</p>
+            </div>
+          ) : filteredGroupedItems.map((group) => {
+            const isGroupOpen = normalizedMenuSearch
+              ? true
+              : openMenuGroups.includes(group.categoryRecord.id);
+
+            return (
+              <section className="overflow-hidden rounded-xl bg-white ring-1 ring-santara-latte" key={group.category}>
+                <button
+                  aria-expanded={isGroupOpen}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-santara-cream/45"
+                  onClick={() => toggleOpenId(group.categoryRecord.id, setOpenMenuGroups)}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-black text-santara-roast">{group.category}</span>
+                    <span className="mt-0.5 block text-[10px] font-bold text-santara-roast/50">
+                      {group.categoryRecord.isActive ? 'Kategori aktif' : 'Kategori nonaktif'}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="rounded-full bg-santara-cream px-2.5 py-1 text-xs font-black text-santara-bean">{group.items.length} menu</span>
+                    <span className={`grid size-8 place-items-center rounded-full bg-santara-cream text-santara-bean transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`}>
+                      <ChevronIcon />
+                    </span>
+                  </span>
+                </button>
+
+                {isGroupOpen && (
+                  <div className="accordion-reveal space-y-2 border-t border-santara-latte/60 bg-santara-foam/35 p-2.5 sm:p-3">
+                    {group.items.map((item) => (
+                      <MenuItemEditor
+                        allCategoryNames={allCategoryNames}
+                        item={item}
+                        key={item.id}
+                        onToggle={() => onToggleItem(item.id)}
+                        onUpdate={(updates) => onUpdateItem(item.id, updates)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       </div>
 
@@ -321,6 +419,10 @@ function MenuItemEditor({
 }) {
   const variants = getMenuSizeVariants(item);
   const usesSizes = variants.length > 0;
+  const [isOpen, setIsOpen] = useState(false);
+  const startingPrice = usesSizes
+    ? Math.min(...variants.map((variant) => variant.price))
+    : item.price;
 
   const updateVariant = (
     size: MenuSize,
@@ -361,10 +463,34 @@ function MenuItemEditor({
 
   return (
     <article
-      className={`rounded-xl p-3 ring-1 ring-santara-latte ${
+      className={`overflow-hidden rounded-xl ring-1 ring-santara-latte ${
         item.isActive ? 'bg-santara-foam' : 'bg-santara-cream/60 opacity-75'
       }`}
     >
+      <button
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-white/65"
+        onClick={() => setIsOpen((open) => !open)}
+        type="button"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-black text-santara-roast">{item.name}</span>
+          <span className="mt-0.5 block truncate text-[10px] font-bold text-santara-roast/55">
+            {usesSizes ? variants.map((variant) => variant.size).join(' · ') : 'Tanpa ukuran'} · Mulai {formatRupiah(startingPrice)}
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={`rounded-full px-2 py-1 text-[10px] font-black ${item.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+            {item.isActive ? 'Aktif' : 'Nonaktif'}
+          </span>
+          <span className={`grid size-8 place-items-center rounded-full bg-white text-santara-bean shadow-sm transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+            <ChevronIcon />
+          </span>
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="accordion-reveal border-t border-santara-latte/60 bg-white/55 p-2.5 sm:p-3">
       <div className="grid gap-2 md:grid-cols-[1.4fr_1fr_150px_96px]">
         <InputField
           ariaLabel={`Nama Menu ${item.name}`}
@@ -391,7 +517,7 @@ function MenuItemEditor({
         </button>
       </div>
 
-      {usesSizes ? (
+          {usesSizes ? (
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {variants.map((variant) => (
             <div
@@ -438,6 +564,8 @@ function MenuItemEditor({
             <span className="block text-[10px] uppercase tracking-[0.1em] text-santara-sage">Margin</span>
             {formatRupiah(Math.max(item.price - item.hpp, 0))}
           </div>
+        </div>
+          )}
         </div>
       )}
     </article>

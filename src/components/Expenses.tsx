@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import type { Expense, ExpensePaymentMethod } from '../types';
 import { formatRupiah } from '../utils/format';
 import { getTodayInputValue, type ReportMode } from '../utils/reports';
@@ -224,47 +225,57 @@ export function Expenses({
         </section>
       </div>
 
-      {isFormOpen && (
-        <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-santara-roast/55 p-3 backdrop-blur-sm">
-          <div className="my-auto w-full max-w-3xl rounded-2xl bg-santara-foam p-4 shadow-elegant ring-1 ring-santara-latte">
+      {isFormOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          aria-labelledby="expense-form-title"
+          aria-modal="true"
+          className="fixed inset-0 z-[90] flex items-end justify-center overflow-y-auto bg-santara-roast/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="dialog"
+        >
+          <div className="flex max-h-[calc(100dvh-0.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-santara-foam shadow-elegant ring-1 ring-santara-latte sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
             <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
+              <div className="px-4 pt-4 sm:px-5 sm:pt-5">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">Pengeluaran</p>
-                <h3 className="mt-1 text-xl font-black text-santara-roast">{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</h3>
+                <h3 className="mt-1 text-xl font-black text-santara-roast" id="expense-form-title">{editingExpense ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'}</h3>
               </div>
               <button
                 aria-label="Tutup formulir"
-                className="grid size-9 place-items-center rounded-full bg-white text-santara-clay ring-1 ring-santara-latte"
+                className="mr-4 mt-4 grid size-9 shrink-0 place-items-center rounded-full bg-white text-santara-clay ring-1 ring-santara-latte sm:mr-5 sm:mt-5"
                 onClick={() => {
                   setEditingExpense(null);
                   setIsFormOpen(false);
                 }}
                 type="button"
               >
-                ×
+                <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg>
               </button>
             </div>
-            <form
-              className="grid gap-3 rounded-xl border border-santara-latte/40 bg-white/75 p-3 sm:grid-cols-2 lg:grid-cols-3"
-              key={editingExpense?.id ?? `new-${draftCategory}`}
-              onSubmit={handleSubmit}
-            >
-              <Input defaultValue={editingExpense?.date ?? getTodayInputValue()} label="Tanggal" name="date" type="date" />
-              <Input defaultValue={editingExpense?.name} label="Nama Pengeluaran" name="name" placeholder="Contoh: Susu fresh milk" />
-              <Select defaultValue={editingExpense?.category ?? draftCategory} label="Kategori" name="category" options={expenseCategories} />
-              <Input defaultValue={editingExpense?.quantity ? String(editingExpense.quantity) : ''} label="Jumlah (Opsional)" name="quantity" placeholder="1" type="number" />
-              <Input defaultValue={editingExpense?.unit} label="Satuan (Opsional)" name="unit" placeholder="Pack, Kg, Pcs" />
-              <Input defaultValue={editingExpense?.amount ? String(editingExpense.amount) : ''} label="Nominal" name="amount" placeholder="50000" type="number" />
-              <Select defaultValue={editingExpense?.paymentMethod ?? 'Cash'} label="Metode" name="paymentMethod" options={paymentMethods} />
-              <div className="sm:col-span-2">
-                <Input defaultValue={editingExpense?.notes} label="Catatan" name="notes" placeholder="Opsional" />
-              </div>
-              <button className="btn-primary rounded-xl px-4 py-3 text-sm font-bold sm:col-span-2 lg:col-span-3" type="submit">
-                {editingExpense ? 'Simpan Perubahan' : 'Simpan Pengeluaran'}
-              </button>
-            </form>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:pb-5">
+              <form
+                className="grid gap-3 rounded-xl border border-santara-latte/40 bg-white/75 p-3 sm:grid-cols-2 lg:grid-cols-3"
+                key={editingExpense?.id ?? `new-${draftCategory}`}
+                onSubmit={handleSubmit}
+              >
+                <Input defaultValue={editingExpense?.date ?? getTodayInputValue()} label="Tanggal" name="date" type="date" />
+                <Input defaultValue={editingExpense?.name} label="Nama Pengeluaran" name="name" placeholder="Contoh: Susu fresh milk" />
+                <Select defaultValue={editingExpense?.category ?? draftCategory} label="Kategori" name="category" options={expenseCategories} />
+                <Input defaultValue={editingExpense?.quantity ? String(editingExpense.quantity) : ''} label="Jumlah (Opsional)" name="quantity" placeholder="1" type="number" />
+                <Input defaultValue={editingExpense?.unit} label="Satuan (Opsional)" name="unit" placeholder="Pack, Kg, Pcs" />
+                <Input defaultValue={editingExpense?.amount ? String(editingExpense.amount) : ''} label="Nominal" name="amount" placeholder="50000" type="number" />
+                <Select defaultValue={editingExpense?.paymentMethod ?? 'Cash'} label="Metode" name="paymentMethod" options={paymentMethods} />
+                <div className="sm:col-span-2">
+                  <Input defaultValue={editingExpense?.notes} label="Catatan" name="notes" placeholder="Opsional" />
+                </div>
+                <button className="btn-primary rounded-xl px-4 py-3 text-sm font-bold sm:col-span-2 lg:col-span-3" type="submit">
+                  {editingExpense ? 'Simpan Perubahan' : 'Simpan Pengeluaran'}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {deletingExpense && (
@@ -373,7 +384,11 @@ function DeleteExpenseModal({
   onCancel,
   onConfirm,
 }: DeleteExpenseModalProps) {
-  return (
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-santara-roast/55 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-lg bg-santara-foam p-5 shadow-soft ring-1 ring-santara-latte">
         <p className="text-xs font-black uppercase tracking-[0.12em] text-santara-clay">
@@ -404,7 +419,8 @@ function DeleteExpenseModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -411,6 +411,28 @@ html {
   box-shadow: 0 20px 50px rgba(46, 29, 20, 0.2);
 }
 
+.accordion-reveal {
+  transform-origin: top;
+  animation: accordionReveal 190ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes accordionReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem) scaleY(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-reveal {
+    animation: none;
+  }
+}
+
 /* Safe area for iPhone notch/home indicator */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);

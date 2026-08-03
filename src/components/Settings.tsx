@@ -263,9 +263,9 @@ function SettingsSection({
         </span>
         <span
           aria-hidden="true"
-          className={`grid size-8 shrink-0 place-items-center rounded-full bg-santara-cream text-lg font-black text-santara-bean transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`grid size-8 shrink-0 place-items-center rounded-full bg-santara-cream text-santara-bean transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
         >
-          ⌄
+          <SettingsChevronIcon />
         </span>
       </button>
       {isOpen && (
@@ -274,6 +274,23 @@ function SettingsSection({
         </div>
       )}
     </section>
+  );
+}
+
+function SettingsChevronIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }
 
